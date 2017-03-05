@@ -15,7 +15,7 @@ func getTTYState() (string, error) {
 }
 
 func enterRawTTYMode() error {
-	cmd := exec.Command("stty", "raw")
+	cmd := exec.Command("stty", "cbreak", "-echo")
 	cmd.Stdin = os.Stdin
 	out, err := cmd.CombinedOutput()
 	if err != nil {
