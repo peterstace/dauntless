@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"time"
 )
 
 func main() {
@@ -26,17 +25,12 @@ func main() {
 		}
 	}()
 
-	go func() {
-		for {
-			var buf [4]byte
-			n, err := os.Stdin.Read(buf[:])
-			if err != nil {
-				// TODO:
-				panic(err)
-			}
-			fmt.Println(buf[:n])
-		}
-	}()
+	reactor := NewReactor()
+	app := &app{}
 
-	time.Sleep(10 * time.Second)
+	collectInput(func(b byte) {
+		reactor.Enque(func() { app.KeyPress(b) })
+	})
+
+	reactor.Run()
 }
