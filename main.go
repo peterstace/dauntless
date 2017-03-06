@@ -28,9 +28,7 @@ func main() {
 	reactor := NewReactor()
 	app := &app{}
 
-	collectInput(func(b byte) {
-		reactor.Enque(func() { app.KeyPress(b) })
-	})
+	collectInput(reactor, app)
 
 	reactor.Run()
 }

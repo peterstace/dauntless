@@ -2,9 +2,10 @@ package main
 
 import "os"
 
-func collectInput(fn func(b byte)) {
+func collectInput(r Reactor, a App) {
 	go func() {
 		for {
+			// TODO: Should handle multi byte sequences.
 			var buf [8]byte
 			n, err := os.Stdin.Read(buf[:])
 			if err != nil {
@@ -12,7 +13,7 @@ func collectInput(fn func(b byte)) {
 				continue
 			}
 			if n == 1 {
-				fn(buf[0])
+				r.Enque(func() { a.KeyPress(buf[0]) })
 			}
 		}
 	}()
