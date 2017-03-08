@@ -2,21 +2,24 @@ package main
 
 import "fmt"
 
-type Multibyte int
-
-const (
-	ArrowUp Multibyte = iota
-	ArrowDown
-	ArrowLeft
-	ArrowRight
-)
-
 type App interface {
+	Initialise()
 	KeyPress(byte)
 	Size(rows, cols int)
 }
 
-type app struct{}
+type app struct {
+	filename string
+}
+
+func NewApp(filename string) App {
+	return &app{
+		filename,
+	}
+}
+
+func (a *app) Initialise() {
+}
 
 func (a *app) KeyPress(b byte) {
 	fmt.Printf("%c", b)
