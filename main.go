@@ -17,6 +17,7 @@ func main() {
 	reactor := NewReactor()
 	app := NewApp(filename)
 	collectInput(reactor, app)
+	collectTermSize(reactor, app)
 	app.Initialise()
 	reactor.Run()
 }
