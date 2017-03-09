@@ -34,8 +34,8 @@ func main() {
 	defer enterRaw().leaveRaw()
 	reactor := NewReactor()
 	app := NewApp(filename, logger)
+	reactor.Enque(app.Initialise)
 	collectInput(reactor, app)
 	collectTermSize(reactor, app)
-	app.Initialise()
 	reactor.Run()
 }

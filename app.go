@@ -22,7 +22,7 @@ func NewApp(filename string, logger Logger) App {
 }
 
 func (a *app) Initialise() {
-	a.log("Initialising log viewer.")
+	a.log("***************** Initialising log viewer ******************")
 }
 
 func (a *app) KeyPress(b byte) {
