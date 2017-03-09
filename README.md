@@ -12,4 +12,6 @@ Proof-of-concept. Completely incomplete.
 
 * Route signals via reactor.
 
+* Screen buffers.
+
 * Drawing logic.
