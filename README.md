@@ -8,8 +8,6 @@ Proof-of-concept. Completely incomplete.
 
 ## TODO List
 
-* Set up logging.
-
 * Route signals via reactor.
 
 * Screen buffers.
