@@ -13,3 +13,5 @@ Proof-of-concept. Completely incomplete.
 * Screen buffers.
 
 * Drawing logic.
+
+* Panicking doesn't seem to roll back raw mode.
