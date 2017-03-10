@@ -7,10 +7,14 @@ type App interface {
 }
 
 type app struct {
-	reactor    Reactor
-	filename   string
-	log        Logger
+	reactor  Reactor
+	filename string
+	log      Logger
+
 	rows, cols int
+
+	refreshInProgress bool
+	refreshPending    bool
 }
 
 func NewApp(reactor Reactor, filename string, logger Logger) App {
@@ -18,8 +22,9 @@ func NewApp(reactor Reactor, filename string, logger Logger) App {
 		reactor:  reactor,
 		filename: filename,
 		log:      logger,
-		rows:     -1,
-		cols:     -1,
+
+		rows: -1,
+		cols: -1,
 	}
 }
 
@@ -41,6 +46,13 @@ func (a *app) TermSize(rows, cols int, err error) {
 }
 
 func (a *app) refresh() {
+
+	if a.refreshInProgress {
+		a.log("Refresh requested but one already in progress")
+		a.refreshPending = true
+		return
+	}
+	a.refreshInProgress = true
 
 	a.log("Refreshing")
 
@@ -76,4 +88,10 @@ func (a *app) refresh() {
 
 func (a *app) notifyRefreshComplete() {
 	a.log("Refresh complete")
+	a.refreshInProgress = false
+	if a.refreshPending {
+		a.refreshPending = false
+		a.log("Executing pending refresh")
+		a.refresh()
+	}
 }
