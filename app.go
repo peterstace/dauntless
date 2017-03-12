@@ -15,6 +15,7 @@ type app struct {
 
 	refreshInProgress bool
 	refreshPending    bool
+	screenBuffer      []byte
 }
 
 func NewApp(reactor Reactor, filename string, logger Logger) App {
@@ -56,32 +57,29 @@ func (a *app) refresh() {
 
 	a.log("Refreshing")
 
-	// TODO: Keep track of whether or not a refresh is in progress.  That way,
-	// we can create a new buffer while the old refresh is happening, and
-	// refresh immediately when the first one is done.
-
 	if a.rows < 0 || a.cols < 0 {
 		a.log("Can't refresh, don't know term size yet")
 		return
 	}
 
-	buf := make([]byte, a.rows*a.cols) // TODO: Use memory pool.
+	if len(a.screenBuffer) != a.rows*a.cols {
+		a.screenBuffer = make([]byte, a.rows*a.cols)
+	}
 
 	// Creating buffer.
-	for i := range buf {
-		buf[i] = ' '
+	for i := range a.screenBuffer {
+		a.screenBuffer[i] = ' '
 	}
 	for i := 0; i < 26; i++ {
-		buf[a.cols+3+i] = byte('A' + i)
+		a.screenBuffer[a.cols+3+i] = byte('A' + i)
 	}
 	for i := 0; i < 10; i++ {
-		buf[a.cols*2+3+i] = byte('0' + i)
+		a.screenBuffer[a.cols*2+3+i] = byte('0' + i)
 	}
 
 	a.log("Writing to screen")
 	go func() {
-		WriteToTerm(buf)
-		// TODO: Release buf to memory pool.
+		WriteToTerm(a.screenBuffer)
 		a.reactor.Enque(a.notifyRefreshComplete)
 	}()
 }
