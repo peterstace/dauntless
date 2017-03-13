@@ -10,10 +10,4 @@ Proof-of-concept. Completely incomplete.
 
 * Route signals via reactor.
 
-* Screen buffers.
-
-* Drawing logic.
-
-* Panicking doesn't seem to roll back raw mode.
-
 * Signal for term size change.
