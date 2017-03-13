@@ -99,8 +99,56 @@ func (a *app) refresh() {
 
 func buildDataScreen(buf []byte, cols int, screenSlice []byte) {
 	for i := range buf {
-		buf[i] = 'y'
+		buf[i] = ' '
 	}
+	offset := 0
+	for row := 0; row < len(buf)/cols; row++ {
+		n := mustFindNewLine(screenSlice[offset:])
+		line := screenSlice[offset : offset+n]
+		visiblePartOfLine := line[:min(cols, len(line))]
+
+		for i := range visiblePartOfLine {
+			buf[row*cols+i] = byteRepr(visiblePartOfLine[i])
+		}
+
+		offset += n
+		offset++ // Advance past the newline.
+		if offset == len(screenSlice) {
+			for r := row + 1; r < len(buf)/cols; r++ {
+				buf[cols*r] = '~'
+			}
+			break
+		}
+	}
+}
+
+func byteRepr(b byte) byte {
+	if b < 32 || b >= 127 {
+		return '.'
+	}
+	return b
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func findNewLine(p []byte) (int, bool) {
+	for i, b := range p {
+		if b == '\n' {
+			return i, true
+		}
+	}
+	return 0, false
+}
+
+func mustFindNewLine(p []byte) int {
+	n, ok := findNewLine(p)
+	assert(ok)
+	return n
 }
 
 type unloadedChunkError int
