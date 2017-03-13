@@ -15,3 +15,5 @@ Proof-of-concept. Completely incomplete.
 * Drawing logic.
 
 * Panicking doesn't seem to roll back raw mode.
+
+* Signal for term size change.

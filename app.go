@@ -1,6 +1,10 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"io"
+	"os"
+)
 
 type App interface {
 	Initialise()
@@ -34,6 +38,8 @@ func NewApp(reactor Reactor, filename string, logger Logger) App {
 
 		rows: -1,
 		cols: -1,
+
+		chunks: make(map[int][]byte),
 	}
 }
 
@@ -74,21 +80,27 @@ func (a *app) refresh() {
 		a.screenBuffer = make([]byte, a.rows*a.cols)
 	}
 
-	/* --- */
 	if screenSlice, err := a.calculateScreenSlice(); err != nil {
-		// TODO: Request that the unloaded chunk + the next one are loaded.
+		a.log("Cannot show file data: %s", err)
+		chunkIdx := int(err.(unloadedChunkError))
+		a.loadChunk(chunkIdx)
 		buildLoadingScreen(a.screenBuffer, a.cols)
 	} else {
-		// TODO: Use the screen slice to display the screen.
-		_ = screenSlice
+		a.log("Building screen buffer")
+		buildDataScreen(a.screenBuffer, a.cols, screenSlice)
 	}
-	/* --- */
 
 	a.log("Writing to screen")
 	go func() {
 		WriteToTerm(a.screenBuffer)
 		a.reactor.Enque(a.notifyRefreshComplete)
 	}()
+}
+
+func buildDataScreen(buf []byte, cols int, screenSlice []byte) {
+	for i := range buf {
+		buf[i] = 'y'
+	}
 }
 
 type unloadedChunkError int
@@ -100,6 +112,8 @@ func (e unloadedChunkError) Error() string {
 // Gets all of the parts of the file needed to display the screen. If a
 // required chunk isn't loaded, an error is returned.
 func (a *app) calculateScreenSlice() ([]byte, error) {
+
+	a.log("Calculating screen slice")
 
 	// Get the chunk that contains the current position.
 	startChunkIdx := a.positionOffset / chunkSize
@@ -133,7 +147,32 @@ func (a *app) calculateScreenSlice() ([]byte, error) {
 
 	// Screen spans multiple chunks. Build a new slice containing a copy of the
 	// data. We have to do this because chunks may not be in contiguous memory.
-	// TODO
+	newLineCount = 0
+	i := a.positionOffset
+	var buf []byte
+	for {
+		chunkIdx := i / chunkSize
+		chunk, ok := a.chunks[chunkIdx]
+		if !ok {
+			return nil, unloadedChunkError(chunkIdx)
+		}
+		inChunkIdx := i - chunkIdx*chunkSize
+		if inChunkIdx >= len(chunk) {
+			// End of file.
+			return buf, nil
+		}
+		cell := chunk[inChunkIdx]
+		buf = append(buf, cell)
+		if cell == '\n' {
+			newLineCount++
+			if newLineCount == a.rows {
+				return buf, nil
+			}
+		}
+		i++
+	}
+
+	assert(false)
 	return nil, nil
 }
 
@@ -145,6 +184,26 @@ func (a *app) notifyRefreshComplete() {
 		a.log("Executing pending refresh")
 		a.refresh()
 	}
+}
+
+func (a *app) loadChunk(chunkIdx int) {
+	buf := make([]byte, chunkSize)
+	var n int
+	go func() {
+		f, err := os.Open(a.filename)
+		if err != nil {
+			// TODO: Handle error.
+		}
+		n, err = f.ReadAt(buf, int64(chunkIdx*chunkSize))
+		if err != nil && err != io.EOF {
+			// TODO: Handle error.
+		}
+	}()
+	a.reactor.Enque(func() {
+		a.log("Chunk loaded: Idx=%d", chunkIdx)
+		a.chunks[chunkIdx] = buf[:n]
+		a.refresh()
+	})
 }
 
 func buildLoadingScreen(buf []byte, cols int) {
