@@ -107,6 +107,7 @@ func buildDataScreen(buf []byte, cols int, screenSlice []byte) {
 		visiblePartOfLine := line[:min(cols, len(line))]
 
 		for i := range visiblePartOfLine {
+			// TODO: Doesn't handle zero width and tabs correctly.
 			buf[row*cols+i] = byteRepr(visiblePartOfLine[i])
 		}
 

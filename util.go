@@ -14,6 +14,11 @@ func (e unloadedChunkError) Error() string {
 	return fmt.Sprintf("chunk %d is unloaded", int(e))
 }
 
+// Extracts lines from the chunks. If an error is returned, it is of type
+// unloadedChunkError, and indicates the first unloaded chunk encountered. If
+// not enough lines exist (even when the required chunks are loaded), all
+// existing lines will still be returned (but the number of returned lines will
+// be less than the number requested).
 func extractLines(offset, numLines int, chunks map[int][]byte) ([]byte, error) {
 
 	// Get the chunk that contains the current position.
@@ -23,13 +28,12 @@ func extractLines(offset, numLines int, chunks map[int][]byte) ([]byte, error) {
 		return nil, unloadedChunkError(startChunkIdx)
 	}
 
-	// Partial chunk at end of file. So the chunk is all that's needed to
-	// display the screen.
+	// Partial chunk at end of file. So the chunk contains all available lines.
 	if len(chunk) < chunkSize {
 		return chunk, nil
 	}
 
-	// Full chunk. Check to see if it contains a screen's worth of data.
+	// Full chunk. Check to see if it contains the requested lines.
 	assert(len(chunk) == chunkSize)
 	newLineCount := 0
 	enoughData := false
@@ -46,8 +50,9 @@ func extractLines(offset, numLines int, chunks map[int][]byte) ([]byte, error) {
 		return chunk, nil
 	}
 
-	// Screen spans multiple chunks. Build a new slice containing a copy of the
-	// data. We have to do this because chunks may not be in contiguous memory.
+	// Requested lines spans multiple chunks. Build a new slice containing a
+	// copy of the data. We have to do this because chunks may not be in
+	// contiguous memory. Wasteful, but should be rare with large chunk size.
 	newLineCount = 0
 	i := offset
 	var buf []byte
