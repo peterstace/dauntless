@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"io"
 	"os"
 )
@@ -80,7 +79,7 @@ func (a *app) refresh() {
 		a.screenBuffer = make([]byte, a.rows*a.cols)
 	}
 
-	if screenSlice, err := a.calculateScreenSlice(); err != nil {
+	if screenSlice, err := extractLines(a.positionOffset, a.rows, a.chunks); err != nil {
 		a.log("Cannot show file data: %s", err)
 		chunkIdx := int(err.(unloadedChunkError))
 		a.loadChunk(chunkIdx)
@@ -149,79 +148,6 @@ func mustFindNewLine(p []byte) int {
 	n, ok := findNewLine(p)
 	assert(ok)
 	return n
-}
-
-type unloadedChunkError int
-
-func (e unloadedChunkError) Error() string {
-	return fmt.Sprintf("chunk %d is unloaded", int(e))
-}
-
-// Gets all of the parts of the file needed to display the screen. If a
-// required chunk isn't loaded, an error is returned.
-func (a *app) calculateScreenSlice() ([]byte, error) {
-
-	a.log("Calculating screen slice")
-
-	// Get the chunk that contains the current position.
-	startChunkIdx := a.positionOffset / chunkSize
-	chunk, ok := a.chunks[startChunkIdx]
-	if !ok {
-		return nil, unloadedChunkError(startChunkIdx)
-	}
-
-	// Partial chunk at end of file. So the chunk is all that's needed to
-	// display the screen.
-	if len(chunk) < chunkSize {
-		return chunk, nil
-	}
-
-	// Full chunk. Check to see if it contains a screen's worth of data.
-	assert(len(chunk) == chunkSize)
-	newLineCount := 0
-	enoughData := false
-	for i := a.positionOffset - startChunkIdx*chunkSize; i < len(chunk); i++ {
-		if chunk[i] == '\n' {
-			newLineCount++
-			if newLineCount == a.rows {
-				enoughData = true
-				break
-			}
-		}
-	}
-	if enoughData {
-		return chunk, nil
-	}
-
-	// Screen spans multiple chunks. Build a new slice containing a copy of the
-	// data. We have to do this because chunks may not be in contiguous memory.
-	newLineCount = 0
-	i := a.positionOffset
-	var buf []byte
-	for {
-		chunkIdx := i / chunkSize
-		chunk, ok := a.chunks[chunkIdx]
-		if !ok {
-			return nil, unloadedChunkError(chunkIdx)
-		}
-		inChunkIdx := i - chunkIdx*chunkSize
-		if inChunkIdx >= len(chunk) {
-			// End of file.
-			return buf, nil
-		}
-		cell := chunk[inChunkIdx]
-		buf = append(buf, cell)
-		if cell == '\n' {
-			newLineCount++
-			if newLineCount == a.rows {
-				return buf, nil
-			}
-		}
-		i++
-	}
-
-	assert(false)
-	return nil, nil
 }
 
 func (a *app) notifyRefreshComplete() {
