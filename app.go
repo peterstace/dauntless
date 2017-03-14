@@ -48,6 +48,13 @@ func (a *app) Initialise() {
 
 func (a *app) KeyPress(b byte) {
 	a.log("Key press: %d", b)
+
+	switch b {
+	case 'j':
+		a.move(1)
+	case 'k':
+		a.move(-1)
+	}
 }
 
 func (a *app) TermSize(rows, cols int, err error) {
@@ -56,6 +63,20 @@ func (a *app) TermSize(rows, cols int, err error) {
 		a.cols = cols
 		a.log("Term size: rows=%d cols=%d", rows, cols)
 		a.refresh()
+	}
+}
+
+func (a *app) move(lines int) {
+	if lines == 1 {
+		line, err := extractLines(a.positionOffset, 1, a.chunks)
+		if err == nil {
+			// TODO: Advancing by len(line) can create an invalid offset (i.e.
+			// 1 byte past the end of the file). We could solve this by
+			// tracking how large the file is, and not increasing the offset
+			// past this value.
+			a.positionOffset += len(line)
+			a.refresh()
+		}
 	}
 }
 
@@ -127,28 +148,6 @@ func byteRepr(b byte) byte {
 		return '.'
 	}
 	return b
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-func findNewLine(p []byte) (int, bool) {
-	for i, b := range p {
-		if b == '\n' {
-			return i, true
-		}
-	}
-	return 0, false
-}
-
-func mustFindNewLine(p []byte) int {
-	n, ok := findNewLine(p)
-	assert(ok)
-	return n
 }
 
 func (a *app) notifyRefreshComplete() {
