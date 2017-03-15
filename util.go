@@ -120,3 +120,32 @@ func extractLines(offset, numLines int, chunks map[int][]byte) ([]byte, error) {
 	assert(false)
 	return nil, nil
 }
+
+func findStartOfNextLine(offset int, chunks map[int][]byte) (int, bool) {
+
+	var chunk []byte
+	chunkIdx := -1
+
+	for {
+
+		newChunkIdx := offset / chunkSize
+		if newChunkIdx != chunkIdx {
+			var ok bool
+			chunk, ok = chunks[newChunkIdx]
+			if !ok {
+				return 0, false
+			}
+			chunkIdx = newChunkIdx
+		}
+
+		idxInChunk := offset - chunkIdx*chunkSize
+		if idxInChunk >= len(chunk) {
+			return 0, false
+		}
+		if chunk[idxInChunk] == '\n' {
+			return offset + 1, true
+		}
+
+		offset++
+	}
+}

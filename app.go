@@ -51,9 +51,17 @@ func (a *app) KeyPress(b byte) {
 
 	switch b {
 	case 'j':
-		a.move(1)
+		a.log("Calculating start of next line")
+		n, ok := findStartOfNextLine(a.positionOffset, a.chunks)
+		a.log("Result: CurrentOffset=%d StartOfNextLine=%d", a.positionOffset, n)
+		a.log("TEST: %v", a.chunks[0])
+		if ok {
+			a.positionOffset = n
+			a.refresh()
+		} else {
+			// bell?
+		}
 	case 'k':
-		a.move(-1)
 	}
 }
 
@@ -63,20 +71,6 @@ func (a *app) TermSize(rows, cols int, err error) {
 		a.cols = cols
 		a.log("Term size: rows=%d cols=%d", rows, cols)
 		a.refresh()
-	}
-}
-
-func (a *app) move(lines int) {
-	if lines == 1 {
-		line, err := extractLines(a.positionOffset, 1, a.chunks)
-		if err == nil {
-			// TODO: Advancing by len(line) can create an invalid offset (i.e.
-			// 1 byte past the end of the file). We could solve this by
-			// tracking how large the file is, and not increasing the offset
-			// past this value.
-			a.positionOffset += len(line)
-			a.refresh()
-		}
 	}
 }
 
