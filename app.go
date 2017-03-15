@@ -22,7 +22,8 @@ type app struct {
 
 	positionOffset int
 
-	chunks map[int][]byte
+	chunks   map[int][]byte
+	fileSize int
 
 	refreshInProgress bool
 	refreshPending    bool
@@ -38,7 +39,8 @@ func NewApp(reactor Reactor, filename string, logger Logger) App {
 		rows: -1,
 		cols: -1,
 
-		chunks: make(map[int][]byte),
+		chunks:   make(map[int][]byte),
+		fileSize: 0,
 	}
 }
 
@@ -54,12 +56,9 @@ func (a *app) KeyPress(b byte) {
 		a.log("Calculating start of next line")
 		n, ok := findStartOfNextLine(a.positionOffset, a.chunks)
 		a.log("Result: CurrentOffset=%d StartOfNextLine=%d", a.positionOffset, n)
-		a.log("TEST: %v", a.chunks[0])
-		if ok {
+		if ok && n < a.fileSize {
 			a.positionOffset = n
 			a.refresh()
-		} else {
-			// bell?
 		}
 	case 'k':
 	}
@@ -156,6 +155,7 @@ func (a *app) notifyRefreshComplete() {
 
 func (a *app) loadChunk(chunkIdx int) {
 	buf := make([]byte, chunkSize)
+	var fileInfo os.FileInfo
 	var n int
 	go func() {
 		f, err := os.Open(a.filename)
@@ -166,10 +166,21 @@ func (a *app) loadChunk(chunkIdx int) {
 		if err != nil && err != io.EOF {
 			// TODO: Handle error.
 		}
+		fileInfo, err = f.Stat()
+		if err != nil {
+			// TODO: Handle error.
+		}
 	}()
 	a.reactor.Enque(func() {
 		a.log("Chunk loaded: Idx=%d", chunkIdx)
 		a.chunks[chunkIdx] = buf[:n]
+		newFileSize := int(fileInfo.Size())
+		if newFileSize != a.fileSize {
+			a.log("File changed: oldSize=%d newSize=%d", a.fileSize, newFileSize)
+			delete(a.chunks, a.fileSize/chunkSize) // Invalidate the chunk containing the first new byte.
+			a.fileSize = newFileSize
+		}
+		a.fileSize = int(fileInfo.Size())
 		a.refresh()
 	})
 }
