@@ -23,42 +23,35 @@ func newSkipList(levels int) skipList {
 
 func (s *skipList) insert(offset int, data string) {
 
-	// TODO: Selecting level could be more efficient.
+	// TODO: Selecting height could be more efficient.
 	height := 1
-	for rand.Int()%2 == 0 && height-1 < len(s.header.next) {
+	for rand.Int()%2 == 0 && height+1 < len(s.header.next) {
 		height++
 	}
 
 	newElement := &element{offset, data, make([]*element, height)}
 
 	var fn func(*element, int)
-	fn = func(root *element, currentLevel int) {
+	fn = func(root *element, level int) {
 
-		rightOfRoot := root.next[currentLevel]
-		if offset >= rightOfRoot.offset+len(rightOfRoot.data) {
-			fn(rightOfRoot, currentLevel)
+		if offset == root.offset {
 			return
 		}
 
-		if currentLevel == 0 {
-			if offset == root.offset {
-				return
+		rightOfRoot := root.next[level]
+
+		if rightOfRoot == nil || offset < rightOfRoot.offset {
+			if level < height {
+				root.next[level], newElement.next[level] = newElement, rightOfRoot
 			}
-			tmp := rightOfRoot
-			root.next[0] = newElement
-			newElement.next[0] = tmp
+			if level > 0 {
+				fn(root, level-1)
+			}
 			return
 		}
 
-		if currentLevel < height {
-			tmp := rightOfRoot
-			root.next[currentLevel] = newElement
-			newElement.next[currentLevel] = tmp
-			return
-		}
+		fn(rightOfRoot, level)
 
-		fn(root, currentLevel-1)
-		return
 	}
 	fn(s.header, height)
 }
