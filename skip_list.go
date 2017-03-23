@@ -16,7 +16,9 @@ func newSkipList(levels int) skipList {
 	assert(levels >= 1)
 	return skipList{
 		header: &element{
-			next: make([]*element, levels),
+			offset: -1,
+			data:   "__HEADER__",
+			next:   make([]*element, levels),
 		},
 	}
 }
@@ -31,11 +33,12 @@ func (s *skipList) insert(offset int, data string) {
 
 	newElement := &element{offset, data, make([]*element, height)}
 
-	var fn func(*element, int)
-	fn = func(root *element, level int) {
+	root := s.header
+	level := height - 1
+	for {
 
 		if offset == root.offset {
-			return
+			break
 		}
 
 		rightOfRoot := root.next[level]
@@ -45,15 +48,14 @@ func (s *skipList) insert(offset int, data string) {
 				root.next[level], newElement.next[level] = newElement, rightOfRoot
 			}
 			if level > 0 {
-				fn(root, level-1)
+				level--
+				continue
+			} else {
+				break
 			}
-			return
 		}
-
-		fn(rightOfRoot, level)
-
+		root = rightOfRoot
 	}
-	fn(s.header, height)
 }
 
 func (s *skipList) find(offset int) *element {
