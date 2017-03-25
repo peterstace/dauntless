@@ -36,7 +36,7 @@ func (s *skipList) insert(offset int, data string) {
 	newElement := &element{offset, data, make([]*element, height)}
 
 	root := s.header
-	level := height - 1
+	level := height - 1 // TODO: Shouldn't start at height-1... Missing a heap of skips.
 	for {
 
 		assert(root != nil)
@@ -64,5 +64,28 @@ func (s *skipList) insert(offset int, data string) {
 }
 
 func (s *skipList) find(offset int) *element {
-	return nil
+
+	root := s.header
+	level := len(s.header.next) - 1
+
+	for {
+		assert(root != nil)
+
+		rightOfRoot := root.next[level]
+		if rightOfRoot == nil || offset < rightOfRoot.offset {
+			if level > 0 {
+				// move down
+				level--
+			} else if offset < root.offset+len(root.data) {
+				// found element
+				return root
+			} else {
+				// hit bottom
+				return nil
+			}
+		} else {
+			// move across
+			root = rightOfRoot
+		}
+	}
 }

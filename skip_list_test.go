@@ -2,12 +2,6 @@ package main
 
 import "testing"
 
-func Expect(t *testing.T, b bool) {
-	if !b {
-		t.Fatal()
-	}
-}
-
 type content struct {
 	offset int
 	data   string
@@ -52,56 +46,21 @@ func SanityCheck(t *testing.T, s *skipList, contents []content) {
 	}
 }
 
-func TestSkipList_01_Empty(t *testing.T) {
-	s := newSkipList(1)
-	SanityCheck(t, s, []content{})
-}
-
-func TestSkipList_01_SingleInsert(t *testing.T) {
-
-	s := newSkipList(1)
-	s.insert(0, "0123")
-
-	SanityCheck(t, s, []content{
-		{0, "0123"},
-	})
-}
-
-func TestSkipList_01_DoubleInsert(t *testing.T) {
-
-	s := newSkipList(1)
-	s.insert(0, "0123")
-	s.insert(4, "4567")
-
-	SanityCheck(t, s, []content{
-		{0, "0123"},
-		{4, "4567"},
-	})
-}
-
-func TestSkipList_02_Empty(t *testing.T) {
-	s := newSkipList(2)
-	SanityCheck(t, s, []content{})
-}
-
-func TestSkipList_02_SingleInsert(t *testing.T) {
-
-	s := newSkipList(2)
-	s.insert(0, "0123")
-
-	SanityCheck(t, s, []content{
-		{0, "0123"},
-	})
-}
-
-func TestSkipList_02_DoubleInsert(t *testing.T) {
-
-	s := newSkipList(2)
-	s.insert(0, "0123")
-	s.insert(4, "4567")
-
-	SanityCheck(t, s, []content{
-		{0, "0123"},
-		{4, "4567"},
-	})
+func TestSkipListInsert(t *testing.T) {
+	for seed := 0; seed < 10; seed++ {
+		for height := 1; height <= 3; height++ {
+			for i, contents := range [][]content{
+				{},
+				{{0, "0123"}},
+				{{0, "0123"}, {4, "4567"}},
+			} {
+				t.Logf("Seed=%d Height=%d Idx=%d", seed, height, i)
+				s := newSkipList(height)
+				for _, content := range contents {
+					s.insert(content.offset, content.data)
+				}
+				SanityCheck(t, s, contents)
+			}
+		}
+	}
 }
