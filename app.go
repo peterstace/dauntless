@@ -55,6 +55,7 @@ func (a *app) KeyPress(b byte) {
 
 	switch b {
 	case 'j':
+		// TODO: Doesn't handle the case where the 'next' element is not an adjacent line.
 		elem := a.skipList.find(a.positionOffset)
 		if elem == nil {
 			// TODO: Load chunk?
@@ -69,6 +70,22 @@ func (a *app) KeyPress(b byte) {
 			a.refresh()
 		}
 	case 'k':
+		// TODO: Doesn't handle the case where the 'prev' element is not an adjacent line.
+		elem := a.skipList.find(a.positionOffset)
+		assert(elem == nil || elem.prev != nil) // prev should always be populated
+		if elem == nil {
+			// TODO: Load chunk?
+		} else if elem.offset <= 0 {
+			assert(elem.offset == 0)
+			// TODO: Can't move up. Do nothing.
+		} else if elem.prev == a.skipList.header {
+			// TODO: Load chunk?
+		} else {
+			newOffset := elem.prev.offset
+			a.log("Moving up: oldOffset=%d newOffset=%d", a.positionOffset, newOffset)
+			a.positionOffset = newOffset
+			a.refresh()
+		}
 	}
 }
 
