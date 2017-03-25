@@ -14,21 +14,36 @@ func SanityCheck(t *testing.T, s *skipList, contents []content) {
 		elements = append(elements, e)
 	}
 
-	// Check each inserted element is inside the skip list.
+	// Check the length
 	{
-		i := 0
-		for _, e := range elements {
-			if contents[i].offset != e.offset {
-				t.Errorf("Idx=%d WantOffset=%d GotOffset=%d", i, contents[i].offset, e.offset)
-			}
-			if contents[i].data != e.data {
-				t.Errorf("Idx=%d WantData=%q GotData=%q", i, contents[i].data, e.data)
-			}
-			i++
+		if len(elements) != len(contents) {
+			t.Errorf("lens didn't match")
 		}
 	}
 
-	// TODO: Check elements are sorted.
+	// Check each element in the skip list was inserted.
+	{
+		for _, e := range elements {
+			found := false
+			for _, content := range contents {
+				if content.offset == e.offset && content.data == e.data {
+					found = true
+				}
+			}
+			if !found {
+				t.Errorf("Could not find matching node")
+			}
+		}
+	}
+
+	// Check elements are sorted.
+	lastOffset := -1
+	for _, e := range elements {
+		lastOffsetValid := lastOffset >= 0
+		if lastOffsetValid && lastOffset >= e.offset {
+			t.Errorf("not sorted")
+		}
+	}
 
 	// Check internal pointer consistency.
 	{
@@ -120,8 +135,9 @@ func TestSkipListInsert(t *testing.T) {
 				{},
 				{{0, "0123"}},
 				{{0, "0123"}, {4, "4567"}},
-				// TODO: Previous case in reverse order?
-				// TODO: Gap
+				{{4, "4567"}, {0, "0123"}},
+				{{0, "0123"}, {5, "5678"}},
+				//{{1, "1234"}}, // TODO: Fails!
 			} {
 				t.Logf("Seed=%d Height=%d Idx=%d", seed, height, i)
 				s := newSkipList(height)
