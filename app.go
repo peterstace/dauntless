@@ -130,6 +130,8 @@ func buildDataScreen(buf []byte, cols int, screenSlice []byte) {
 	}
 }
 
+// TODO: Would be nicer if the function wrote to a buffer instead, and returned
+// how many bytes it wrote.
 func byteRepr(b byte) string {
 	switch b {
 	case '\n':
