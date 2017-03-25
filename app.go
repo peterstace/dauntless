@@ -22,12 +22,13 @@ type app struct {
 
 	positionOffset int
 
-	chunks   map[int][]byte
 	fileSize int
 
 	refreshInProgress bool
 	refreshPending    bool
 	screenBuffer      []byte
+
+	skipList *skipList
 }
 
 func NewApp(reactor Reactor, filename string, logger Logger) App {
@@ -39,8 +40,9 @@ func NewApp(reactor Reactor, filename string, logger Logger) App {
 		rows: -1,
 		cols: -1,
 
-		chunks:   make(map[int][]byte),
 		fileSize: 0,
+
+		skipList: newSkipList(1), // TODO: Should be higher for performance.
 	}
 }
 
@@ -53,13 +55,6 @@ func (a *app) KeyPress(b byte) {
 
 	switch b {
 	case 'j':
-		a.log("Calculating start of next line")
-		n, ok := findStartOfNextLine(a.positionOffset, a.chunks)
-		a.log("Result: CurrentOffset=%d StartOfNextLine=%d", a.positionOffset, n)
-		if ok && n < a.fileSize {
-			a.positionOffset = n
-			a.refresh()
-		}
 	case 'k':
 	}
 }
@@ -93,15 +88,7 @@ func (a *app) refresh() {
 		a.screenBuffer = make([]byte, a.rows*a.cols)
 	}
 
-	if screenSlice, err := extractLines(a.positionOffset, a.rows, a.chunks); err != nil {
-		a.log("Cannot show file data: %s", err)
-		chunkIdx := int(err.(unloadedChunkError))
-		a.loadChunk(chunkIdx)
-		buildLoadingScreen(a.screenBuffer, a.cols)
-	} else {
-		a.log("Building screen buffer")
-		buildDataScreen(a.screenBuffer, a.cols, screenSlice)
-	}
+	a.renderScreen(a.screenBuffer, a.cols)
 
 	a.log("Writing to screen")
 	go func() {
@@ -114,33 +101,17 @@ func buildDataScreen(buf []byte, cols int, screenSlice []byte) {
 	for i := range buf {
 		buf[i] = ' '
 	}
-	offset := 0
-	for row := 0; row < len(buf)/cols; row++ {
-		n := mustFindNewLine(screenSlice[offset:])
-		line := screenSlice[offset : offset+n]
-		visiblePartOfLine := line[:min(cols, len(line))]
-
-		for i := range visiblePartOfLine {
-			// TODO: Doesn't handle zero width and tabs correctly.
-			buf[row*cols+i] = byteRepr(visiblePartOfLine[i])
-		}
-
-		offset += n
-		offset++ // Advance past the newline.
-		if offset == len(screenSlice) {
-			for r := row + 1; r < len(buf)/cols; r++ {
-				buf[cols*r] = '~'
-			}
-			break
-		}
-	}
 }
 
-func byteRepr(b byte) byte {
-	if b < 32 || b >= 127 {
-		return '.'
+func byteRepr(b byte) string {
+	switch b {
+	case '\n':
+		return ""
 	}
-	return b
+	if b < 32 || b >= 127 {
+		return "."
+	}
+	return string([]byte{b})
 }
 
 func (a *app) notifyRefreshComplete() {
@@ -153,16 +124,86 @@ func (a *app) notifyRefreshComplete() {
 	}
 }
 
-func (a *app) loadChunk(chunkIdx int) {
+func (a *app) renderScreen(buf []byte, cols int) {
+
+	a.log("Rendering screen")
+
+	for i := range buf {
+		buf[i] = ' '
+	}
+
+	var row int
+
+	var missingData bool
+	var previousElement *element
+	var currentElement *element
+	for {
+
+		// Get the next (or first) element.
+		if currentElement == nil {
+			currentElement = a.skipList.find(a.positionOffset)
+			a.log("First element: %p", currentElement)
+		} else {
+			previousElement = currentElement
+			currentElement = currentElement.next[0]
+			a.log("Next element: %p", currentElement)
+		}
+
+		// Make sure we actually got an element.
+		if currentElement == nil {
+			if previousElement == nil {
+				a.log("Missing data: no previous element")
+				missingData = true
+				break
+			} else if previousElement.offset+len(previousElement.data) < a.fileSize {
+				a.log("Missing data: didn't reach EOF")
+				missingData = true
+				break
+			} else {
+				a.log("Missing data: but at end of file")
+				break
+			}
+
+		}
+
+		// Make sure the element follows from the previous element.
+		if previousElement != nil && previousElement.offset+len(previousElement.data) != currentElement.offset {
+			missingData = true
+			break
+		}
+
+		// Render the line.
+		col := 0
+		for i := 0; i < cols && i < len(currentElement.data); i++ {
+			rep := byteRepr(currentElement.data[i])
+			copy(buf[row*cols+col:(row+1)*cols], rep)
+			col += len(rep)
+		}
+		row++
+	}
+
+	if missingData {
+		a.log("Missing data, rendering loading screen")
+		buildLoadingScreen(buf, cols)
+		var loadFrom int
+		if previousElement != nil {
+			loadFrom = previousElement.offset + len(previousElement.data)
+		}
+		a.loadData(loadFrom)
+	}
+}
+
+func (a *app) loadData(loadFrom int) {
 	buf := make([]byte, chunkSize)
 	var fileInfo os.FileInfo
 	var n int
 	go func() {
+
 		f, err := os.Open(a.filename)
 		if err != nil {
 			// TODO: Handle error.
 		}
-		n, err = f.ReadAt(buf, int64(chunkIdx*chunkSize))
+		n, err = f.ReadAt(buf, int64(loadFrom))
 		if err != nil && err != io.EOF {
 			// TODO: Handle error.
 		}
@@ -170,19 +211,31 @@ func (a *app) loadChunk(chunkIdx int) {
 		if err != nil {
 			// TODO: Handle error.
 		}
+
+		a.reactor.Enque(func() {
+			a.log("Data loaded: From=%d To=%d Len=%d", loadFrom, loadFrom+n, n)
+			newFileSize := int(fileInfo.Size())
+			if newFileSize != a.fileSize {
+				a.log("File changed: oldSize=%d newSize=%d", a.fileSize, newFileSize)
+				// TODO: Invalidate everything.
+				a.fileSize = newFileSize
+			}
+			a.fileSize = int(fileInfo.Size())
+
+			offset := loadFrom
+			for _, line := range extractLines(loadFrom, buf[:n]) {
+				if a.skipList.find(offset) == nil {
+					a.log("Inserting line into skip list: offset=%d data=%q", offset, line)
+					a.skipList.insert(offset, line)
+				} else {
+					a.log("Line already in skip list: offset=%d data=%q", offset, line)
+				}
+				offset += len(line)
+			}
+
+			a.refresh()
+		})
 	}()
-	a.reactor.Enque(func() {
-		a.log("Chunk loaded: Idx=%d", chunkIdx)
-		a.chunks[chunkIdx] = buf[:n]
-		newFileSize := int(fileInfo.Size())
-		if newFileSize != a.fileSize {
-			a.log("File changed: oldSize=%d newSize=%d", a.fileSize, newFileSize)
-			delete(a.chunks, a.fileSize/chunkSize) // Invalidate the chunk containing the first new byte.
-			a.fileSize = newFileSize
-		}
-		a.fileSize = int(fileInfo.Size())
-		a.refresh()
-	})
 }
 
 func buildLoadingScreen(buf []byte, cols int) {
