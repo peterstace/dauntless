@@ -220,7 +220,7 @@ func (a *app) renderScreen(buf []byte, cols int) {
 				a.log("Missing data: no previous element")
 				missingData = true
 				break
-			} else if previousElement.offset+len(previousElement.data) < a.fileSize { // TODO: Should use helper function.
+			} else if !a.isLastInFile(previousElement) {
 				a.log("Missing data: didn't reach EOF")
 				missingData = true
 				break
