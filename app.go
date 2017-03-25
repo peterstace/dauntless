@@ -55,8 +55,35 @@ func (a *app) KeyPress(b byte) {
 
 	switch b {
 	case 'j':
+		elem := a.skipList.find(a.positionOffset)
+		if elem == nil {
+			// TODO: Load chunk?
+		} else if a.isLastInFile(elem) {
+			// TODO: Can't move down. Do nothing.
+		} else if elem.next[0] == nil {
+			// TODO: Load chunk?
+		} else {
+			newOffset := elem.next[0].offset
+			a.log("Moving down: oldOffset=%d newOffset=%d", a.positionOffset, newOffset)
+			a.positionOffset = newOffset
+			a.refresh()
+		}
 	case 'k':
 	}
+}
+
+func (a *app) isLastInFile(e *element) bool {
+
+	assert(e != nil)
+
+	// If we querying an element, we must have read the file. So we should have
+	// already read its size.
+	assert(a.fileSize >= 0)
+
+	// Cannot have data from past the end of the file.
+	assert(e.offset+len(e.data) <= a.fileSize)
+
+	return e.offset+len(e.data) == a.fileSize
 }
 
 func (a *app) TermSize(rows, cols int, err error) {
@@ -155,7 +182,7 @@ func (a *app) renderScreen(buf []byte, cols int) {
 				a.log("Missing data: no previous element")
 				missingData = true
 				break
-			} else if previousElement.offset+len(previousElement.data) < a.fileSize {
+			} else if previousElement.offset+len(previousElement.data) < a.fileSize { // TODO: Should use helper function.
 				a.log("Missing data: didn't reach EOF")
 				missingData = true
 				break
