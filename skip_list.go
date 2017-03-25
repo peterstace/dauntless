@@ -27,6 +27,8 @@ func newSkipList(levels int) *skipList {
 
 func (s *skipList) insert(offset int, data string) {
 
+	assert(offset >= 0)
+
 	// TODO: Selecting height could be more efficient.
 	height := 1
 	for s.rnd.Int()%2 == 0 && height < len(s.header.next) {
@@ -64,6 +66,8 @@ func (s *skipList) insert(offset int, data string) {
 }
 
 func (s *skipList) find(offset int) *element {
+
+	assert(offset >= 0)
 
 	root := s.header
 	level := len(s.header.next) - 1
