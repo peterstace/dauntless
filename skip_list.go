@@ -11,6 +11,7 @@ type element struct {
 	offset int
 	data   string
 	next   []*element
+	prev   *element
 }
 
 func newSkipList(levels int) *skipList {
@@ -35,7 +36,7 @@ func (s *skipList) insert(offset int, data string) {
 		height++
 	}
 
-	newElement := &element{offset, data, make([]*element, height)}
+	newElement := &element{offset, data, make([]*element, height), nil}
 
 	root := s.header
 	level := height - 1 // TODO: Shouldn't start at height-1... Missing a heap of skips.
@@ -53,6 +54,12 @@ func (s *skipList) insert(offset int, data string) {
 		if rightOfRoot == nil || offset < rightOfRoot.offset {
 			if level < height {
 				root.next[level], newElement.next[level] = newElement, rightOfRoot
+				if level == 0 {
+					newElement.prev = root
+					if rightOfRoot != nil {
+						rightOfRoot.prev = newElement
+					}
+				}
 			}
 			if level > 0 {
 				level--

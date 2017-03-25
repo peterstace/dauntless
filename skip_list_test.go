@@ -87,6 +87,25 @@ func SanityCheck(t *testing.T, s *skipList, contents []content) {
 		}
 	}
 
+	// Check prev links can traverse backwards.
+	{
+		if len(elements) > 0 {
+			i := len(elements) - 1
+			for e := elements[i]; e != s.header; e = e.prev {
+				if e != elements[i] {
+					t.Errorf("Prev link broken")
+				}
+				i--
+			}
+			if i != -1 {
+				t.Errorf("Didn't get to the start of the list when following prev lists")
+			}
+		}
+		if s.header.prev != nil {
+			t.Errorf("expected header prev to be nil")
+		}
+	}
+
 	// Make sure lookups of non-existing offsets fail.
 	{
 		minOffset := +9999
