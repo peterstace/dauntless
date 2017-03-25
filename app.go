@@ -147,17 +147,36 @@ func buildDataScreen(buf []byte, cols int, screenSlice []byte) {
 	}
 }
 
-// TODO: Would be nicer if the function wrote to a buffer instead, and returned
-// how many bytes it wrote.
-func byteRepr(b byte) string {
+func writeByte(buf []byte, b byte, offsetInLine int) int {
+
+	// Normal chars.
+	if b >= 32 && b <= 126 { // ' ' up to '~'
+		if len(buf) >= 1 {
+			buf[0] = b
+			return 1
+		}
+		return 0
+	}
+
+	// Special cases.
 	switch b {
 	case '\n':
-		return ""
+		return 0
+	case '\t':
+		const tabSize = 4
+		spaces := tabSize - offsetInLine%tabSize
+		for i := 0; i < spaces && i < len(buf); i++ {
+			buf[i] = ' '
+		}
+		return min(spaces, len(buf))
 	}
-	if b < 32 || b >= 127 {
-		return "."
+
+	// Unknown chars.
+	if len(buf) >= 1 {
+		buf[0] = '.'
+		return 1
 	}
-	return string([]byte{b})
+	return 0
 }
 
 func (a *app) notifyRefreshComplete() {
@@ -220,10 +239,8 @@ func (a *app) renderScreen(buf []byte, cols int) {
 
 		// Render the line.
 		col := 0
-		for i := 0; i < cols && i < len(currentElement.data); i++ {
-			rep := byteRepr(currentElement.data[i])
-			copy(buf[row*cols+col:(row+1)*cols], rep)
-			col += len(rep)
+		for i := 0; col+1 < cols && i < len(currentElement.data); i++ {
+			col += writeByte(buf[row*cols+col:(row+1)*cols], currentElement.data[i], col)
 		}
 		row++
 	}

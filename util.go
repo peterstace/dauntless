@@ -5,3 +5,10 @@ func assert(b bool) {
 		panic("assertion failed")
 	}
 }
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
