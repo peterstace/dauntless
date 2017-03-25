@@ -80,7 +80,7 @@ func (s *skipList) find(offset int) *element {
 			if level > 0 {
 				// move down
 				level--
-			} else if offset < root.offset+len(root.data) {
+			} else if root != s.header && offset < root.offset+len(root.data) {
 				// found element
 				return root
 			} else {

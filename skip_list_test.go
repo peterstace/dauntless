@@ -137,7 +137,7 @@ func TestSkipListInsert(t *testing.T) {
 				{{0, "0123"}, {4, "4567"}},
 				{{4, "4567"}, {0, "0123"}},
 				{{0, "0123"}, {5, "5678"}},
-				//{{1, "1234"}}, // TODO: Fails!
+				{{1, "1234"}},
 			} {
 				t.Logf("Seed=%d Height=%d Idx=%d", seed, height, i)
 				s := newSkipList(height)
