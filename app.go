@@ -51,10 +51,12 @@ func (a *app) Initialise() {
 }
 
 func (a *app) KeyPress(b byte) {
-	a.log("Key press: %d", b)
 
 	switch b {
+
 	case 'j':
+		a.log("Key press: j")
+
 		// TODO: Doesn't handle the case where the 'next' element is not an adjacent line.
 		elem := a.skipList.find(a.positionOffset)
 		if elem == nil {
@@ -69,7 +71,10 @@ func (a *app) KeyPress(b byte) {
 			a.positionOffset = newOffset
 			a.refresh()
 		}
+
 	case 'k':
+		a.log("Key press: k")
+
 		// TODO: Doesn't handle the case where the 'prev' element is not an adjacent line.
 		elem := a.skipList.find(a.positionOffset)
 		assert(elem == nil || elem.prev != nil) // prev should always be populated
@@ -86,6 +91,8 @@ func (a *app) KeyPress(b byte) {
 			a.positionOffset = newOffset
 			a.refresh()
 		}
+	default:
+		a.log("Unhandled key press: %d", b)
 	}
 }
 
@@ -135,6 +142,8 @@ func (a *app) refresh() {
 	a.renderScreen(a.screenBuffer, a.cols)
 
 	a.log("Writing to screen")
+	// TODO: Maybe it's a good idea to wait a little while between writing to
+	// the screen each time? To give it some time to 'settle'.
 	go func() {
 		WriteToTerm(a.screenBuffer)
 		a.reactor.Enque(a.notifyRefreshComplete)
