@@ -11,7 +11,10 @@ type App interface {
 	TermSize(rows, cols int, err error)
 }
 
-const chunkSize = 128
+type line struct {
+	offset int
+	data   string
+}
 
 type app struct {
 	reactor  Reactor
@@ -20,15 +23,15 @@ type app struct {
 
 	rows, cols int
 
-	positionOffset int
+	offset int
+	fwd    []line
+	bck    []line
 
 	fileSize int
 
 	refreshInProgress bool
 	refreshPending    bool
 	screenBuffer      []byte
-
-	skipList *skipList
 }
 
 func NewApp(reactor Reactor, filename string, logger Logger) App {
@@ -36,13 +39,8 @@ func NewApp(reactor Reactor, filename string, logger Logger) App {
 		reactor:  reactor,
 		filename: filename,
 		log:      logger,
-
-		rows: -1,
-		cols: -1,
-
-		fileSize: 0,
-
-		skipList: newSkipList(1), // TODO: Should be higher for performance.
+		rows:     -1,
+		cols:     -1,
 	}
 }
 
@@ -56,58 +54,11 @@ func (a *app) KeyPress(b byte) {
 
 	case 'j':
 		a.log("Key press: j")
-
-		// TODO: Doesn't handle the case where the 'next' element is not an adjacent line.
-		elem := a.skipList.find(a.positionOffset)
-		if elem == nil {
-			// TODO: Load chunk?
-		} else if a.isLastInFile(elem) {
-			// TODO: Can't move down. Do nothing.
-		} else if elem.next[0] == nil {
-			// TODO: Load chunk?
-		} else {
-			newOffset := elem.next[0].offset
-			a.log("Moving down: oldOffset=%d newOffset=%d", a.positionOffset, newOffset)
-			a.positionOffset = newOffset
-			a.refresh()
-		}
-
 	case 'k':
 		a.log("Key press: k")
-
-		// TODO: Doesn't handle the case where the 'prev' element is not an adjacent line.
-		elem := a.skipList.find(a.positionOffset)
-		assert(elem == nil || elem.prev != nil) // prev should always be populated
-		if elem == nil {
-			// TODO: Load chunk?
-		} else if elem.offset <= 0 {
-			assert(elem.offset == 0)
-			// TODO: Can't move up. Do nothing.
-		} else if elem.prev == a.skipList.header {
-			// TODO: Load chunk?
-		} else {
-			newOffset := elem.prev.offset
-			a.log("Moving up: oldOffset=%d newOffset=%d", a.positionOffset, newOffset)
-			a.positionOffset = newOffset
-			a.refresh()
-		}
 	default:
 		a.log("Unhandled key press: %d", b)
 	}
-}
-
-func (a *app) isLastInFile(e *element) bool {
-
-	assert(e != nil)
-
-	// If we querying an element, we must have read the file. So we should have
-	// already read its size.
-	assert(a.fileSize >= 0)
-
-	// Cannot have data from past the end of the file.
-	assert(e.offset+len(e.data) <= a.fileSize)
-
-	return e.offset+len(e.data) == a.fileSize
 }
 
 func (a *app) TermSize(rows, cols int, err error) {
@@ -200,66 +151,23 @@ func (a *app) renderScreen(buf []byte, cols int) {
 		buf[i] = ' '
 	}
 
-	var row int
-
-	var missingData bool
-	var previousElement *element
-	var currentElement *element
-	for {
-
-		// Get the next (or first) element.
-		if currentElement == nil {
-			currentElement = a.skipList.find(a.positionOffset)
-			a.log("First element: %p", currentElement)
-		} else {
-			previousElement = currentElement
-			currentElement = currentElement.next[0]
-			a.log("Next element: %p", currentElement)
-		}
-
-		// Make sure we actually got an element.
-		if currentElement == nil {
-			if previousElement == nil {
-				a.log("Missing data: no previous element")
-				missingData = true
-				break
-			} else if !a.isLastInFile(previousElement) {
-				a.log("Missing data: didn't reach EOF")
-				missingData = true
-				break
-			} else {
-				a.log("Missing data: but at end of file")
-				break
+	assert(len(a.fwd) == 0 || a.fwd[0].offset == a.offset)
+	for row := 0; row < len(buf)/cols; row++ {
+		if row < len(a.fwd) {
+			col := 0
+			for i := 0; col+1 < cols && i < len(a.fwd[row]); i++ {
+				col += writeByte(buf[row*cols+col:(row+1)*cols], a.fwd[row][i], col)
 			}
-
+		} else {
+			//loadData(,c ;k,c
+			buildLoadingScreen(buf, cols)
 		}
-
-		// Make sure the element follows from the previous element.
-		if previousElement != nil && previousElement.offset+len(previousElement.data) != currentElement.offset {
-			missingData = true
-			break
-		}
-
-		// Render the line.
-		col := 0
-		for i := 0; col+1 < cols && i < len(currentElement.data); i++ {
-			col += writeByte(buf[row*cols+col:(row+1)*cols], currentElement.data[i], col)
-		}
-		row++
 	}
 
-	if missingData {
-		a.log("Missing data, rendering loading screen")
-		buildLoadingScreen(buf, cols)
-		var loadFrom int
-		if previousElement != nil {
-			loadFrom = previousElement.offset + len(previousElement.data)
-		}
-		a.loadData(loadFrom)
-	}
 }
 
 func (a *app) loadData(loadFrom int) {
+	const chunkSize = 128
 	buf := make([]byte, chunkSize)
 	var fileInfo os.FileInfo
 	var n int
@@ -290,12 +198,7 @@ func (a *app) loadData(loadFrom int) {
 
 			offset := loadFrom
 			for _, line := range extractLines(loadFrom, buf[:n]) {
-				if a.skipList.find(offset) == nil {
-					a.log("Inserting line into skip list: offset=%d data=%q", offset, line)
-					a.skipList.insert(offset, line)
-				} else {
-					a.log("Line already in skip list: offset=%d data=%q", offset, line)
-				}
+				// TODO: Load line into data structure.
 				offset += len(line)
 			}
 
