@@ -152,16 +152,23 @@ func (a *app) renderScreen(buf []byte, cols int) {
 	}
 
 	assert(len(a.fwd) == 0 || a.fwd[0].offset == a.offset)
+	offset := a.offset
 	for row := 0; row < len(buf)/cols; row++ {
 		if row < len(a.fwd) {
 			col := 0
-			for i := 0; col+1 < cols && i < len(a.fwd[row]); i++ {
-				col += writeByte(buf[row*cols+col:(row+1)*cols], a.fwd[row][i], col)
+			for i := 0; col+1 < cols && i < len(a.fwd[row].data); i++ {
+				col += writeByte(buf[row*cols+col:(row+1)*cols], a.fwd[row].data[i], col)
 			}
+		} else if len(a.fwd) != 0 && a.fwd[len(a.fwd)-1].offset+len(a.fwd[len(a.fwd)-1].data) >= a.fileSize {
+			// Reached end of file.
+			assert(a.fwd[len(a.fwd)-1].offset+len(a.fwd[len(a.fwd)-1].data) == a.fileSize) // Assert that it's actually equal.
+			break
 		} else {
-			//loadData(,c ;k,c
+			a.loadData(offset)
 			buildLoadingScreen(buf, cols)
+			break
 		}
+		offset += len(a.fwd[row].data)
 	}
 
 }
@@ -197,9 +204,13 @@ func (a *app) loadData(loadFrom int) {
 			a.fileSize = int(fileInfo.Size())
 
 			offset := loadFrom
-			for _, line := range extractLines(loadFrom, buf[:n]) {
-				// TODO: Load line into data structure.
-				offset += len(line)
+			for _, data := range extractLines(loadFrom, buf[:n]) {
+				if len(a.fwd) == 0 && offset == a.offset {
+					a.fwd = append(a.fwd, line{offset, data})
+				} else if a.fwd[len(a.fwd)-1].offset+len(a.fwd[len(a.fwd)-1].data) == offset {
+					a.fwd = append(a.fwd, line{offset, data})
+				}
+				offset += len(data)
 			}
 
 			a.refresh()
