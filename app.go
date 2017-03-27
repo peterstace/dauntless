@@ -150,12 +150,6 @@ func (a *app) refresh() {
 	}()
 }
 
-func buildDataScreen(buf []byte, cols int, screenSlice []byte) {
-	for i := range buf {
-		buf[i] = ' '
-	}
-}
-
 func writeByte(buf []byte, b byte, offsetInLine int) int {
 
 	// Normal chars.
