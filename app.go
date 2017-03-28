@@ -81,7 +81,25 @@ func (a *app) KeyPress(b byte) {
 		a.refresh()
 
 	case 'k':
-		a.log("Key press: k")
+
+		if a.offset == 0 {
+			a.log("Cannot move back: at start of file.")
+			return
+		}
+
+		if len(a.bck) == 0 {
+			a.log("Cannot move back: previous line not loaded.")
+			return
+		}
+
+		ln := a.bck[0]
+		assert(ln.offset+len(ln.data) == a.offset)
+		a.offset = ln.offset
+		a.fwd = append([]line{ln}, a.fwd...)
+		a.bck = a.bck[1:]
+		a.log("Moved down: newOffset=%d", a.offset)
+		a.refresh()
+
 	default:
 		a.log("Unhandled key press: %d", b)
 	}
