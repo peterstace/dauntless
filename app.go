@@ -121,14 +121,14 @@ func (a *app) refresh() {
 		a.refreshPending = true
 		return
 	}
-	a.refreshInProgress = true
-
-	a.log("Refreshing")
 
 	if a.rows < 0 || a.cols < 0 {
 		a.log("Can't refresh, don't know term size yet")
 		return
 	}
+
+	a.log("Refreshing")
+	a.refreshInProgress = true
 
 	if len(a.screenBuffer) != a.rows*a.cols {
 		a.screenBuffer = make([]byte, a.rows*a.cols)
@@ -214,7 +214,6 @@ func (a *app) renderScreen(buf []byte, cols int) {
 		}
 		offset += len(a.fwd[row].data)
 	}
-
 }
 
 func (a *app) loadData(loadFrom int) {
