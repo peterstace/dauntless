@@ -23,6 +23,9 @@ type app struct {
 
 	rows, cols int
 
+	// Invariants:
+	//  1) If fwd is populated, then offset will match the first line.
+	//  2) Fwd and bck contain consecutive lines.
 	offset int
 	fwd    []line
 	bck    []line
@@ -50,10 +53,33 @@ func (a *app) Initialise() {
 
 func (a *app) KeyPress(b byte) {
 
+	a.log("Key press: %c", b)
+
 	switch b {
 
 	case 'j':
-		a.log("Key press: j")
+
+		if len(a.fwd) == 0 {
+			a.log("Cannot move down: current line not loaded.")
+			return
+		}
+
+		ln := a.fwd[0]
+		assert(ln.offset == a.offset)
+		newOffset := ln.offset + len(ln.data)
+
+		if newOffset == a.fileSize {
+			a.log("Cannot move down: reached EOF.")
+			return
+		}
+
+		assert(len(a.fwd) == 1 || newOffset == a.fwd[1].offset)
+		a.offset = newOffset
+		a.fwd = a.fwd[1:]
+		a.bck = append([]line{ln}, a.bck...)
+		a.log("Moved down: newOffset=%d", a.offset)
+		a.refresh()
+
 	case 'k':
 		a.log("Key press: k")
 	default:
