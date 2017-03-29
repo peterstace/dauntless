@@ -225,15 +225,21 @@ func (a *app) loadData(loadFrom int) {
 
 		f, err := os.Open(a.filename)
 		if err != nil {
-			// TODO: Handle error.
+			a.log("Could not open file: filename=%q reason=%q", a.filename, f)
+			a.reactor.Stop()
+			return
 		}
 		n, err = f.ReadAt(buf, int64(loadFrom))
 		if err != nil && err != io.EOF {
-			// TODO: Handle error.
+			a.log("Could not read file: filename=%q offset=%d reason=%q", a.filename, loadFrom, err)
+			a.reactor.Stop()
+			return
 		}
 		fileInfo, err = f.Stat()
 		if err != nil {
-			// TODO: Handle error.
+			a.log("Could not stat file: filename=%q reason=%q", a.filename, f)
+			a.reactor.Stop()
+			return
 		}
 
 		a.reactor.Enque(func() {
@@ -241,10 +247,9 @@ func (a *app) loadData(loadFrom int) {
 			newFileSize := int(fileInfo.Size())
 			if newFileSize != a.fileSize {
 				a.log("File changed: oldSize=%d newSize=%d", a.fileSize, newFileSize)
-				// TODO: Invalidate everything.
 				a.fileSize = newFileSize
 			}
-			a.fileSize = int(fileInfo.Size())
+			a.fileSize = newFileSize
 
 			offset := loadFrom
 			for _, data := range extractLines(loadFrom, buf[:n]) {
@@ -256,6 +261,11 @@ func (a *app) loadData(loadFrom int) {
 				offset += len(data)
 			}
 
+			// TODO: What if the chunk we loaded isn't big enough to get an
+			// entire line? We should probably re-request but at double the
+			// size.
+
+			// TODO: Only refresh if at least one line was added.
 			a.refresh()
 		})
 	}()
