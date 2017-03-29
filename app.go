@@ -100,6 +100,18 @@ func (a *app) KeyPress(b byte) {
 		a.log("Moved down: newOffset=%d", a.offset)
 		a.refresh()
 
+	case 'r':
+
+		a.log("Repainting screen")
+		a.refresh()
+
+	case 'R':
+
+		a.log("Discarding buffered input and repainting screen")
+		a.fwd = nil
+		a.bck = nil
+		a.refresh()
+
 	default:
 		a.log("Unhandled key press: %d", b)
 	}
@@ -255,7 +267,7 @@ func (a *app) loadData(loadFrom int) {
 			for _, data := range extractLines(loadFrom, buf[:n]) {
 				if len(a.fwd) == 0 && offset == a.offset {
 					a.fwd = append(a.fwd, line{offset, data})
-				} else if a.fwd[len(a.fwd)-1].offset+len(a.fwd[len(a.fwd)-1].data) == offset {
+				} else if len(a.fwd) > 0 && a.fwd[len(a.fwd)-1].offset+len(a.fwd[len(a.fwd)-1].data) == offset {
 					a.fwd = append(a.fwd, line{offset, data})
 				}
 				offset += len(data)
