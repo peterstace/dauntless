@@ -135,6 +135,7 @@ func (a *app) KeyPress(b byte) {
 		} else {
 			a.fwd = nil
 			a.bck = nil
+			a.offset = 0
 		}
 		a.refresh()
 
