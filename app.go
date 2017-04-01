@@ -247,7 +247,7 @@ func (a *app) renderScreen(buf []byte, cols int) {
 			assert(a.fwd[len(a.fwd)-1].offset+len(a.fwd[len(a.fwd)-1].data) == a.fileSize) // Assert that it's actually equal.
 			break
 		} else {
-			a.loadData(offset)
+			a.loadData(offset, defaultLoadAmount)
 			buildLoadingScreen(buf, cols)
 			break
 		}
@@ -255,9 +255,10 @@ func (a *app) renderScreen(buf []byte, cols int) {
 	}
 }
 
-func (a *app) loadData(loadFrom int) {
-	const chunkSize = 128
-	buf := make([]byte, chunkSize)
+const defaultLoadAmount = 64
+
+func (a *app) loadData(loadFrom int, amount int) {
+	buf := make([]byte, amount)
 	var fileInfo os.FileInfo
 	var n int
 	go func() {
@@ -285,13 +286,15 @@ func (a *app) loadData(loadFrom int) {
 			a.log("Data loaded: From=%d To=%d Len=%d", loadFrom, loadFrom+n, n)
 			newFileSize := int(fileInfo.Size())
 			if newFileSize != a.fileSize {
-				a.log("File changed: oldSize=%d newSize=%d", a.fileSize, newFileSize)
+				a.log("File size changed: oldSize=%d newSize=%d", a.fileSize, newFileSize)
 				a.fileSize = newFileSize
 			}
 			a.fileSize = newFileSize
 
 			offset := loadFrom
+			containedLine := false
 			for _, data := range extractLines(loadFrom, buf[:n]) {
+				containedLine = true
 				if len(a.fwd) == 0 && offset == a.offset {
 					a.fwd = append(a.fwd, line{offset, data})
 				} else if len(a.fwd) > 0 && a.fwd[len(a.fwd)-1].offset+len(a.fwd[len(a.fwd)-1].data) == offset {
@@ -300,12 +303,16 @@ func (a *app) loadData(loadFrom int) {
 				offset += len(data)
 			}
 
-			// TODO: What if the chunk we loaded isn't big enough to get an
-			// entire line? We should probably re-request but at double the
-			// size.
-
-			// TODO: Only refresh if at least one line was added.
-			a.refresh()
+			if containedLine {
+				a.refresh()
+			} else {
+				// TODO: Should only go up to the amount of data that's
+				// contained in the file... If we are trying to get all of the
+				// last line in the file but it doesn't contain a new line at
+				// the end, this will infinite loop.
+				a.log("Data loaded didn't contain at least one complete line, retrying with double amount.")
+				a.loadData(loadFrom, amount*2)
+			}
 		})
 	}()
 }
