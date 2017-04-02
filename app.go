@@ -81,7 +81,7 @@ func (a *app) KeyPress(b byte) {
 
 func (a *app) moveDown() {
 
-	// TODO: Refactor with generic move functions.
+	a.log.Info("Moving down.")
 
 	if len(a.fwd) == 0 {
 		a.log.Warn("Cannot move down: current line not loaded.")
@@ -89,7 +89,6 @@ func (a *app) moveDown() {
 	}
 
 	ln := a.fwd[0]
-	assert(ln.offset == a.offset)
 	newOffset := ln.offset + len(ln.data)
 
 	if newOffset == a.fileSize {
@@ -97,17 +96,12 @@ func (a *app) moveDown() {
 		return
 	}
 
-	assert(len(a.fwd) == 1 || newOffset == a.fwd[1].offset)
-	a.offset = newOffset
-	a.fwd = a.fwd[1:]
-	a.bck = append([]line{ln}, a.bck...)
-	a.log.Info("Moved down: newOffset=%d", a.offset)
-	a.refresh()
+	a.moveToOffset(newOffset)
 }
 
 func (a *app) moveUp() {
 
-	// TODO: Refactor with generic move functions.
+	a.log.Info("Moving up.")
 
 	if a.offset == 0 {
 		a.log.Info("Cannot move back: at start of file.")
@@ -119,14 +113,7 @@ func (a *app) moveUp() {
 		return
 	}
 
-	ln := a.bck[0]
-	assert(ln.offset+len(ln.data) == a.offset)
-	a.offset = ln.offset
-	a.fwd = append([]line{ln}, a.fwd...)
-	a.bck = a.bck[1:]
-	a.log.Info("Moved down: newOffset=%d", a.offset)
-	a.refresh()
-
+	a.moveToOffset(a.bck[0].offset)
 }
 
 func (a *app) moveTop() {
@@ -198,8 +185,29 @@ func (a *app) moveToOffset(offset int) {
 }
 
 func (a *app) moveUpToOffset(offset int) {
+
 	a.log.Info("Moving up to offset: currentOffset=%d newOffset=%d", a.offset, offset)
-	a.log.Info("TODO")
+
+	haveTargetLoaded := false
+	for _, ln := range a.bck {
+		if ln.offset == offset {
+			haveTargetLoaded = true
+			break
+		}
+	}
+	if haveTargetLoaded {
+		for a.offset != offset {
+			ln := a.bck[0]
+			a.fwd = append([]line{ln}, a.fwd...)
+			a.bck = a.bck[1:]
+			a.offset = ln.offset
+		}
+	} else {
+		a.fwd = nil
+		a.bck = nil
+		a.offset = offset
+	}
+	a.refresh()
 }
 
 func (a *app) moveDownToOffset(offset int) {
