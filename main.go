@@ -29,11 +29,16 @@ func main() {
 		}
 	}
 
-	filename := flag.Args()[0]
-
 	defer enterRaw().leaveRaw()
+
 	reactor := NewReactor(logger)
-	app := NewApp(reactor, filename, logger)
+
+	filename := flag.Args()[0]
+	loader := NewFileLoader(filename, reactor, logger)
+
+	app := NewApp(reactor, loader, logger)
+	loader.SetHandler(app)
+
 	reactor.Enque(app.Initialise)
 	collectInput(reactor, app)
 	collectTermSize(reactor, app)

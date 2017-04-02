@@ -1,14 +1,10 @@
 package main
 
-import (
-	"io"
-	"os"
-)
-
 type App interface {
 	Initialise()
 	KeyPress(byte)
 	TermSize(rows, cols int, err error)
+	LoadComplete(LoadResponse)
 }
 
 type line struct {
@@ -17,9 +13,10 @@ type line struct {
 }
 
 type app struct {
-	reactor  Reactor
-	filename string
-	log      Logger
+	reactor Reactor
+	log     Logger
+
+	loader Loader
 
 	rows, cols int
 
@@ -37,13 +34,13 @@ type app struct {
 	screenBuffer      []byte
 }
 
-func NewApp(reactor Reactor, filename string, logger Logger) App {
+func NewApp(reactor Reactor, loader Loader, logger Logger) App {
 	return &app{
-		reactor:  reactor,
-		filename: filename,
-		log:      logger,
-		rows:     -1,
-		cols:     -1,
+		reactor: reactor,
+		loader:  loader,
+		log:     logger,
+		rows:    -1,
+		cols:    -1,
 	}
 }
 
@@ -247,7 +244,7 @@ func (a *app) renderScreen(buf []byte, cols int) {
 			assert(a.fwd[len(a.fwd)-1].offset+len(a.fwd[len(a.fwd)-1].data) == a.fileSize) // Assert that it's actually equal.
 			break
 		} else {
-			a.loadData(offset, defaultLoadAmount)
+			a.loader.Load(offset, defaultLoadAmount)
 			buildLoadingScreen(buf, cols)
 			break
 		}
@@ -257,62 +254,35 @@ func (a *app) renderScreen(buf []byte, cols int) {
 
 const defaultLoadAmount = 64
 
-func (a *app) loadData(loadFrom int, amount int) {
-	buf := make([]byte, amount)
-	var fileInfo os.FileInfo
-	var n int
-	go func() {
+func (a *app) LoadComplete(resp LoadResponse) {
 
-		f, err := os.Open(a.filename)
-		if err != nil {
-			a.log.Warn("Could not open file: filename=%q reason=%q", a.filename, f)
-			a.reactor.Stop()
-			return
+	a.log.Info("Data loaded: From=%d To=%d Len=%d", resp.Offset, resp.Offset+len(resp.Payload), len(resp.Payload))
+	if resp.FileSize != a.fileSize {
+		a.log.Info("File size changed: oldSize=%d newSize=%d", a.fileSize, resp.FileSize)
+		a.fileSize = resp.FileSize
+	}
+	a.fileSize = resp.FileSize
+
+	offset := resp.Offset
+	containedLine := false
+	for _, data := range extractLines(resp.Offset, resp.Payload) {
+		containedLine = true
+		if len(a.fwd) == 0 && offset == a.offset {
+			a.fwd = append(a.fwd, line{offset, data})
+		} else if len(a.fwd) > 0 && a.fwd[len(a.fwd)-1].offset+len(a.fwd[len(a.fwd)-1].data) == offset {
+			a.fwd = append(a.fwd, line{offset, data})
 		}
-		n, err = f.ReadAt(buf, int64(loadFrom))
-		if err != nil && err != io.EOF {
-			a.log.Warn("Could not read file: filename=%q offset=%d reason=%q", a.filename, loadFrom, err)
-			a.reactor.Stop()
-			return
-		}
-		fileInfo, err = f.Stat()
-		if err != nil {
-			a.log.Warn("Could not stat file: filename=%q reason=%q", a.filename, f)
-			a.reactor.Stop()
-			return
-		}
+		offset += len(data)
+	}
 
-		a.reactor.Enque(func() {
-			a.log.Info("Data loaded: From=%d To=%d Len=%d", loadFrom, loadFrom+n, n)
-			newFileSize := int(fileInfo.Size())
-			if newFileSize != a.fileSize {
-				a.log.Info("File size changed: oldSize=%d newSize=%d", a.fileSize, newFileSize)
-				a.fileSize = newFileSize
-			}
-			a.fileSize = newFileSize
-
-			offset := loadFrom
-			containedLine := false
-			for _, data := range extractLines(loadFrom, buf[:n]) {
-				containedLine = true
-				if len(a.fwd) == 0 && offset == a.offset {
-					a.fwd = append(a.fwd, line{offset, data})
-				} else if len(a.fwd) > 0 && a.fwd[len(a.fwd)-1].offset+len(a.fwd[len(a.fwd)-1].data) == offset {
-					a.fwd = append(a.fwd, line{offset, data})
-				}
-				offset += len(data)
-			}
-
-			if containedLine {
-				a.refresh()
-			} else if reachedEndOfFile := loadFrom+n == a.fileSize; !reachedEndOfFile {
-				a.log.Warn("Data loaded didn't contain at least one complete line: retrying with double amount.")
-				a.loadData(loadFrom, amount*2)
-			} else {
-				a.log.Warn("Data loaded didn't contain at least one complete line: reached EOF")
-			}
-		})
-	}()
+	if containedLine {
+		a.refresh()
+	} else if reachedEndOfFile := resp.Offset+len(resp.Payload) == a.fileSize; !reachedEndOfFile {
+		a.log.Warn("Data loaded didn't contain at least one complete line: retrying with double amount.")
+		a.loader.Load(resp.Offset, 2*len(resp.Payload))
+	} else {
+		a.log.Warn("Data loaded didn't contain at least one complete line: reached EOF")
+	}
 }
 
 func buildLoadingScreen(buf []byte, cols int) {
