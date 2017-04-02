@@ -305,13 +305,11 @@ func (a *app) loadData(loadFrom int, amount int) {
 
 			if containedLine {
 				a.refresh()
-			} else {
-				// TODO: Should only go up to the amount of data that's
-				// contained in the file... If we are trying to get all of the
-				// last line in the file but it doesn't contain a new line at
-				// the end, this will infinite loop.
-				a.log.Warn("Data loaded didn't contain at least one complete line, retrying with double amount.")
+			} else if reachedEndOfFile := loadFrom+n == a.fileSize; !reachedEndOfFile {
+				a.log.Warn("Data loaded didn't contain at least one complete line: retrying with double amount.")
 				a.loadData(loadFrom, amount*2)
+			} else {
+				a.log.Warn("Data loaded didn't contain at least one complete line: reached EOF")
 			}
 		})
 	}()
