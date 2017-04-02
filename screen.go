@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"io"
+	"time"
 )
 
 type Screen interface {
@@ -65,6 +66,11 @@ func (t *termScreen) outputToScreen() {
 
 	go func() {
 		io.Copy(t.writer, t.currentWrite)
+
+		// TODO: Tweak to stop "flashing" under constant scroll. Should
+		// probably be variable/parameter.
+		time.Sleep(100 * time.Millisecond)
+
 		t.reactor.Enque(t.writeComplete)
 	}()
 }
