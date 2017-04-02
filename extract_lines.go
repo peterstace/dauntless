@@ -1,7 +1,7 @@
 package main
 
 // Assumes that the first byte is the start of a new line.
-func extractLines(startOffset int, data []byte) []string {
+func extractLines(data []byte) []string {
 	var lines []string
 	startOfLine := 0
 	for i, b := range data {

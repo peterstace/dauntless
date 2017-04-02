@@ -38,7 +38,7 @@ func main() {
 
 	screen := NewTermScreen(os.Stdout, reactor, logger)
 
-	app := NewApp(reactor, loader, logger, screen)
+	app := NewApp(reactor, filename, loader, logger, screen)
 	loader.SetHandler(app)
 
 	reactor.Enque(app.Initialise)

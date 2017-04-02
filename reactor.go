@@ -39,7 +39,7 @@ func (r *reactor) Run() {
 		select {
 		case fn := <-r.queue:
 			fn()
-			err := r.log.Flush()
+			err := r.log.Flush() // TODO: Flush in own goroutine.
 			if err != nil {
 				r.Stop()
 			}
