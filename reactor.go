@@ -44,6 +44,7 @@ func (r *reactor) Run() {
 				r.Stop()
 			}
 		case <-r.stop:
+			r.log.Flush()
 			return
 		}
 	}

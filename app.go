@@ -1,7 +1,5 @@
 package main
 
-import "os"
-
 type App interface {
 	Initialise()
 	KeyPress(byte)
@@ -125,17 +123,10 @@ func (a *app) moveBottom() {
 
 	a.log.Info("Jumping to bottom of file.")
 
-	f, err := os.Open(a.filename) // TODO: Refactor out opening of file.
-	if err != nil {
-		a.log.Warn("Could not open file: %q", a.filename)
-		a.reactor.Stop()
-		return
-	}
 	go func() {
-		offset, err := FindStartOfLastLine(f)
-		f.Close()
+		offset, err := FindJumpToEndOfFileOffset(a.filename, a.rows)
 		if err != nil {
-			a.log.Warn("Could not find start of last line")
+			a.log.Warn("Could not find jump-to-bottom offset: %v", err)
 			a.reactor.Stop()
 			return
 		}

@@ -12,3 +12,12 @@ func extractLines(data []byte) []string {
 	}
 	return lines
 }
+
+func findFirstNewLine(data []byte) (int, bool) {
+	for i, b := range data {
+		if b == '\n' {
+			return i, true
+		}
+	}
+	return 0, false
+}

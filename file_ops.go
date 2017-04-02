@@ -1,24 +1,25 @@
 package main
 
 import (
-	"errors"
+	"io"
 	"os"
 )
 
-func MustOpenFile(filename string) *os.File {
-	f, err := os.Open(filename)
-	assert(err == nil)
-	return f
-}
+func FindJumpToEndOfFileOffset(filename string, n int) (int, error) {
 
-func FindStartOfLastLine(f *os.File) (int, error) {
+	f, err := os.Open(filename)
+	if err != nil {
+		return 0, err
+	}
+
+	assert(n >= 1)
 
 	info, err := f.Stat()
 	if err != nil {
 		return 0, err
 	}
 
-	amount := 16
+	amount := 16 // TODO: Is this a good default?
 	for true {
 
 		data := make([]byte, amount)
@@ -27,18 +28,33 @@ func FindStartOfLastLine(f *os.File) (int, error) {
 			offset = 0
 		}
 		_, err := f.ReadAt(data, offset)
-		if err != nil {
+		if err != nil && err != io.EOF {
 			return 0, err
 		}
 
+		// Throw away the first part of the data, up until the first newline.
+		// This is because when we later extract the lines, it's assumed that
+		// the data begins at the start of a line (which it may not).
+		if startGoodData, ok := findFirstNewLine(data); ok {
+			data = data[startGoodData+1:]
+		} else {
+			data = nil
+		}
+
 		lines := extractLines(data)
-		if len(lines) >= 1 {
-			lastLine := lines[len(lines)-1]
-			return int(info.Size()) - len(lastLine), nil
+		if len(lines) >= n {
+			startOfLine := int(info.Size())
+			for i := len(lines) - 1; i >= len(lines)-n; i-- {
+				startOfLine -= len(lines[i])
+			}
+			return startOfLine, nil
 		}
 
 		if offset == 0 {
-			return 0, errors.New("could not find any complete lines")
+			// Got all the back back to the start of the file, and still
+			// couldn't find the required number of lines. So the required
+			// position is just the start of the file.
+			return 0, nil
 		}
 
 		amount *= 2
