@@ -117,34 +117,8 @@ func (a *app) moveUp() {
 }
 
 func (a *app) moveTop() {
-
-	// TODO: Refactor with generic move functions.
-
 	a.log.Info("Jumping to start of file.")
-	if a.offset == 0 {
-		return
-	}
-	haveOffsetZero := false
-	for _, ln := range a.bck {
-		if ln.offset == 0 {
-			haveOffsetZero = true
-		}
-	}
-	if haveOffsetZero {
-		for a.offset != 0 {
-			// TODO: Bad performance, but will be okay once a linked list is used.
-			ln := a.bck[0]
-			a.fwd = append([]line{ln}, a.fwd...)
-			a.bck = a.bck[1:]
-			a.offset = ln.offset
-		}
-	} else {
-		a.fwd = nil
-		a.bck = nil
-		a.offset = 0
-	}
-	a.refresh()
-
+	a.moveToOffset(0)
 }
 
 func (a *app) moveBottom() {
