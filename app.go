@@ -29,18 +29,18 @@ type app struct {
 
 	fileSize int
 
-	refreshInProgress bool
-	refreshPending    bool
-	screenBuffer      []byte
+	screenBuffer []byte
+	screen       Screen
 }
 
-func NewApp(reactor Reactor, loader Loader, logger Logger) App {
+func NewApp(reactor Reactor, loader Loader, logger Logger, screen Screen) App {
 	return &app{
 		reactor: reactor,
 		loader:  loader,
 		log:     logger,
 		rows:    -1,
 		cols:    -1,
+		screen:  screen,
 	}
 }
 
@@ -152,33 +152,17 @@ func (a *app) TermSize(rows, cols int, err error) {
 
 func (a *app) refresh() {
 
-	if a.refreshInProgress {
-		a.log.Info("Refresh requested but one already in progress")
-		a.refreshPending = true
-		return
-	}
-
 	if a.rows < 0 || a.cols < 0 {
 		a.log.Warn("Can't refresh, don't know term size yet")
 		return
 	}
 
 	a.log.Info("Refreshing")
-	a.refreshInProgress = true
 
 	if len(a.screenBuffer) != a.rows*a.cols {
 		a.screenBuffer = make([]byte, a.rows*a.cols)
 	}
-
-	a.renderScreen(a.screenBuffer, a.cols)
-
-	a.log.Info("Writing to screen")
-	// TODO: Maybe it's a good idea to wait a little while between writing to
-	// the screen each time? To give it some time to 'settle'.
-	go func() {
-		WriteToTerm(a.screenBuffer)
-		a.reactor.Enque(a.notifyRefreshComplete)
-	}()
+	a.renderScreen()
 }
 
 func writeByte(buf []byte, b byte, offsetInLine int) int {
@@ -213,31 +197,21 @@ func writeByte(buf []byte, b byte, offsetInLine int) int {
 	return 0
 }
 
-func (a *app) notifyRefreshComplete() {
-	a.log.Info("Refresh complete")
-	a.refreshInProgress = false
-	if a.refreshPending {
-		a.refreshPending = false
-		a.log.Info("Executing pending refresh")
-		a.refresh()
-	}
-}
-
-func (a *app) renderScreen(buf []byte, cols int) {
+func (a *app) renderScreen() {
 
 	a.log.Info("Rendering screen")
 
-	for i := range buf {
-		buf[i] = ' '
+	for i := range a.screenBuffer {
+		a.screenBuffer[i] = ' '
 	}
 
 	assert(len(a.fwd) == 0 || a.fwd[0].offset == a.offset)
 	offset := a.offset
-	for row := 0; row < len(buf)/cols; row++ {
+	for row := 0; row < len(a.screenBuffer)/a.cols; row++ {
 		if row < len(a.fwd) {
 			col := 0
-			for i := 0; col+1 < cols && i < len(a.fwd[row].data); i++ {
-				col += writeByte(buf[row*cols+col:(row+1)*cols], a.fwd[row].data[i], col)
+			for i := 0; col+1 < a.cols && i < len(a.fwd[row].data); i++ {
+				col += writeByte(a.screenBuffer[row*a.cols+col:(row+1)*a.cols], a.fwd[row].data[i], col)
 			}
 		} else if len(a.fwd) != 0 && a.fwd[len(a.fwd)-1].offset+len(a.fwd[len(a.fwd)-1].data) >= a.fileSize {
 			// Reached end of file.
@@ -245,11 +219,13 @@ func (a *app) renderScreen(buf []byte, cols int) {
 			break
 		} else {
 			a.loader.Load(offset, defaultLoadAmount)
-			buildLoadingScreen(buf, cols)
+			buildLoadingScreen(a.screenBuffer, a.cols)
 			break
 		}
 		offset += len(a.fwd[row].data)
 	}
+
+	a.screen.Write(a.screenBuffer, a.cols)
 }
 
 const defaultLoadAmount = 64
