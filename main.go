@@ -19,7 +19,7 @@ func main() {
 
 	var logger Logger
 	if logfile == "" {
-		logger = NullLogger
+		logger = NullLogger{}
 	} else {
 		var err error
 		logger, err = FileLogger(logfile)
@@ -32,7 +32,7 @@ func main() {
 	filename := flag.Args()[0]
 
 	defer enterRaw().leaveRaw()
-	reactor := NewReactor()
+	reactor := NewReactor(logger)
 	app := NewApp(reactor, filename, logger)
 	reactor.Enque(app.Initialise)
 	collectInput(reactor, app)

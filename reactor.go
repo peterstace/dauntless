@@ -6,10 +6,11 @@ type Reactor interface {
 	Stop()
 }
 
-func NewReactor() Reactor {
+func NewReactor(log Logger) Reactor {
 	return &reactor{
 		make(chan func(), 1024),
 		make(chan struct{}, 1),
+		log,
 	}
 }
 
@@ -18,6 +19,7 @@ func NewReactor() Reactor {
 type reactor struct {
 	queue chan func()
 	stop  chan struct{}
+	log   Logger
 }
 
 func (r *reactor) Enque(fn func()) {
@@ -37,6 +39,10 @@ func (r *reactor) Run() {
 		select {
 		case fn := <-r.queue:
 			fn()
+			err := r.log.Flush()
+			if err != nil {
+				r.Stop()
+			}
 		case <-r.stop:
 			return
 		}

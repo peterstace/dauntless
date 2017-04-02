@@ -48,19 +48,19 @@ func NewApp(reactor Reactor, filename string, logger Logger) App {
 }
 
 func (a *app) Initialise() {
-	a.log("***************** Initialising log viewer ******************")
+	a.log.Info("***************** Initialising log viewer ******************")
 }
 
 func (a *app) KeyPress(b byte) {
 
-	a.log("Key press: %c", b)
+	a.log.Info("Key press: %c", b)
 
 	switch b {
 
 	case 'j':
 
 		if len(a.fwd) == 0 {
-			a.log("Cannot move down: current line not loaded.")
+			a.log.Warn("Cannot move down: current line not loaded.")
 			return
 		}
 
@@ -69,7 +69,7 @@ func (a *app) KeyPress(b byte) {
 		newOffset := ln.offset + len(ln.data)
 
 		if newOffset == a.fileSize {
-			a.log("Cannot move down: reached EOF.")
+			a.log.Info("Cannot move down: reached EOF.")
 			return
 		}
 
@@ -77,18 +77,18 @@ func (a *app) KeyPress(b byte) {
 		a.offset = newOffset
 		a.fwd = a.fwd[1:]
 		a.bck = append([]line{ln}, a.bck...)
-		a.log("Moved down: newOffset=%d", a.offset)
+		a.log.Info("Moved down: newOffset=%d", a.offset)
 		a.refresh()
 
 	case 'k':
 
 		if a.offset == 0 {
-			a.log("Cannot move back: at start of file.")
+			a.log.Info("Cannot move back: at start of file.")
 			return
 		}
 
 		if len(a.bck) == 0 {
-			a.log("Cannot move back: previous line not loaded.")
+			a.log.Warn("Cannot move back: previous line not loaded.")
 			return
 		}
 
@@ -97,24 +97,24 @@ func (a *app) KeyPress(b byte) {
 		a.offset = ln.offset
 		a.fwd = append([]line{ln}, a.fwd...)
 		a.bck = a.bck[1:]
-		a.log("Moved down: newOffset=%d", a.offset)
+		a.log.Info("Moved down: newOffset=%d", a.offset)
 		a.refresh()
 
 	case 'r':
 
-		a.log("Repainting screen")
+		a.log.Info("Repainting screen")
 		a.refresh()
 
 	case 'R':
 
-		a.log("Discarding buffered input and repainting screen")
+		a.log.Info("Discarding buffered input and repainting screen")
 		a.fwd = nil
 		a.bck = nil
 		a.refresh()
 
 	case 'g':
 
-		a.log("Jumping to start of file")
+		a.log.Info("Jumping to start of file")
 		if a.offset == 0 {
 			return
 		}
@@ -140,7 +140,7 @@ func (a *app) KeyPress(b byte) {
 		a.refresh()
 
 	default:
-		a.log("Unhandled key press: %d", b)
+		a.log.Info("Unhandled key press: %d", b)
 	}
 }
 
@@ -148,7 +148,7 @@ func (a *app) TermSize(rows, cols int, err error) {
 	if a.rows != rows || a.cols != cols {
 		a.rows = rows
 		a.cols = cols
-		a.log("Term size: rows=%d cols=%d", rows, cols)
+		a.log.Info("Term size: rows=%d cols=%d", rows, cols)
 		a.refresh()
 	}
 }
@@ -156,17 +156,17 @@ func (a *app) TermSize(rows, cols int, err error) {
 func (a *app) refresh() {
 
 	if a.refreshInProgress {
-		a.log("Refresh requested but one already in progress")
+		a.log.Info("Refresh requested but one already in progress")
 		a.refreshPending = true
 		return
 	}
 
 	if a.rows < 0 || a.cols < 0 {
-		a.log("Can't refresh, don't know term size yet")
+		a.log.Warn("Can't refresh, don't know term size yet")
 		return
 	}
 
-	a.log("Refreshing")
+	a.log.Info("Refreshing")
 	a.refreshInProgress = true
 
 	if len(a.screenBuffer) != a.rows*a.cols {
@@ -175,7 +175,7 @@ func (a *app) refresh() {
 
 	a.renderScreen(a.screenBuffer, a.cols)
 
-	a.log("Writing to screen")
+	a.log.Info("Writing to screen")
 	// TODO: Maybe it's a good idea to wait a little while between writing to
 	// the screen each time? To give it some time to 'settle'.
 	go func() {
@@ -217,18 +217,18 @@ func writeByte(buf []byte, b byte, offsetInLine int) int {
 }
 
 func (a *app) notifyRefreshComplete() {
-	a.log("Refresh complete")
+	a.log.Info("Refresh complete")
 	a.refreshInProgress = false
 	if a.refreshPending {
 		a.refreshPending = false
-		a.log("Executing pending refresh")
+		a.log.Info("Executing pending refresh")
 		a.refresh()
 	}
 }
 
 func (a *app) renderScreen(buf []byte, cols int) {
 
-	a.log("Rendering screen")
+	a.log.Info("Rendering screen")
 
 	for i := range buf {
 		buf[i] = ' '
@@ -265,28 +265,28 @@ func (a *app) loadData(loadFrom int, amount int) {
 
 		f, err := os.Open(a.filename)
 		if err != nil {
-			a.log("Could not open file: filename=%q reason=%q", a.filename, f)
+			a.log.Warn("Could not open file: filename=%q reason=%q", a.filename, f)
 			a.reactor.Stop()
 			return
 		}
 		n, err = f.ReadAt(buf, int64(loadFrom))
 		if err != nil && err != io.EOF {
-			a.log("Could not read file: filename=%q offset=%d reason=%q", a.filename, loadFrom, err)
+			a.log.Warn("Could not read file: filename=%q offset=%d reason=%q", a.filename, loadFrom, err)
 			a.reactor.Stop()
 			return
 		}
 		fileInfo, err = f.Stat()
 		if err != nil {
-			a.log("Could not stat file: filename=%q reason=%q", a.filename, f)
+			a.log.Warn("Could not stat file: filename=%q reason=%q", a.filename, f)
 			a.reactor.Stop()
 			return
 		}
 
 		a.reactor.Enque(func() {
-			a.log("Data loaded: From=%d To=%d Len=%d", loadFrom, loadFrom+n, n)
+			a.log.Info("Data loaded: From=%d To=%d Len=%d", loadFrom, loadFrom+n, n)
 			newFileSize := int(fileInfo.Size())
 			if newFileSize != a.fileSize {
-				a.log("File size changed: oldSize=%d newSize=%d", a.fileSize, newFileSize)
+				a.log.Info("File size changed: oldSize=%d newSize=%d", a.fileSize, newFileSize)
 				a.fileSize = newFileSize
 			}
 			a.fileSize = newFileSize
@@ -310,7 +310,7 @@ func (a *app) loadData(loadFrom int, amount int) {
 				// contained in the file... If we are trying to get all of the
 				// last line in the file but it doesn't contain a new line at
 				// the end, this will infinite loop.
-				a.log("Data loaded didn't contain at least one complete line, retrying with double amount.")
+				a.log.Warn("Data loaded didn't contain at least one complete line, retrying with double amount.")
 				a.loadData(loadFrom, amount*2)
 			}
 		})
