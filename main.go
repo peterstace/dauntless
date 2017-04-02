@@ -36,7 +36,7 @@ func main() {
 	filename := flag.Args()[0]
 	loader := NewFileLoader(filename, reactor, logger)
 
-	screen := NewTermScreen(os.Stdout, reactor)
+	screen := NewTermScreen(os.Stdout, reactor, logger)
 
 	app := NewApp(reactor, loader, logger, screen)
 	loader.SetHandler(app)

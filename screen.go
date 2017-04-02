@@ -9,12 +9,13 @@ type Screen interface {
 	Write(cells []byte, cols int)
 }
 
-func NewTermScreen(w io.Writer, r Reactor) Screen {
+func NewTermScreen(w io.Writer, r Reactor, log Logger) Screen {
 	return &termScreen{
 		currentWrite: new(bytes.Buffer),
 		nextWrite:    new(bytes.Buffer),
 		writer:       w,
 		reactor:      r,
+		log:          log,
 	}
 }
 
@@ -27,9 +28,12 @@ type termScreen struct {
 	writer io.Writer
 
 	reactor Reactor
+	log     Logger
 }
 
 func (t *termScreen) Write(cells []byte, cols int) {
+
+	t.log.Info("Preparing screen write contents.")
 
 	// Calculate byte sequence to send to terminal.
 	// TODO: Diff algorithm.
@@ -41,6 +45,7 @@ func (t *termScreen) Write(cells []byte, cols int) {
 	}
 
 	if t.writeInProgress {
+		t.log.Info("Write already in progress, will write after completion.")
 		t.pendingWrite = true
 		return
 	}
@@ -55,6 +60,9 @@ func (t *termScreen) outputToScreen() {
 
 	t.writeInProgress = true
 	t.nextWrite, t.currentWrite = t.currentWrite, t.nextWrite
+
+	t.log.Info("Writing to screen: bytes=%d", t.currentWrite.Len())
+
 	go func() {
 		io.Copy(t.writer, t.currentWrite)
 		t.reactor.Enque(t.writeComplete)
@@ -62,6 +70,8 @@ func (t *termScreen) outputToScreen() {
 }
 
 func (t *termScreen) writeComplete() {
+
+	t.log.Info("Screen write complete: pendingWrite=%t", t.pendingWrite)
 
 	t.writeInProgress = false
 	if t.pendingWrite {

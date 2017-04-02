@@ -199,7 +199,7 @@ func writeByte(buf []byte, b byte, offsetInLine int) int {
 
 func (a *app) renderScreen() {
 
-	a.log.Info("Rendering screen")
+	a.log.Info("Rendering screen.")
 
 	for i := range a.screenBuffer {
 		a.screenBuffer[i] = ' '
