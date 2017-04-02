@@ -53,92 +53,105 @@ func (a *app) KeyPress(b byte) {
 	a.log.Info("Key press: %c", b)
 
 	switch b {
-
 	case 'j':
-
-		if len(a.fwd) == 0 {
-			a.log.Warn("Cannot move down: current line not loaded.")
-			return
-		}
-
-		ln := a.fwd[0]
-		assert(ln.offset == a.offset)
-		newOffset := ln.offset + len(ln.data)
-
-		if newOffset == a.fileSize {
-			a.log.Info("Cannot move down: reached EOF.")
-			return
-		}
-
-		assert(len(a.fwd) == 1 || newOffset == a.fwd[1].offset)
-		a.offset = newOffset
-		a.fwd = a.fwd[1:]
-		a.bck = append([]line{ln}, a.bck...)
-		a.log.Info("Moved down: newOffset=%d", a.offset)
-		a.refresh()
-
+		a.moveDown()
 	case 'k':
-
-		if a.offset == 0 {
-			a.log.Info("Cannot move back: at start of file.")
-			return
-		}
-
-		if len(a.bck) == 0 {
-			a.log.Warn("Cannot move back: previous line not loaded.")
-			return
-		}
-
-		ln := a.bck[0]
-		assert(ln.offset+len(ln.data) == a.offset)
-		a.offset = ln.offset
-		a.fwd = append([]line{ln}, a.fwd...)
-		a.bck = a.bck[1:]
-		a.log.Info("Moved down: newOffset=%d", a.offset)
-		a.refresh()
-
+		a.moveUp()
 	case 'r':
-
-		a.log.Info("Repainting screen")
+		a.log.Info("Repainting screen.")
 		a.refresh()
-
 	case 'R':
-
-		a.log.Info("Discarding buffered input and repainting screen")
+		a.log.Info("Discarding buffered input and repainting screen.")
 		a.fwd = nil
 		a.bck = nil
 		a.refresh()
-
 	case 'g':
-
-		a.log.Info("Jumping to start of file")
-		if a.offset == 0 {
-			return
-		}
-		haveOffsetZero := false
-		for _, ln := range a.bck {
-			if ln.offset == 0 {
-				haveOffsetZero = true
-			}
-		}
-		if haveOffsetZero {
-			for a.offset != 0 {
-				// TODO: Bad performance, but will be okay once a linked list is used.
-				ln := a.bck[0]
-				a.fwd = append([]line{ln}, a.fwd...)
-				a.bck = a.bck[1:]
-				a.offset = ln.offset
-			}
-		} else {
-			a.fwd = nil
-			a.bck = nil
-			a.offset = 0
-		}
-		a.refresh()
-
+		a.moveTop()
+	case 'G':
+		a.moveBottom()
 	default:
 		a.log.Info("Unhandled key press: %d", b)
 	}
+}
+
+func (a *app) moveDown() {
+
+	if len(a.fwd) == 0 {
+		a.log.Warn("Cannot move down: current line not loaded.")
+		return
+	}
+
+	ln := a.fwd[0]
+	assert(ln.offset == a.offset)
+	newOffset := ln.offset + len(ln.data)
+
+	if newOffset == a.fileSize {
+		a.log.Info("Cannot move down: reached EOF.")
+		return
+	}
+
+	assert(len(a.fwd) == 1 || newOffset == a.fwd[1].offset)
+	a.offset = newOffset
+	a.fwd = a.fwd[1:]
+	a.bck = append([]line{ln}, a.bck...)
+	a.log.Info("Moved down: newOffset=%d", a.offset)
+	a.refresh()
+}
+
+func (a *app) moveUp() {
+
+	if a.offset == 0 {
+		a.log.Info("Cannot move back: at start of file.")
+		return
+	}
+
+	if len(a.bck) == 0 {
+		a.log.Warn("Cannot move back: previous line not loaded.")
+		return
+	}
+
+	ln := a.bck[0]
+	assert(ln.offset+len(ln.data) == a.offset)
+	a.offset = ln.offset
+	a.fwd = append([]line{ln}, a.fwd...)
+	a.bck = a.bck[1:]
+	a.log.Info("Moved down: newOffset=%d", a.offset)
+	a.refresh()
+
+}
+
+func (a *app) moveTop() {
+
+	a.log.Info("Jumping to start of file.")
+	if a.offset == 0 {
+		return
+	}
+	haveOffsetZero := false
+	for _, ln := range a.bck {
+		if ln.offset == 0 {
+			haveOffsetZero = true
+		}
+	}
+	if haveOffsetZero {
+		for a.offset != 0 {
+			// TODO: Bad performance, but will be okay once a linked list is used.
+			ln := a.bck[0]
+			a.fwd = append([]line{ln}, a.fwd...)
+			a.bck = a.bck[1:]
+			a.offset = ln.offset
+		}
+	} else {
+		a.fwd = nil
+		a.bck = nil
+		a.offset = 0
+	}
+	a.refresh()
+
+}
+
+func (a *app) moveBottom() {
+
+	a.log.Info("Jumping to bottom of file.")
 }
 
 func (a *app) TermSize(rows, cols int, err error) {
