@@ -56,6 +56,9 @@ func (a *app) KeyPress(b byte) {
 	a.log.Info("Key press: %c", b)
 
 	switch b {
+	case 'q':
+		a.log.Info("Quitting.")
+		a.reactor.Stop()
 	case 'j':
 		a.moveDown()
 	case 'k':
