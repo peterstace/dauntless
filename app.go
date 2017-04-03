@@ -55,29 +55,65 @@ func (a *app) KeyPress(b byte) {
 
 	a.log.Info("Key press: %c", b)
 
-	switch b {
-	case 'q':
-		a.log.Info("Quitting.")
-		a.reactor.Stop()
-	case 'j':
-		a.moveDown()
-	case 'k':
-		a.moveUp()
-	case 'r':
-		a.log.Info("Repainting screen.")
-		a.refresh()
-	case 'R':
-		a.log.Info("Discarding buffered input and repainting screen.")
-		a.fwd = nil
-		a.bck = nil
-		a.refresh()
-	case 'g':
-		a.moveTop()
-	case 'G':
-		a.moveBottom()
-	default:
+	fn, ok := map[byte]func(){
+		'q': a.quit,
+		'j': a.moveDownBySingleLine,
+		'k': a.moveUpBySingleLine,
+		'd': a.moveDownByHalfScreen,
+		'u': a.moveUpByHalfScreen,
+		'r': a.repaint,
+		'R': a.discardBufferedInputAndRepaint,
+		'g': a.moveTop,
+		'G': a.moveBottom,
+	}[b]
+
+	if !ok {
 		a.log.Info("Unhandled key press: %d", b)
+		return
 	}
+
+	fn()
+}
+
+func (a *app) quit() {
+	a.log.Info("Quitting.")
+	a.reactor.Stop()
+}
+
+func (a *app) moveDownBySingleLine() {
+	a.moveDown()
+	a.refresh()
+}
+
+func (a *app) moveUpBySingleLine() {
+	a.moveUp()
+	a.refresh()
+}
+
+func (a *app) moveDownByHalfScreen() {
+	for i := 0; i < a.rows/2; i++ {
+		a.moveDown()
+	}
+	a.refresh()
+}
+
+func (a *app) moveUpByHalfScreen() {
+	for i := 0; i < a.rows/2; i++ {
+		a.moveUp()
+	}
+	a.refresh()
+}
+
+func (a *app) repaint() {
+	a.log.Info("Repainting screen.")
+	a.refresh()
+}
+
+func (a *app) discardBufferedInputAndRepaint() {
+	a.log.Info("Discarding buffered input and repainting screen.")
+	a.fwd = nil
+	a.bck = nil
+	a.refresh()
 }
 
 func (a *app) moveDown() {
@@ -120,6 +156,7 @@ func (a *app) moveUp() {
 func (a *app) moveTop() {
 	a.log.Info("Jumping to start of file.")
 	a.moveToOffset(0)
+	a.refresh()
 }
 
 func (a *app) moveBottom() {
@@ -133,7 +170,10 @@ func (a *app) moveBottom() {
 			a.reactor.Stop()
 			return
 		}
-		a.reactor.Enque(func() { a.moveToOffset(offset) })
+		a.reactor.Enque(func() {
+			a.moveToOffset(offset)
+			a.refresh()
+		})
 	}()
 }
 
@@ -175,7 +215,6 @@ func (a *app) moveUpToOffset(offset int) {
 		a.bck = nil
 		a.offset = offset
 	}
-	a.refresh()
 }
 
 func (a *app) moveDownToOffset(offset int) {
@@ -201,7 +240,6 @@ func (a *app) moveDownToOffset(offset int) {
 		a.bck = nil
 		a.offset = offset
 	}
-	a.refresh()
 }
 
 func (a *app) TermSize(rows, cols int, err error) {
