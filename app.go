@@ -1,10 +1,13 @@
 package main
 
+import "os"
+
 type App interface {
 	Initialise()
 	KeyPress(byte)
 	TermSize(rows, cols int, err error)
 	LoadComplete(LoadResponse)
+	Signal(os.Signal)
 }
 
 type line struct {
@@ -49,6 +52,11 @@ func NewApp(reactor Reactor, filename string, loader Loader, logger Logger, scre
 
 func (a *app) Initialise() {
 	a.log.Info("***************** Initialising log viewer ******************")
+}
+
+func (a *app) Signal(sig os.Signal) {
+	a.log.Info("Caught signal: %v", sig)
+	a.quit()
 }
 
 func (a *app) KeyPress(b byte) {

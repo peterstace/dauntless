@@ -8,6 +8,5 @@ Proof-of-concept. Completely incomplete.
 
 ## TODO List
 
-* 'Safe' exit upon crash (could write up a blog post about this).
-* Route signals via reactor.
+* 'Safe' exit upon crash (not sure how to actually implement this...).
 * Signal for term size change.

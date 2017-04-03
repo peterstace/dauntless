@@ -21,7 +21,7 @@ func collectTermSize(r Reactor, a App) {
 			}
 			r.Enque(func() { a.TermSize(rows, cols, err) })
 
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(time.Second)
 		}
 	}()
 }

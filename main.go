@@ -45,6 +45,7 @@ func main() {
 	loader.SetHandler(app)
 
 	reactor.Enque(app.Initialise)
+	collectSignals(reactor, app)
 	collectInput(reactor, app)
 	collectTermSize(reactor, app)
 	reactor.Run()
