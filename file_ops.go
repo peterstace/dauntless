@@ -5,21 +5,23 @@ import (
 	"os"
 )
 
-func FindJumpToEndOfFileOffset(filename string, n int) (int, error) {
+func FindJumpToBottomOffset(filename string) (int, error) {
+
+	// TODO: This implementation is a bit silly... Would be better to just load
+	// successive chunks backwards from the end of the file until we find the
+	// first newline.
 
 	f, err := os.Open(filename)
 	if err != nil {
 		return 0, err
 	}
 
-	assert(n >= 1)
-
 	info, err := f.Stat()
 	if err != nil {
 		return 0, err
 	}
 
-	amount := 16 // TODO: Is this a good default?
+	amount := 1024
 	for true {
 
 		data := make([]byte, amount)
@@ -42,9 +44,9 @@ func FindJumpToEndOfFileOffset(filename string, n int) (int, error) {
 		}
 
 		lines := extractLines(data)
-		if len(lines) >= n {
+		if len(lines) >= 1 {
 			startOfLine := int(info.Size())
-			for i := len(lines) - 1; i >= len(lines)-n; i-- {
+			for i := len(lines) - 1; i >= len(lines)-1; i-- {
 				startOfLine -= len(lines[i])
 			}
 			return startOfLine, nil

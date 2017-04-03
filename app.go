@@ -127,7 +127,7 @@ func (a *app) moveBottom() {
 	a.log.Info("Jumping to bottom of file.")
 
 	go func() {
-		offset, err := FindJumpToEndOfFileOffset(a.filename, a.rows)
+		offset, err := FindJumpToBottomOffset(a.filename)
 		if err != nil {
 			a.log.Warn("Could not find jump-to-bottom offset: %v", err)
 			a.reactor.Stop()
