@@ -40,3 +40,23 @@ func (s ttyState) leaveRaw() {
 		os.Exit(1)
 	}
 }
+
+func enterAlt() {
+	cmd := exec.Command("tput", "smcup")
+	out, err := cmd.Output()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Could not enter alt buffer.")
+		os.Exit(1)
+	}
+	fmt.Fprintf(os.Stdout, string(out))
+}
+
+func leaveAlt() {
+	cmd := exec.Command("tput", "rmcup")
+	out, err := cmd.Output()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Could not enter alt buffer.")
+		os.Exit(1)
+	}
+	fmt.Fprintf(os.Stdout, string(out))
+}

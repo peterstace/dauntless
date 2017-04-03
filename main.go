@@ -29,6 +29,9 @@ func main() {
 		}
 	}
 
+	enterAlt()
+	defer leaveAlt()
+
 	defer enterRaw().leaveRaw()
 
 	reactor := NewReactor(logger)

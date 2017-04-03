@@ -1,6 +1,6 @@
 # LV
 
-LV is a log file viewer.
+LV is a log file viewer. Will LV even be the final name? Who knows.
 
 ## Status
 
@@ -8,8 +8,7 @@ Proof-of-concept. Completely incomplete.
 
 ## TODO List
 
-* Route signals via reactor.
-* Signal for term size change.
 * Restore screen on exit.
 * 'Safe' exit upon crash (could write up a blog post about this).
-* Levelled logging.
+* Route signals via reactor.
+* Signal for term size change.
