@@ -8,7 +8,6 @@ Proof-of-concept. Completely incomplete.
 
 ## TODO List
 
-* Restore screen on exit.
 * 'Safe' exit upon crash (could write up a blog post about this).
 * Route signals via reactor.
 * Signal for term size change.
