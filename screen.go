@@ -67,7 +67,7 @@ func (t *termScreen) Write(chars []byte, styles []Style, cols int) {
 	// Calculate byte sequence to send to terminal.
 	// TODO: Diff algorithm.
 	t.nextWrite.Reset()
-	t.nextWrite.WriteString("\x1b[2J\x1b[H")
+	t.nextWrite.WriteString("\x1b[H")
 	currentStyle := styles[0]
 	for i := range chars {
 		if i == 0 || styles[i] != currentStyle {
