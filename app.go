@@ -41,6 +41,7 @@ type app struct {
 
 	fileSize int
 
+	stylesBuffer []Style
 	screenBuffer []byte
 	screen       Screen
 
@@ -406,7 +407,13 @@ func (a *app) renderScreen() {
 	commandRow := a.rows - 1
 	copy(a.screenBuffer[commandRow*a.cols:(commandRow+1)*a.cols], commandLineText)
 
-	a.screen.Write(a.screenBuffer, a.cols)
+	if len(a.stylesBuffer) != len(a.screenBuffer) {
+		a.stylesBuffer = make([]Style, len(a.screenBuffer))
+	}
+	for i := range a.stylesBuffer {
+		a.stylesBuffer[i] = fgAndBg(White, Black)
+	}
+	a.screen.Write(a.screenBuffer, a.stylesBuffer, a.cols)
 }
 
 const defaultLoadAmount = 64
