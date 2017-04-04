@@ -8,5 +8,7 @@ Proof-of-concept. Completely incomplete.
 
 ## TODO List
 
+* Command bar.
+* Status bar.
 * 'Safe' exit upon crash (not sure how to actually implement this...).
 * Signal for term size change.
