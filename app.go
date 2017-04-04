@@ -10,6 +10,13 @@ type App interface {
 	Signal(os.Signal)
 }
 
+type command int
+
+const (
+	none command = iota
+	search
+)
+
 type line struct {
 	offset int
 	data   string
@@ -36,6 +43,9 @@ type app struct {
 
 	screenBuffer []byte
 	screen       Screen
+
+	commandMode command
+	commandText string
 }
 
 func NewApp(reactor Reactor, filename string, loader Loader, logger Logger, screen Screen) App {
@@ -61,7 +71,12 @@ func (a *app) Signal(sig os.Signal) {
 
 func (a *app) KeyPress(b byte) {
 
-	a.log.Info("Key press: %c", b)
+	a.log.Info("Key press: %q", string([]byte{b}))
+
+	if a.commandMode != none {
+		a.consumeCommandChar(b)
+		return
+	}
 
 	fn, ok := map[byte]func(){
 		'q': a.quit,
@@ -73,6 +88,7 @@ func (a *app) KeyPress(b byte) {
 		'R': a.discardBufferedInputAndRepaint,
 		'g': a.moveTop,
 		'G': a.moveBottom,
+		'/': a.startSearchCommand,
 	}[b]
 
 	if !ok {
@@ -250,6 +266,50 @@ func (a *app) moveDownToOffset(offset int) {
 	}
 }
 
+func (a *app) startSearchCommand() {
+	a.commandMode = search
+	a.log.Info("Accepting search command.")
+	a.refresh()
+}
+
+func (a *app) finishSearchCommand() {
+	a.log.Info("Search command entered: %q", a.commandText)
+	// TODO:
+}
+
+func (a *app) consumeCommandChar(b byte) {
+
+	assert(a.commandMode != none)
+
+	if b >= ' ' && b <= '~' {
+		a.commandText += string([]byte{b})
+		a.log.Info("Added to command: text=%q", a.commandText)
+	} else if b == 127 {
+		if len(a.commandText) >= 1 {
+			a.commandText = a.commandText[:len(a.commandText)-1]
+			a.log.Info("Backspacing char from command text: text=%q", a.commandText)
+		} else {
+			a.log.Info("Cannot backspace from empty command text.")
+		}
+	} else if b == 10 {
+		a.log.Info("Finished command mode.")
+		switch a.commandMode {
+		case search:
+			a.finishSearchCommand()
+		case none:
+			assert(false)
+		default:
+			assert(false)
+		}
+		a.commandMode = none
+		a.commandText = ""
+	} else {
+		a.log.Warn("Refusing to add char to command: %d", b)
+	}
+
+	a.refresh()
+}
+
 func (a *app) TermSize(rows, cols int, err error) {
 	if a.rows != rows || a.cols != cols {
 		a.rows = rows
@@ -316,7 +376,8 @@ func (a *app) renderScreen() {
 
 	assert(len(a.fwd) == 0 || a.fwd[0].offset == a.offset)
 	offset := a.offset
-	for row := 0; row < len(a.screenBuffer)/a.cols; row++ {
+	lineRows := a.rows - 2 // 2 rows reserved for status line and command line.
+	for row := 0; row < lineRows; row++ {
 		if row < len(a.fwd) {
 			col := 0
 			for i := 0; col+1 < a.cols && i < len(a.fwd[row].data); i++ {
@@ -333,6 +394,17 @@ func (a *app) renderScreen() {
 		}
 		offset += len(a.fwd[row].data)
 	}
+
+	commandLineText := ""
+	switch a.commandMode {
+	case search:
+		commandLineText = "Enter search regexp: " + a.commandText
+	case none:
+	default:
+		assert(false)
+	}
+	commandRow := a.rows - 1
+	copy(a.screenBuffer[commandRow*a.cols:(commandRow+1)*a.cols], commandLineText)
 
 	a.screen.Write(a.screenBuffer, a.cols)
 }

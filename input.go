@@ -13,7 +13,8 @@ func collectInput(r Reactor, a App) {
 				continue
 			}
 			if n == 1 {
-				r.Enque(func() { a.KeyPress(buf[0]) })
+				b := buf[0]
+				r.Enque(func() { a.KeyPress(b) })
 			}
 		}
 	}()
