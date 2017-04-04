@@ -7,18 +7,57 @@ import (
 	"time"
 )
 
-type Style byte // 0x0f masks FG, 0xf0 masks BG.
+type Style byte
 
-func (s Style) escapeCode() string {
-	return fmt.Sprintf(
-		"\x1b[%dm\x1b[%dm",
-		30+s&0x0f,
-		40+(s&0xf0)>>4,
-	)
+const (
+	fgMask      Style = 0x07
+	fgIsSetMask Style = 0x08
+	bgMask      Style = 0x70
+	bgIsSetMask Style = 0x80
+)
+
+func (s Style) withFG(fg Style) Style {
+	s |= fgIsSetMask
+	s &= ^fgMask
+	s |= fg
+	return s
 }
 
-func fgAndBg(fg Style, bg Style) Style {
-	return fg | (bg >> 4)
+func (s Style) withBG(fg Style) Style {
+	s |= bgIsSetMask
+	s &= ^bgMask
+	s |= fg << 4
+	return s
+}
+
+func (s Style) hasFG() bool {
+	return (s & fgIsSetMask) != 0
+}
+
+func (s Style) hasBG() bool {
+	return (s & bgIsSetMask) != 0
+}
+
+func (s Style) fg() int {
+	return int(30 + (s & fgMask))
+}
+
+func (s Style) bg() int {
+	return int(40 + ((s & bgMask) >> 4))
+}
+
+func (s Style) escapeCode() string {
+	if !s.hasFG() && !s.hasBG() {
+		return "\x1b[m" // SGR0
+	}
+	var out string
+	if s.hasFG() {
+		out += fmt.Sprintf("\x1b[%dm", s.fg())
+	}
+	if s.hasBG() {
+		out += fmt.Sprintf("\x1b[%dm", s.bg())
+	}
+	return out
 }
 
 const (

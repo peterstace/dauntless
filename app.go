@@ -411,7 +411,7 @@ func (a *app) renderScreen() {
 		a.stylesBuffer = make([]Style, len(a.screenBuffer))
 	}
 	for i := range a.stylesBuffer {
-		a.stylesBuffer[i] = fgAndBg(White, Black)
+		a.stylesBuffer[i] = Style(0)
 	}
 	a.screen.Write(a.screenBuffer, a.stylesBuffer, a.cols)
 }
