@@ -55,6 +55,8 @@ type app struct {
 
 	commandMode command
 	commandText string
+
+	regexes []regex
 }
 
 func NewApp(reactor Reactor, filename string, loader Loader, logger Logger, screen Screen) App {
@@ -283,7 +285,16 @@ func (a *app) startSearchCommand() {
 
 func (a *app) finishSearchCommand() {
 	a.log.Info("Search command entered: %q", a.commandText)
-	// TODO:
+	re, err := regexp.Compile(a.commandText)
+	if err != nil {
+		a.log.Warn("Could not compile regexp: Regexp=%q Err=%q", a.commandText, err)
+		return
+	}
+	a.log.Info("Regex compiled.")
+	if len(a.regexes) == 0 {
+		a.regexes = []regex{regex{}}
+	}
+	a.regexes[0] = regex{Style(0).withFG(Red).withBG(White), re}
 }
 
 func (a *app) consumeCommandChar(b byte) {
@@ -379,11 +390,6 @@ func writeByte(buf []byte, b byte, offsetInLine int) int {
 	return 0
 }
 
-var regexes = []regex{
-	regex{Style(0).withFG(Red), regexp.MustCompile("\\(\\)")},
-	regex{Style(0).withFG(Yellow).withBG(White), regexp.MustCompile("[lL]og")},
-}
-
 func (a *app) renderScreen() {
 
 	a.log.Info("Rendering screen.")
@@ -398,10 +404,10 @@ func (a *app) renderScreen() {
 	lineRows := a.rows - 2 // 2 rows reserved for status line and command line.
 	for row := 0; row < lineRows; row++ {
 		if row < len(a.fwd) {
-			bounds := make([][][2]int, len(regexes))
-			matches := make([][][]int, len(regexes))
-			for r := range regexes {
-				matches[r] = regexes[r].re.FindAllStringIndex(a.fwd[row].data, -1)
+			bounds := make([][][2]int, len(a.regexes))
+			matches := make([][][]int, len(a.regexes))
+			for r := range a.regexes {
+				matches[r] = a.regexes[r].re.FindAllStringIndex(a.fwd[row].data, -1)
 				bounds[r] = make([][2]int, len(matches[r]))
 			}
 			col := 0
@@ -421,7 +427,7 @@ func (a *app) renderScreen() {
 			for r := range bounds {
 				for j := range bounds[r] {
 					for col := bounds[r][j][0]; col < bounds[r][j][1]; col++ {
-						a.stylesBuffer[row*a.cols+col] = regexes[r].style
+						a.stylesBuffer[row*a.cols+col] = a.regexes[r].style
 					}
 				}
 			}
