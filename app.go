@@ -1,6 +1,9 @@
 package main
 
-import "os"
+import (
+	"os"
+	"regexp"
+)
 
 type App interface {
 	Initialise()
@@ -329,8 +332,12 @@ func (a *app) refresh() {
 
 	a.log.Info("Refreshing")
 
-	if len(a.screenBuffer) != a.rows*a.cols {
-		a.screenBuffer = make([]byte, a.rows*a.cols)
+	dim := a.rows * a.cols
+	if len(a.screenBuffer) != dim {
+		a.screenBuffer = make([]byte, dim)
+	}
+	if len(a.stylesBuffer) != dim {
+		a.stylesBuffer = make([]Style, dim)
 	}
 	a.renderScreen()
 }
@@ -367,12 +374,15 @@ func writeByte(buf []byte, b byte, offsetInLine int) int {
 	return 0
 }
 
+var re *regexp.Regexp = regexp.MustCompile("\\(\\)")
+
 func (a *app) renderScreen() {
 
 	a.log.Info("Rendering screen.")
 
 	for i := range a.screenBuffer {
 		a.screenBuffer[i] = ' '
+		a.stylesBuffer[i] = Style(0)
 	}
 
 	assert(len(a.fwd) == 0 || a.fwd[0].offset == a.offset)
@@ -380,9 +390,24 @@ func (a *app) renderScreen() {
 	lineRows := a.rows - 2 // 2 rows reserved for status line and command line.
 	for row := 0; row < lineRows; row++ {
 		if row < len(a.fwd) {
+			matches := re.FindAllStringIndex(a.fwd[row].data, -1)
+			bounds := make([][2]int, len(matches))
 			col := 0
 			for i := 0; col+1 < a.cols && i < len(a.fwd[row].data); i++ {
+				for j := range matches {
+					if matches[j][0] == i {
+						bounds[j][0] = col
+					}
+					if matches[j][1] == i {
+						bounds[j][1] = col
+					}
+				}
 				col += writeByte(a.screenBuffer[row*a.cols+col:(row+1)*a.cols], a.fwd[row].data[i], col)
+			}
+			for j := range bounds {
+				for col := bounds[j][0]; col < bounds[j][1]; col++ {
+					a.stylesBuffer[row*a.cols+col] = Style(0).withFG(Red)
+				}
 			}
 		} else if len(a.fwd) != 0 && a.fwd[len(a.fwd)-1].offset+len(a.fwd[len(a.fwd)-1].data) >= a.fileSize {
 			// Reached end of file.
@@ -407,12 +432,6 @@ func (a *app) renderScreen() {
 	commandRow := a.rows - 1
 	copy(a.screenBuffer[commandRow*a.cols:(commandRow+1)*a.cols], commandLineText)
 
-	if len(a.stylesBuffer) != len(a.screenBuffer) {
-		a.stylesBuffer = make([]Style, len(a.screenBuffer))
-	}
-	for i := range a.stylesBuffer {
-		a.stylesBuffer[i] = Style(0)
-	}
 	a.screen.Write(a.screenBuffer, a.stylesBuffer, a.cols)
 }
 
