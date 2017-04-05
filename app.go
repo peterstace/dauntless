@@ -25,6 +25,11 @@ type line struct {
 	data   string
 }
 
+type regex struct {
+	style Style
+	re    *regexp.Regexp
+}
+
 type app struct {
 	reactor Reactor
 	log     Logger
@@ -374,7 +379,10 @@ func writeByte(buf []byte, b byte, offsetInLine int) int {
 	return 0
 }
 
-var re *regexp.Regexp = regexp.MustCompile("\\(\\)")
+var regexes = []regex{
+	regex{Style(0).withFG(Red), regexp.MustCompile("\\(\\)")},
+	regex{Style(0).withFG(Yellow).withBG(White), regexp.MustCompile("[lL]og")},
+}
 
 func (a *app) renderScreen() {
 
@@ -390,23 +398,31 @@ func (a *app) renderScreen() {
 	lineRows := a.rows - 2 // 2 rows reserved for status line and command line.
 	for row := 0; row < lineRows; row++ {
 		if row < len(a.fwd) {
-			matches := re.FindAllStringIndex(a.fwd[row].data, -1)
-			bounds := make([][2]int, len(matches))
+			bounds := make([][][2]int, len(regexes))
+			matches := make([][][]int, len(regexes))
+			for r := range regexes {
+				matches[r] = regexes[r].re.FindAllStringIndex(a.fwd[row].data, -1)
+				bounds[r] = make([][2]int, len(matches[r]))
+			}
 			col := 0
 			for i := 0; col+1 < a.cols && i < len(a.fwd[row].data); i++ {
-				for j := range matches {
-					if matches[j][0] == i {
-						bounds[j][0] = col
-					}
-					if matches[j][1] == i {
-						bounds[j][1] = col
+				for r := range matches {
+					for j := range matches[r] {
+						if matches[r][j][0] == i {
+							bounds[r][j][0] = col
+						}
+						if matches[r][j][1] == i {
+							bounds[r][j][1] = col
+						}
 					}
 				}
 				col += writeByte(a.screenBuffer[row*a.cols+col:(row+1)*a.cols], a.fwd[row].data[i], col)
 			}
-			for j := range bounds {
-				for col := bounds[j][0]; col < bounds[j][1]; col++ {
-					a.stylesBuffer[row*a.cols+col] = Style(0).withFG(Red)
+			for r := range bounds {
+				for j := range bounds[r] {
+					for col := bounds[r][j][0]; col < bounds[r][j][1]; col++ {
+						a.stylesBuffer[row*a.cols+col] = regexes[r].style
+					}
 				}
 			}
 		} else if len(a.fwd) != 0 && a.fwd[len(a.fwd)-1].offset+len(a.fwd[len(a.fwd)-1].data) >= a.fileSize {
