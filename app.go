@@ -294,7 +294,7 @@ func (a *app) finishSearchCommand() {
 	if len(a.regexes) == 0 {
 		a.regexes = []regex{regex{}}
 	}
-	a.regexes[0] = regex{Style(0).withFG(Red).withBG(White), re}
+	a.regexes[0] = regex{mixStyle(Red, White), re}
 }
 
 func (a *app) consumeCommandChar(b byte) {
@@ -396,7 +396,7 @@ func (a *app) renderScreen() {
 
 	for i := range a.screenBuffer {
 		a.screenBuffer[i] = ' '
-		a.stylesBuffer[i] = Style(0)
+		a.stylesBuffer[i] = mixStyle(Default, Default)
 	}
 
 	assert(len(a.fwd) == 0 || a.fwd[0].offset == a.offset)

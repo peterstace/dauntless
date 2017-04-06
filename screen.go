@@ -10,32 +10,12 @@ import (
 type Style byte
 
 const (
-	fgMask      Style = 0x07
-	fgIsSetMask Style = 0x08
-	bgMask      Style = 0x70
-	bgIsSetMask Style = 0x80
+	fgMask Style = 0x0f
+	bgMask Style = 0xf0
 )
 
-func (s Style) withFG(fg Style) Style {
-	s |= fgIsSetMask
-	s &= ^fgMask
-	s |= fg
-	return s
-}
-
-func (s Style) withBG(fg Style) Style {
-	s |= bgIsSetMask
-	s &= ^bgMask
-	s |= fg << 4
-	return s
-}
-
-func (s Style) hasFG() bool {
-	return (s & fgIsSetMask) != 0
-}
-
-func (s Style) hasBG() bool {
-	return (s & bgIsSetMask) != 0
+func mixStyle(fg, bg Style) Style {
+	return fg | (bg << 4)
 }
 
 func (s Style) fg() int {
@@ -47,17 +27,7 @@ func (s Style) bg() int {
 }
 
 func (s Style) escapeCode() string {
-	if !s.hasFG() && !s.hasBG() {
-		return "\x1b[m" // SGR0
-	}
-	var out string
-	if s.hasFG() {
-		out += fmt.Sprintf("\x1b[%dm", s.fg())
-	}
-	if s.hasBG() {
-		out += fmt.Sprintf("\x1b[%dm", s.bg())
-	}
-	return out
+	return fmt.Sprintf("\x1b[%d;%dm", s.fg(), s.bg())
 }
 
 const (
@@ -69,6 +39,7 @@ const (
 	Magenta Style = 5
 	Cyan    Style = 6
 	White   Style = 7
+	Default Style = 9
 )
 
 type Screen interface {
