@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-type Style byte
+type Style uint8
 
 const (
 	fgMask Style = 0x0f
@@ -26,8 +26,16 @@ func (s Style) bg() int {
 	return int(40 + ((s & bgMask) >> 4))
 }
 
+func (s Style) inverted() bool {
+	return s&fgMask == Invert || (s&bgMask)>>4 == Invert
+}
+
 func (s Style) escapeCode() string {
-	return fmt.Sprintf("\x1b[%d;%dm", s.fg(), s.bg())
+	if s.inverted() {
+		return "\x1b[0;7m"
+	} else {
+		return fmt.Sprintf("\x1b[0;%d;%dm", s.fg(), s.bg())
+	}
 }
 
 const (
@@ -39,6 +47,7 @@ const (
 	Magenta Style = 5
 	Cyan    Style = 6
 	White   Style = 7
+	Invert  Style = 8
 	Default Style = 9
 )
 

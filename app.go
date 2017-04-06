@@ -294,7 +294,7 @@ func (a *app) finishSearchCommand() {
 	if len(a.regexes) == 0 {
 		a.regexes = []regex{regex{}}
 	}
-	a.regexes[0] = regex{mixStyle(Red, White), re}
+	a.regexes[0] = regex{mixStyle(White, Red), re}
 }
 
 func (a *app) consumeCommandChar(b byte) {
