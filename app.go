@@ -57,6 +57,8 @@ type app struct {
 	commandText string
 
 	regexes []regex
+
+	overlay bool // XXX: For debugging.
 }
 
 func NewApp(reactor Reactor, filename string, loader Loader, logger Logger, screen Screen) App {
@@ -122,6 +124,12 @@ func (a *app) KeyPress(b byte) {
 		'&': func() { a.setBG(White) },
 		'*': func() { a.setBG(Invert) },
 		'(': func() { a.setBG(Default) },
+
+		// XXX For debugging:
+		's': func() {
+			a.overlay = !a.overlay
+			a.refresh()
+		},
 	}[b]
 
 	if !ok {
@@ -492,6 +500,11 @@ func (a *app) renderScreen() {
 	commandRow := a.rows - 1
 	copy(a.screenBuffer[commandRow*a.cols:(commandRow+1)*a.cols], commandLineText)
 
+	// XXX: Debugging.
+	if a.overlay {
+		overlaySwatch(a.screenBuffer, a.stylesBuffer, a.cols)
+	}
+
 	a.screen.Write(a.screenBuffer, a.stylesBuffer, a.cols)
 }
 
@@ -536,4 +549,48 @@ func buildLoadingScreen(buf []byte, cols int) {
 	row := len(buf) / cols / 2
 	startCol := (cols - len(loading)) / 2
 	copy(buf[row*cols+startCol:], loading)
+}
+
+func overlaySwatch(chars []byte, styles []Style, cols int) {
+
+	// 10 by 10 swatches. 4 chars wide each. So 40 wide and 10 high. Plus a
+	// border of 1 around each side.
+
+	const width = 42
+	const height = 12
+
+	rows := len(chars) / cols
+	startCol := (cols - width) / 2
+	startRow := (rows - height) / 2
+
+	// Draw the border.
+	inv := mixStyle(Invert, Invert)
+	for col := startCol; col < startCol+width; col++ {
+		chars[startRow*cols+col] = ' '
+		styles[startRow*cols+col] = inv
+		chars[(startRow+height-1)*cols+col] = ' '
+		styles[(startRow+height-1)*cols+col] = inv
+	}
+	for row := startRow; row < startRow+height; row++ {
+		chars[row*cols+startCol] = ' '
+		styles[row*cols+startCol] = inv
+		chars[row*cols+startCol+width-1] = ' '
+		styles[row*cols+startCol+width-1] = inv
+	}
+
+	for fg := 0; fg <= 9; fg++ {
+		for bg := 0; bg <= 9; bg++ {
+			r := startRow + 1 + int(fg)
+			c := startCol + 2 + 4*int(bg)
+			chars[r*cols+c] = '0' + byte(fg)
+			chars[r*cols+c+1] = '0' + byte(bg)
+			chars[r*cols+c-1] = ' '
+			chars[r*cols+c+2] = ' '
+			style := mixStyle(Style(fg), Style(bg))
+			for i := 0; i < 4; i++ {
+				styles[r*cols+c-1+i] = style
+			}
+		}
+	}
+
 }
