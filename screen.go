@@ -26,6 +26,16 @@ func (s Style) bg() int {
 	return int(40 + ((s & bgMask) >> 4))
 }
 
+func (s *Style) setFG(fg Style) {
+	*s &= ^fgMask
+	*s |= fg
+}
+
+func (s *Style) setBG(bg Style) {
+	*s &= ^bgMask
+	*s |= (bg << 4)
+}
+
 func (s Style) inverted() bool {
 	return s&fgMask == Invert || (s&bgMask)>>4 == Invert
 }
@@ -50,6 +60,24 @@ const (
 	Invert  Style = 8
 	Default Style = 9
 )
+
+func (s Style) String() string {
+	if str, ok := map[Style]string{
+		Black:   "Black",
+		Red:     "Red",
+		Green:   "Green",
+		Yellow:  "Yellow",
+		Blue:    "Blue",
+		Magenta: "Magenta",
+		Cyan:    "Cyan",
+		White:   "White",
+		Invert:  "Invert",
+		Default: "Default",
+	}[s]; ok {
+		return str
+	}
+	return "???"
+}
 
 type Screen interface {
 	Write(chars []byte, styles []Style, cols int)
