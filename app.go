@@ -410,6 +410,9 @@ func (a *app) needsLoadingForward() bool {
 }
 
 func (a *app) needsLoadingBackward() bool {
+	if a.offset == 0 {
+		return false
+	}
 	if len(a.bck) >= a.rows*backLoadFactor {
 		return false
 	}
