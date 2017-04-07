@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"regexp"
 )
@@ -575,6 +576,8 @@ func (a *app) renderScreen() {
 		offset += len(a.fwd[row].data)
 	}
 
+	a.drawStatusLine()
+
 	commandLineText := ""
 	switch a.commandMode {
 	case search:
@@ -592,6 +595,32 @@ func (a *app) renderScreen() {
 	}
 
 	a.screen.Write(a.screenBuffer, a.stylesBuffer, a.cols)
+}
+
+func (a *app) drawStatusLine() {
+
+	statusRow := a.rows - 2
+	for col := 0; col < a.cols; col++ {
+		a.stylesBuffer[statusRow*a.cols+col] = mixStyle(Invert, Invert)
+	}
+
+	// 9.99%
+	// 99.9%
+	pct := float64(a.offset) / float64(a.fileSize) * 100
+	var pctStr string
+	switch {
+	case pct < 10:
+		pctStr = fmt.Sprintf(" %3.2f%% ", pct)
+	default:
+		pctStr = fmt.Sprintf(" %3.1f%% ", pct)
+	}
+
+	statusRight := pctStr
+	statusLeft := a.filename
+
+	buf := a.screenBuffer[statusRow*a.cols : (statusRow+1)*a.cols]
+	copy(buf[len(buf)-len(statusRight):], statusRight)
+	copy(buf[:], statusLeft)
 }
 
 const defaultLoadAmount = 64
