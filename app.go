@@ -518,14 +518,18 @@ func writeByte(buf []byte, b byte, offsetInLine int) int {
 	return 0
 }
 
-func (a *app) renderScreen() {
-
-	a.log.Info("Rendering screen.")
-
+func (a *app) clearScreenBuffers() {
 	for i := range a.screenBuffer {
 		a.screenBuffer[i] = ' '
 		a.stylesBuffer[i] = mixStyle(Default, Default)
 	}
+}
+
+func (a *app) renderScreen() {
+
+	a.log.Info("Rendering screen.")
+
+	a.clearScreenBuffers()
 
 	assert(len(a.fwd) == 0 || a.fwd[0].offset == a.offset)
 	offset := a.offset
@@ -564,6 +568,7 @@ func (a *app) renderScreen() {
 			assert(a.fwd[len(a.fwd)-1].offset+len(a.fwd[len(a.fwd)-1].data) == a.fileSize) // Assert that it's actually equal.
 			break
 		} else {
+			a.clearScreenBuffers()
 			buildLoadingScreen(a.screenBuffer, a.cols)
 			break
 		}
@@ -657,9 +662,6 @@ func (a *app) LoadComplete(resp LoadResponse) {
 }
 
 func buildLoadingScreen(buf []byte, cols int) {
-	for i := range buf {
-		buf[i] = ' '
-	}
 	const loading = "Loading..."
 	row := len(buf) / cols / 2
 	startCol := (cols - len(loading)) / 2
