@@ -43,7 +43,7 @@ func (l *fileLoader) Load(offset int, size int) {
 		if err != nil {
 			l.reactor.Enque(func() {
 				l.log.Warn("Could not open file: filename=%q reason=%q", l.filename, err)
-				l.reactor.Stop()
+				l.reactor.Stop(err)
 			})
 		}
 
@@ -53,7 +53,7 @@ func (l *fileLoader) Load(offset int, size int) {
 		if err != nil && err != io.EOF {
 			l.reactor.Enque(func() {
 				l.log.Warn("Could not read file: filename=%q offset=%d reason=%q", l.filename, offset, err)
-				l.reactor.Stop()
+				l.reactor.Stop(err)
 			})
 			return
 		}
@@ -62,7 +62,7 @@ func (l *fileLoader) Load(offset int, size int) {
 		if err != nil {
 			l.reactor.Enque(func() {
 				l.log.Warn("Could not stat file: filename=%q reason=%q", l.filename, err)
-				l.reactor.Stop()
+				l.reactor.Stop(err)
 			})
 			return
 		}

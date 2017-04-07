@@ -142,7 +142,7 @@ func (a *app) KeyPress(b byte) {
 
 func (a *app) quit() {
 	a.log.Info("Quitting.")
-	a.reactor.Stop()
+	a.reactor.Stop(nil)
 }
 
 func (a *app) moveDownBySingleLine() {
@@ -232,7 +232,7 @@ func (a *app) moveBottom() {
 		offset, err := FindJumpToBottomOffset(a.filename)
 		if err != nil {
 			a.log.Warn("Could not find jump-to-bottom offset: %v", err)
-			a.reactor.Stop()
+			a.reactor.Stop(err)
 			return
 		}
 		a.reactor.Enque(func() {

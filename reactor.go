@@ -2,14 +2,14 @@ package main
 
 type Reactor interface {
 	Enque(func())
-	Run()
-	Stop()
+	Run() error
+	Stop(error)
 }
 
 func NewReactor(log Logger) Reactor {
 	return &reactor{
 		make(chan func(), 1024),
-		make(chan struct{}, 1),
+		make(chan error, 1),
 		log,
 	}
 }
@@ -18,7 +18,7 @@ func NewReactor(log Logger) Reactor {
 
 type reactor struct {
 	queue chan func()
-	stop  chan struct{}
+	stop  chan error
 	log   Logger
 }
 
@@ -26,12 +26,12 @@ func (r *reactor) Enque(fn func()) {
 	r.queue <- fn
 }
 
-func (r *reactor) Run() {
+func (r *reactor) Run() error {
 	for {
 		// Check stopping condition first, since it has the highest priority.
 		select {
-		case <-r.stop:
-			return
+		case err := <-r.stop:
+			return err
 		default:
 		}
 
@@ -41,18 +41,18 @@ func (r *reactor) Run() {
 			fn()
 			err := r.log.Flush() // TODO: Flush in own goroutine.
 			if err != nil {
-				r.Stop()
+				r.Stop(err)
 			}
-		case <-r.stop:
+		case err := <-r.stop:
 			r.log.Flush()
-			return
+			return err
 		}
 	}
 }
 
-func (r *reactor) Stop() {
+func (r *reactor) Stop(err error) {
 	select {
-	case r.stop <- struct{}{}:
+	case r.stop <- err:
 	default:
 	}
 }

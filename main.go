@@ -30,9 +30,7 @@ func main() {
 	}
 
 	enterAlt()
-	defer leaveAlt()
-
-	defer enterRaw().leaveRaw()
+	ttyState := enterRaw()
 
 	reactor := NewReactor(logger)
 
@@ -48,5 +46,13 @@ func main() {
 	collectSignals(reactor, app)
 	collectInput(reactor, app)
 	collectTermSize(reactor, app)
-	reactor.Run()
+	err := reactor.Run()
+
+	ttyState.leaveRaw()
+	leaveAlt()
+
+	if err != nil {
+		fmt.Printf("Error: %v", err)
+		os.Exit(1)
+	}
 }
