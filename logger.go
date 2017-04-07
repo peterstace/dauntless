@@ -38,14 +38,17 @@ type fileLogger struct {
 
 func (f *fileLogger) Info(format string, args ...interface{}) {
 	f.log("[Info ] "+format, args...)
+	f.Flush()
 }
 
 func (f *fileLogger) Debug(format string, args ...interface{}) {
 	f.log("[Debug] "+format, args...)
+	f.Flush()
 }
 
 func (f *fileLogger) Warn(format string, args ...interface{}) {
 	f.log("[Warn ] "+format, args...)
+	f.Flush()
 }
 
 func (f *fileLogger) log(format string, args ...interface{}) {

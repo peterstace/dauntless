@@ -75,6 +75,7 @@ func NewApp(reactor Reactor, filename string, loader Loader, logger Logger, scre
 
 func (a *app) Initialise() {
 	a.log.Info("***************** Initialising log viewer ******************")
+	a.fillScreenBuffer()
 }
 
 func (a *app) Signal(sig os.Signal) {
@@ -280,6 +281,7 @@ func (a *app) moveUpToOffset(offset int) {
 		a.bck = nil
 		a.offset = offset
 	}
+	a.fillScreenBuffer()
 }
 
 func (a *app) moveDownToOffset(offset int) {
@@ -305,6 +307,7 @@ func (a *app) moveDownToOffset(offset int) {
 		a.bck = nil
 		a.offset = offset
 	}
+	a.fillScreenBuffer()
 }
 
 func (a *app) setFG(s Style) {
@@ -376,11 +379,87 @@ func (a *app) consumeCommandChar(b byte) {
 	a.refresh()
 }
 
+const (
+	backLoadFactor    = 1
+	forwardLoadFactor = 2
+)
+
+func (a *app) fillScreenBuffer() {
+	if a.needsLoadingForward() {
+		a.loadForward()
+	} else if a.needsLoadingBackward() {
+		a.loadBackward()
+	} else {
+		a.log.Info("Screen buffer didn't need filling.")
+	}
+
+	// TODO: Screen buffer trimming.
+}
+
+func (a *app) needsLoadingForward() bool {
+	if len(a.fwd) >= a.rows*forwardLoadFactor {
+		return false
+	}
+	if len(a.fwd) > 0 {
+		lastLine := a.fwd[len(a.fwd)-1]
+		if lastLine.offset+len(lastLine.data) == a.fileSize {
+			return false
+		}
+	}
+	return true
+}
+
+func (a *app) needsLoadingBackward() bool {
+	if len(a.bck) >= a.rows*backLoadFactor {
+		return false
+	}
+	if len(a.bck) > 0 {
+		lastLine := a.bck[len(a.bck)-1]
+		if lastLine.offset == 0 {
+			return false
+		}
+	}
+	return true
+}
+
+func (a *app) loadForward() {
+	a.log.Debug("Loading forward.")
+	offset := a.offset
+	if len(a.fwd) > 0 {
+		lastLine := a.fwd[len(a.fwd)-1]
+		offset = lastLine.offset + len(lastLine.data)
+	}
+	a.loader.Load(LoadRequest{
+		Offset:   offset,
+		Amount:   defaultLoadAmount,
+		Forwards: true,
+	})
+}
+
+func (a *app) loadBackward() {
+	a.log.Debug("Loading backward.")
+	end := a.offset
+	if len(a.bck) > 0 {
+		end = a.bck[len(a.bck)-1].offset
+	}
+	start := end - defaultLoadAmount
+	start = max(0, start)
+	a.loader.Load(LoadRequest{
+		Offset:   start,
+		Amount:   end - start,
+		Forwards: false,
+	})
+}
+
 func (a *app) TermSize(rows, cols int, err error) {
 	if a.rows != rows || a.cols != cols {
 		a.rows = rows
 		a.cols = cols
 		a.log.Info("Term size: rows=%d cols=%d", rows, cols)
+
+		// Since the terminal changed size, we may now need to have a different
+		// number of lines loaded into the screen buffer.
+		a.fillScreenBuffer()
 		a.refresh()
 	}
 }
@@ -482,7 +561,6 @@ func (a *app) renderScreen() {
 			assert(a.fwd[len(a.fwd)-1].offset+len(a.fwd[len(a.fwd)-1].data) == a.fileSize) // Assert that it's actually equal.
 			break
 		} else {
-			a.loader.Load(offset, defaultLoadAmount)
 			buildLoadingScreen(a.screenBuffer, a.cols)
 			break
 		}
@@ -512,17 +590,19 @@ const defaultLoadAmount = 64
 
 func (a *app) LoadComplete(resp LoadResponse) {
 
-	a.log.Info("Data loaded: From=%d To=%d Len=%d", resp.Offset, resp.Offset+len(resp.Payload), len(resp.Payload))
+	req := resp.Request
+
+	a.log.Info("Data loaded: From=%d To=%d Len=%d",
+		req.Offset, req.Offset+len(resp.Payload), len(resp.Payload))
 	if resp.FileSize != a.fileSize {
 		a.log.Info("File size changed: oldSize=%d newSize=%d", a.fileSize, resp.FileSize)
 		a.fileSize = resp.FileSize
 	}
 	a.fileSize = resp.FileSize
 
-	offset := resp.Offset
-	containedLine := false
-	for _, data := range extractLines(resp.Payload) {
-		containedLine = true
+	lines := extractLines(resp.Payload)
+	offset := req.Offset
+	for _, data := range lines {
 		if len(a.fwd) == 0 && offset == a.offset {
 			a.fwd = append(a.fwd, line{offset, data})
 		} else if len(a.fwd) > 0 && a.fwd[len(a.fwd)-1].offset+len(a.fwd[len(a.fwd)-1].data) == offset {
@@ -530,15 +610,47 @@ func (a *app) LoadComplete(resp LoadResponse) {
 		}
 		offset += len(data)
 	}
-
-	if containedLine {
-		a.refresh()
-	} else if reachedEndOfFile := resp.Offset+len(resp.Payload) == a.fileSize; !reachedEndOfFile {
-		a.log.Warn("Data loaded didn't contain at least one complete line: retrying with double amount.")
-		a.loader.Load(resp.Offset, 2*len(resp.Payload))
-	} else {
-		a.log.Warn("Data loaded didn't contain at least one complete line: reached EOF")
+	for i := len(lines) - 1; i >= 0; i-- {
+		data := lines[i]
+		if len(a.bck) == 0 && offset == a.offset {
+			a.bck = append(a.bck, line{offset - len(data), data})
+		} else if len(a.bck) > 0 && a.bck[len(a.bck)-1].offset == offset {
+			a.bck = append(a.bck, line{offset - len(data), data})
+		}
+		offset -= len(data)
 	}
+
+	if len(lines) > 0 {
+		a.refresh()
+	} else {
+		if req.Forwards {
+			reachedEndOfFile := req.Offset+len(resp.Payload) >= a.fileSize
+			if reachedEndOfFile {
+				a.log.Warn("Data loaded didn't contain at least one complete line: reached EOF")
+			} else {
+				a.log.Warn("Data loaded didn't contain at least one complete line: retrying with double amount.")
+				req.Amount *= 2
+				a.loader.Load(req)
+			}
+		} else {
+			reachedStartOfFile := req.Offset == 0
+			if reachedStartOfFile {
+				a.log.Warn("Data loaded didn't contain at least one complete line: reached offset 0")
+			} else {
+				a.log.Warn("Data loaded didn't contain at least one complete line: retrying with double amount.")
+				end := req.Offset + req.Amount
+				req.Amount *= 2
+				req.Offset = end - req.Amount
+				if req.Offset < 0 {
+					req.Amount += req.Offset // reduces req.Amount
+					req.Offset = 0
+				}
+				a.loader.Load(req)
+			}
+		}
+	}
+
+	a.fillScreenBuffer()
 }
 
 func buildLoadingScreen(buf []byte, cols int) {
