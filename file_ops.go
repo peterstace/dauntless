@@ -3,6 +3,7 @@ package main
 import (
 	"io"
 	"os"
+	"regexp"
 )
 
 func FindJumpToBottomOffset(filename string) (int, error) {
@@ -64,4 +65,9 @@ func FindJumpToBottomOffset(filename string) (int, error) {
 
 	assert(false)
 	return 0, nil
+}
+
+func FindNextMatch(filename string, start int, re *regexp.Regexp) (int, error) {
+	// TODO:
+	return 0, io.EOF
 }
