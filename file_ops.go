@@ -68,7 +68,7 @@ func FindJumpToBottomOffset(filename string) (int, error) {
 	return 0, nil
 }
 
-const nextMatchInitialChunkSize = 64 * (1 << 10)
+const matchInitialChunkSize = 64 * (1 << 10)
 
 func FindNextMatch(filename string, start int, re *regexp.Regexp) (int, error) {
 
@@ -82,7 +82,7 @@ func FindNextMatch(filename string, start int, re *regexp.Regexp) (int, error) {
 	}
 	defer f.Close()
 
-	buf := make([]byte, nextMatchInitialChunkSize)
+	buf := make([]byte, matchInitialChunkSize)
 	for {
 
 		var lines []string
@@ -108,6 +108,28 @@ func FindNextMatch(filename string, start int, re *regexp.Regexp) (int, error) {
 				return start, nil
 			}
 			start += len(line)
+		}
+	}
+}
+
+func FindPrevMatch(filename string, endOffset int, re *regexp.Regexp) (int, error) {
+
+	f, err := os.Open(filename)
+	if err != nil {
+		return 0, err
+	}
+	defer f.Close()
+
+	lineReader := NewBackwardLineReader(f, endOffset)
+	offset := endOffset
+	for {
+		line, err := lineReader.ReadLine()
+		if err != nil {
+			return 0, err
+		}
+		offset -= len(line)
+		if re.Match(line) {
+			return offset, nil
 		}
 	}
 }
