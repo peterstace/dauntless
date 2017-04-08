@@ -106,6 +106,7 @@ func (a *app) KeyPress(b byte) {
 		'G': a.moveBottom,
 		'/': a.startSearchCommand,
 		'n': a.jumpToNextMatch,
+		'N': a.jumpToPrevMatch,
 
 		'0': func() { a.setFG(Black) },
 		'1': func() { a.setFG(Red) },
@@ -411,6 +412,39 @@ func (a *app) jumpToNextMatch() {
 			if err != nil {
 				a.log.Warn("Regexp search completed with error: %v", err)
 				a.reactor.Stop(err)
+				return
+			}
+			a.log.Info("Regexp search completed with match.")
+			a.moveToOffset(offset)
+			a.refresh()
+		})
+	}()
+}
+
+func (a *app) jumpToPrevMatch() {
+
+	if len(a.regexes) == 0 {
+		a.log.Info("No regex to jump to.")
+		return
+	}
+
+	endOffset := a.offset
+
+	rgx := a.regexes[0]
+	a.log.Info("Searching for previous regexp match: regexp=%q", rgx.re)
+
+	reCopy := rgx.re.Copy()
+	go func() {
+		offset, err := FindPrevMatch(a.filename, endOffset, reCopy)
+		a.reactor.Enque(func() {
+			if err != nil && err != io.EOF {
+				a.log.Warn("Regexp search completed with error: %v", err)
+				a.reactor.Stop(err)
+				return
+			}
+			if err == io.EOF {
+				a.log.Info("Regexp search completed: no match found.")
+				// TODO: Should somehow display this to the user?
 				return
 			}
 			a.log.Info("Regexp search completed with match.")
