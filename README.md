@@ -10,8 +10,6 @@ Proof-of-concept. Completely incomplete.
 
 ### MVP (Essential)
 
-* Search backwards.
-
 * Split lines mode.
 
 * Move left/right when in non-split mode.
@@ -35,6 +33,9 @@ Proof-of-concept. Completely incomplete.
 * Cycle between regexps.
 
 * Change colour of existing regexp.
+
+* Some buffer sizes and chunk sizes are quite small, and would lead to bad
+  performance. These should ideally be configurable.
 
 ### Nice To Have
 
