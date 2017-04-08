@@ -18,6 +18,8 @@ Proof-of-concept. Completely incomplete.
 
 ### Important
 
+* Prune fwd and bck.
+
 * Display message to user.
 
 * Bisect file. Only consider lines matching custom regexp.
