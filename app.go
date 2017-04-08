@@ -600,21 +600,29 @@ func (a *app) renderScreen() {
 	a.clearScreenBuffers()
 
 	assert(len(a.fwd) == 0 || a.fwd[0].offset == a.offset)
-	offset := a.offset
+	var lineBuf []byte
+	var styleBuf []Style
+	var fwdIdx int
 	lineRows := a.rows - 2 // 2 rows reserved for status line and command line.
 	for row := 0; row < lineRows; row++ {
-		if row < len(a.fwd) {
-
-			data := a.fwd[row].data
-			assert(data[len(data)-1] == '\n')
-			data = data[:len(data)-1]
-
-			lineBuf := a.renderLine(data)
-			styleBuf := a.renderStyle(data)
-
-			copy(a.screenBuffer[row*a.cols:(row+1)*a.cols], lineBuf)
-			copy(a.stylesBuffer[row*a.cols:(row+1)*a.cols], styleBuf)
-
+		if fwdIdx < len(a.fwd) {
+			if len(lineBuf) == 0 {
+				assert(len(styleBuf) == 0)
+				data := a.fwd[fwdIdx].data
+				assert(data[len(data)-1] == '\n')
+				data = data[:len(data)-1]
+				lineBuf = a.renderLine(data)
+				styleBuf = a.renderStyle(data)
+				fwdIdx++
+			}
+			if !a.lineWrapMode {
+				copy(a.screenBuffer[row*a.cols:(row+1)*a.cols], lineBuf)
+				copy(a.stylesBuffer[row*a.cols:(row+1)*a.cols], styleBuf)
+				lineBuf = nil
+				styleBuf = nil
+			} else {
+				// TODO
+			}
 		} else if len(a.fwd) != 0 && a.fwd[len(a.fwd)-1].offset+len(a.fwd[len(a.fwd)-1].data) >= a.fileSize {
 			// Reached end of file.
 			assert(a.fwd[len(a.fwd)-1].offset+len(a.fwd[len(a.fwd)-1].data) == a.fileSize) // Assert that it's actually equal.
@@ -624,7 +632,6 @@ func (a *app) renderScreen() {
 			buildLoadingScreen(a.screenBuffer, a.cols)
 			break
 		}
-		offset += len(a.fwd[row].data)
 	}
 
 	a.drawStatusLine()

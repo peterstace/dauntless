@@ -60,6 +60,8 @@ goroutine. But if the panic occurs in another goroutine, we're out of luck.
 
 * Inefficiency in finding bottom of file offset.
 
+* Add assertions back in for main data structure.
+
 ### Bugs
 
 * Logging outside of reactor when jumping to bottom.
