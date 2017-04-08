@@ -61,6 +61,8 @@ type app struct {
 	regexes []regex
 
 	overlay bool // XXX: For debugging.
+
+	splitMode bool
 }
 
 func NewApp(reactor Reactor, filename string, loader Loader, logger Logger, screen Screen) App {
@@ -107,6 +109,7 @@ func (a *app) KeyPress(b byte) {
 		'/': a.startSearchCommand,
 		'n': a.jumpToNextMatch,
 		'N': a.jumpToPrevMatch,
+		's': a.toggleSplitMode,
 
 		'0': func() { a.setFG(Black) },
 		'1': func() { a.setFG(Red) },
@@ -131,10 +134,10 @@ func (a *app) KeyPress(b byte) {
 		'(': func() { a.setBG(Default) },
 
 		// XXX For debugging:
-		's': func() {
-			a.overlay = !a.overlay
-			a.refresh()
-		},
+		//'s': func() {
+		//a.overlay = !a.overlay
+		//a.refresh()
+		//},
 	}[b]
 
 	if !ok {
@@ -454,6 +457,16 @@ func (a *app) jumpToPrevMatch() {
 	}()
 }
 
+func (a *app) toggleSplitMode() {
+	if a.splitMode {
+		a.log.Info("Toggling out of split mode.")
+	} else {
+		a.log.Info("Toggling into split mode.")
+	}
+	a.splitMode = !a.splitMode
+	a.refresh()
+}
+
 const (
 	backLoadFactor    = 1
 	forwardLoadFactor = 2
@@ -561,36 +574,16 @@ func (a *app) refresh() {
 	a.renderScreen()
 }
 
-func writeByte(buf []byte, b byte, offsetInLine int) int {
-
-	// Normal chars.
-	if b >= 32 && b <= 126 { // ' ' up to '~'
-		if len(buf) >= 1 {
-			buf[0] = b
-			return 1
-		}
-		return 0
+func displayByte(b byte) byte {
+	assert(b != '\n')
+	switch {
+	case b >= 32 && b < 126:
+		return b
+	case b == '\t':
+		return ' '
+	default:
+		return '?'
 	}
-
-	// Special cases.
-	switch b {
-	case '\n':
-		return 0
-	case '\t':
-		const tabSize = 4
-		spaces := tabSize - offsetInLine%tabSize
-		for i := 0; i < spaces && i < len(buf); i++ {
-			buf[i] = ' '
-		}
-		return min(spaces, len(buf))
-	}
-
-	// Unknown chars.
-	if len(buf) >= 1 {
-		buf[0] = '.'
-		return 1
-	}
-	return 0
 }
 
 func (a *app) clearScreenBuffers() {
@@ -611,33 +604,17 @@ func (a *app) renderScreen() {
 	lineRows := a.rows - 2 // 2 rows reserved for status line and command line.
 	for row := 0; row < lineRows; row++ {
 		if row < len(a.fwd) {
-			bounds := make([][][2]int, len(a.regexes))
-			matches := make([][][]int, len(a.regexes))
-			for r := range a.regexes {
-				matches[r] = a.regexes[r].re.FindAllStringIndex(a.fwd[row].data, -1)
-				bounds[r] = make([][2]int, len(matches[r]))
-			}
-			col := 0
-			for i := 0; col+1 < a.cols && i < len(a.fwd[row].data); i++ {
-				for r := range matches {
-					for j := range matches[r] {
-						if matches[r][j][0] == i {
-							bounds[r][j][0] = col
-						}
-						if matches[r][j][1] == i {
-							bounds[r][j][1] = col
-						}
-					}
-				}
-				col += writeByte(a.screenBuffer[row*a.cols+col:(row+1)*a.cols], a.fwd[row].data[i], col)
-			}
-			for r := range bounds {
-				for j := range bounds[r] {
-					for col := bounds[r][j][0]; col < bounds[r][j][1]; col++ {
-						a.stylesBuffer[row*a.cols+col] = a.regexes[r].style
-					}
-				}
-			}
+
+			data := a.fwd[row].data
+			assert(data[len(data)-1] == '\n')
+			data = data[:len(data)-1]
+
+			lineBuf := a.renderLine(data)
+			styleBuf := a.renderStyle(data)
+
+			copy(a.screenBuffer[row*a.cols:(row+1)*a.cols], lineBuf)
+			copy(a.stylesBuffer[row*a.cols:(row+1)*a.cols], styleBuf)
+
 		} else if len(a.fwd) != 0 && a.fwd[len(a.fwd)-1].offset+len(a.fwd[len(a.fwd)-1].data) >= a.fileSize {
 			// Reached end of file.
 			assert(a.fwd[len(a.fwd)-1].offset+len(a.fwd[len(a.fwd)-1].data) == a.fileSize) // Assert that it's actually equal.
@@ -669,6 +646,26 @@ func (a *app) renderScreen() {
 	}
 
 	a.screen.Write(a.screenBuffer, a.stylesBuffer, a.cols)
+}
+
+func (a *app) renderLine(data string) []byte {
+	buf := make([]byte, len(data))
+	for i := range data {
+		buf[i] = displayByte(data[i])
+	}
+	return buf
+}
+
+func (a *app) renderStyle(data string) []Style {
+	buf := make([]Style, len(data))
+	for _, regex := range a.regexes {
+		for _, match := range regex.re.FindAllStringIndex(data, -1) {
+			for i := match[0]; i < match[1]; i++ {
+				buf[i] = regex.style
+			}
+		}
+	}
+	return buf
 }
 
 func (a *app) drawStatusLine() {
