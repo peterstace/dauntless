@@ -12,8 +12,6 @@ Proof-of-concept. Completely incomplete.
 
 * Split lines mode.
 
-* Jump to next line matching regexp.
-
 * Move left/right when in non-split mode.
 
 * Change regexp colour using command interface.
