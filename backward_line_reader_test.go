@@ -16,6 +16,8 @@ func TestBackwardLineReaderSuccess(t *testing.T) {
 		// Could add more test cases. But this is all we needed when we ran
 		// into problems to help debugging.
 		{"", nil},
+		{"0", []string{"0"}},
+		{"\n", []string{"\n"}},
 		{"0123", []string{"0123"}},
 		{"0123\n", []string{"0123\n"}},
 		{"01234567890\n", []string{"01234567890\n"}},

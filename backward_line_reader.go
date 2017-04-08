@@ -21,17 +21,13 @@ func (b *BackwardLineReader) ReadLine() ([]byte, error) {
 		return nil, io.EOF
 	}
 
-	// Start at len(b.unused)-2 rather than len(b.unused)-1 so that we skip the
-	// newline at the end of the line we are about to read. Even if the char at
-	// the end of the line isn't a newline (which would be unexpected...) that
-	// would be okay.
-	for i := len(b.unused) - 2; i >= 0; i-- {
+	for i := len(b.unused) - 1; i >= 0; i-- {
 		if b.offset == 0 && i == 0 {
 			line := b.unused
 			b.unused = nil
 			return line, nil
 		}
-		if b.unused[i] == '\n' {
+		if b.unused[i] == '\n' && i != len(b.unused)-1 {
 			line := b.unused[i+1:]
 			b.unused = b.unused[:i+1]
 			return line, nil
