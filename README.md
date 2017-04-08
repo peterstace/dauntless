@@ -20,6 +20,8 @@ Proof-of-concept. Completely incomplete.
 
 ### Important
 
+* Display message to user.
+
 * Bisect file. Only consider lines matching custom regexp.
 
 * Bookmarks.
@@ -43,4 +45,16 @@ Proof-of-concept. Completely incomplete.
   Can use defers to restore the term state if the panic occurs in the main
 goroutine. But if the panic occurs in another goroutine, we're out of luck.
 
-* Refactoring and tests.
+### Technical Debt
+
+* `endOffset` method on `line`
+
+* Inefficiency in finding next match.
+
+* Inefficiency in finding bottom of file offset.
+
+### Bugs
+
+* Logging outside of reactor when jumping to bottom.
+
+* Not closing some opened files.
