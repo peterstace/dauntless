@@ -391,13 +391,13 @@ func (a *app) jumpToNextMatch() {
 	}
 
 	if len(a.fwd) == 0 {
-		a.log.Warn("Cannot jump to next match: current line is not loaded.")
+		a.log.Warn("Cannot search for next match: current line is not loaded.")
 		return
 	}
 	startOffset := a.fwd[0].offset + len(a.fwd[0].data) // TODO: A 'endOffset' method would be nice here.
 
 	rgx := a.regexes[0]
-	a.log.Info("Jumping to next regexp match: regexp=%q", rgx.re)
+	a.log.Info("Searching for next regexp match: regexp=%q", rgx.re)
 
 	reCopy := rgx.re.Copy()
 	go func() {
@@ -413,6 +413,7 @@ func (a *app) jumpToNextMatch() {
 				a.reactor.Stop(err)
 				return
 			}
+			a.log.Info("Regexp search completed with match.")
 			a.moveToOffset(offset)
 			a.refresh()
 		})
