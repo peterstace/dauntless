@@ -62,7 +62,7 @@ type app struct {
 
 	overlay bool // XXX: For debugging.
 
-	splitMode bool
+	lineWrapMode bool
 }
 
 func NewApp(reactor Reactor, filename string, loader Loader, logger Logger, screen Screen) App {
@@ -109,7 +109,7 @@ func (a *app) KeyPress(b byte) {
 		'/': a.startSearchCommand,
 		'n': a.jumpToNextMatch,
 		'N': a.jumpToPrevMatch,
-		's': a.toggleSplitMode,
+		'w': a.toggleLineWrapMode,
 
 		'0': func() { a.setFG(Black) },
 		'1': func() { a.setFG(Red) },
@@ -457,13 +457,13 @@ func (a *app) jumpToPrevMatch() {
 	}()
 }
 
-func (a *app) toggleSplitMode() {
-	if a.splitMode {
-		a.log.Info("Toggling out of split mode.")
+func (a *app) toggleLineWrapMode() {
+	if a.lineWrapMode {
+		a.log.Info("Toggling out of line wrap mode.")
 	} else {
-		a.log.Info("Toggling into split mode.")
+		a.log.Info("Toggling into line wrap mode.")
 	}
-	a.splitMode = !a.splitMode
+	a.lineWrapMode = !a.lineWrapMode
 	a.refresh()
 }
 
@@ -675,18 +675,27 @@ func (a *app) drawStatusLine() {
 		a.stylesBuffer[statusRow*a.cols+col] = mixStyle(Invert, Invert)
 	}
 
-	// 9.99%
-	// 99.9%
+	// Offset percentage.
 	pct := float64(a.offset) / float64(a.fileSize) * 100
 	var pctStr string
 	switch {
 	case pct < 10:
-		pctStr = fmt.Sprintf(" %3.2f%% ", pct)
+		// 9.99%
+		pctStr = fmt.Sprintf("%3.2f%%", pct)
 	default:
-		pctStr = fmt.Sprintf(" %3.1f%% ", pct)
+		// 99.9%
+		pctStr = fmt.Sprintf("%3.1f%%", pct)
 	}
 
-	statusRight := pctStr
+	// Line wrap mode.
+	var lineWrapMode string
+	if a.lineWrapMode {
+		lineWrapMode = "line-wrap-mode:on "
+	} else {
+		lineWrapMode = "line-wrap-mode:off"
+	}
+
+	statusRight := lineWrapMode + " " + pctStr + " "
 	statusLeft := " " + a.filename
 
 	buf := a.screenBuffer[statusRow*a.cols : (statusRow+1)*a.cols]

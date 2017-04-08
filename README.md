@@ -10,6 +10,8 @@ Proof-of-concept. Completely incomplete.
 
 ### MVP (Essential)
 
+* Help screen.
+
 * Split lines mode.
 
 * Move left/right when in non-split mode.
@@ -17,6 +19,8 @@ Proof-of-concept. Completely incomplete.
 * Change regexp colour using command interface.
 
 ### Important
+
+* Ctrl-C should cancel command inputs.
 
 * Prune fwd and bck.
 
