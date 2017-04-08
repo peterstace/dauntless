@@ -72,9 +72,7 @@ const matchInitialChunkSize = 64 * (1 << 10)
 
 func FindNextMatch(filename string, start int, re *regexp.Regexp) (int, error) {
 
-	// TODO: This doesn't seem too efficient, since we're splitting a whole
-	// file read into lines before doing the regexp searching, even though the
-	// match could be in the first line.
+	// TODO: Would be better to use a bufio.Reader.ReadBytes
 
 	f, err := os.Open(filename)
 	if err != nil {
