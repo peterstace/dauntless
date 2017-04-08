@@ -690,7 +690,7 @@ func (a *app) drawStatusLine() {
 	}
 
 	statusRight := pctStr
-	statusLeft := a.filename
+	statusLeft := " " + a.filename
 
 	buf := a.screenBuffer[statusRow*a.cols : (statusRow+1)*a.cols]
 	copy(buf[len(buf)-len(statusRight):], statusRight)
