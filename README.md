@@ -10,6 +10,8 @@ Proof-of-concept. Completely incomplete.
 
 ### MVP (Essential)
 
+* Search backwards.
+
 * Split lines mode.
 
 * Move left/right when in non-split mode.
