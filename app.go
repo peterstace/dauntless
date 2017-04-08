@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"regexp"
 )
@@ -104,6 +105,7 @@ func (a *app) KeyPress(b byte) {
 		'g': a.moveTop,
 		'G': a.moveBottom,
 		'/': a.startSearchCommand,
+		'n': a.jumpToNextMatch,
 
 		'0': func() { a.setFG(Black) },
 		'1': func() { a.setFG(Red) },
@@ -232,6 +234,7 @@ func (a *app) moveBottom() {
 
 	go func() {
 		offset, err := FindJumpToBottomOffset(a.filename)
+		// TODO: Not a good idea to do stuff outside of the reactor...
 		if err != nil {
 			a.log.Warn("Could not find jump-to-bottom offset: %v", err)
 			a.reactor.Stop(err)
@@ -378,6 +381,43 @@ func (a *app) consumeCommandChar(b byte) {
 	}
 
 	a.refresh()
+}
+
+func (a *app) jumpToNextMatch() {
+
+	if len(a.regexes) == 0 {
+		a.log.Info("No regex to jump to.")
+		return
+	}
+
+	if len(a.fwd) == 0 {
+		a.log.Warn("Cannot search for next match: current line is not loaded.")
+		return
+	}
+	startOffset := a.fwd[0].offset + len(a.fwd[0].data) // TODO: A 'endOffset' method would be nice here.
+
+	rgx := a.regexes[0]
+	a.log.Info("Searching for next regexp match: regexp=%q", rgx.re)
+
+	reCopy := rgx.re.Copy()
+	go func() {
+		offset, err := FindNextMatch(a.filename, startOffset, reCopy)
+		a.reactor.Enque(func() {
+			if err == io.EOF {
+				a.log.Info("Regexp search complete: no match found.")
+				// TODO: Should somehow display this to the user?
+				return
+			}
+			if err != nil {
+				a.log.Warn("Regexp search completed with error: %v", err)
+				a.reactor.Stop(err)
+				return
+			}
+			a.log.Info("Regexp search completed with match.")
+			a.moveToOffset(offset)
+			a.refresh()
+		})
+	}()
 }
 
 const (

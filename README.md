@@ -10,9 +10,9 @@ Proof-of-concept. Completely incomplete.
 
 ### MVP (Essential)
 
-* Split lines mode.
+* Search backwards.
 
-* Jump to next line matching regexp.
+* Split lines mode.
 
 * Move left/right when in non-split mode.
 

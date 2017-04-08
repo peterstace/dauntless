@@ -3,6 +3,7 @@ package main
 import (
 	"io"
 	"os"
+	"regexp"
 )
 
 func FindJumpToBottomOffset(filename string) (int, error) {
@@ -15,6 +16,7 @@ func FindJumpToBottomOffset(filename string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+	// TODO: Should close the file... And do an audit of opened but not closed files.
 
 	info, err := f.Stat()
 	if err != nil {
@@ -64,4 +66,48 @@ func FindJumpToBottomOffset(filename string) (int, error) {
 
 	assert(false)
 	return 0, nil
+}
+
+const nextMatchInitialChunkSize = 64 * (1 << 10)
+
+func FindNextMatch(filename string, start int, re *regexp.Regexp) (int, error) {
+
+	// TODO: This doesn't seem too efficient, since we're splitting a whole
+	// file read into lines before doing the regexp searching, even though the
+	// match could be in the first line.
+
+	f, err := os.Open(filename)
+	if err != nil {
+		return 0, err
+	}
+	defer f.Close()
+
+	buf := make([]byte, nextMatchInitialChunkSize)
+	for {
+
+		var lines []string
+		for {
+			n, err := f.ReadAt(buf, int64(start))
+			if err != nil && err != io.EOF {
+				return 0, err
+			}
+			lines = extractLines(buf[:n])
+			if len(lines) == 0 {
+				if err == io.EOF {
+					return 0, err
+				}
+				buf = make([]byte, 2*len(buf))
+			} else {
+				break
+			}
+		}
+
+		assert(len(lines) > 0)
+		for _, line := range lines {
+			if re.MatchString(line) {
+				return start, nil
+			}
+			start += len(line)
+		}
+	}
 }
