@@ -15,9 +15,20 @@ state.
 
 ### Most Important
 
-* Help screen.
+* Ctrl-C should cancel command inputs.
+
+* Prune fwd and bck.
+
+* Allow multiple regexps.
+
+* Cycle between regexps.
+
+* Change colour of existing regexp.
 
 ### Important
+
+* Help screen. Application name, author, copyright notice. Then a list of key
+  mappings.
 
 * Versioning.
 
@@ -29,10 +40,6 @@ state.
 
 * Tilde for EOF.
 
-* Ctrl-C should cancel command inputs.
-
-* Prune fwd and bck.
-
 * Display message to user.
 
 * Bisect file. Only consider lines matching custom regexp.
@@ -42,12 +49,6 @@ state.
 * Custom indentation in split lines mode.
 
 * Custom disable/enable regexp colour choices.
-
-* Allow multiple regexps.
-
-* Cycle between regexps.
-
-* Change colour of existing regexp.
 
 * Some buffer sizes and chunk sizes are quite small, and would lead to bad
   performance. These should ideally be configurable.
