@@ -17,8 +17,6 @@ state.
 
 * Help screen.
 
-* Change regexp colour using command interface.
-
 ### Important
 
 * Versioning.

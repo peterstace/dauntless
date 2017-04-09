@@ -114,28 +114,6 @@ func (a *app) KeyPress(b byte) {
 		'N': a.jumpToPrevMatch,
 		'w': a.toggleLineWrapMode,
 		'c': a.startColourCommand,
-
-		'0': func() { a.setFG(Black) },
-		'1': func() { a.setFG(Red) },
-		'2': func() { a.setFG(Green) },
-		'3': func() { a.setFG(Yellow) },
-		'4': func() { a.setFG(Blue) },
-		'5': func() { a.setFG(Magenta) },
-		'6': func() { a.setFG(Cyan) },
-		'7': func() { a.setFG(White) },
-		'8': func() { a.setFG(Invert) },
-		'9': func() { a.setFG(Default) },
-
-		')': func() { a.setBG(Black) },
-		'!': func() { a.setBG(Red) },
-		'@': func() { a.setBG(Green) },
-		'#': func() { a.setBG(Yellow) },
-		'$': func() { a.setBG(Blue) },
-		'%': func() { a.setBG(Magenta) },
-		'^': func() { a.setBG(Cyan) },
-		'&': func() { a.setBG(White) },
-		'*': func() { a.setBG(Invert) },
-		'(': func() { a.setBG(Default) },
 	}[b]
 
 	if !ok {
@@ -340,22 +318,6 @@ func (a *app) moveDownToOffset(offset int) {
 		a.offset = offset
 	}
 	a.fillScreenBuffer()
-}
-
-func (a *app) setFG(s Style) {
-	a.log.Info("Setting FG: %v", s)
-	if len(a.regexes) > 0 {
-		a.regexes[0].style.setFG(s)
-	}
-	a.refresh()
-}
-
-func (a *app) setBG(s Style) {
-	a.log.Info("Setting BG: %v", s)
-	if len(a.regexes) > 0 {
-		a.regexes[0].style.setBG(s)
-	}
-	a.refresh()
 }
 
 func (a *app) startSearchCommand() {
