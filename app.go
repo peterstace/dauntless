@@ -10,6 +10,8 @@ import (
 type App interface {
 	Initialise()
 	KeyPress(byte)
+	SpecialKeyPress(SpecialKey)
+	UnknownKeySequence([]byte)
 	TermSize(rows, cols int, err error)
 	LoadComplete(LoadResponse)
 	Signal(os.Signal)
@@ -146,6 +148,14 @@ func (a *app) KeyPress(b byte) {
 	}
 
 	fn()
+}
+
+func (a *app) SpecialKeyPress(key SpecialKey) {
+	a.log.Info("Special key press: %v", key)
+}
+
+func (a *app) UnknownKeySequence(seq []byte) {
+	a.log.Warn("Unknown key sequence: %v", seq)
 }
 
 func (a *app) quit() {
