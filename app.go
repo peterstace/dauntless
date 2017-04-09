@@ -621,7 +621,11 @@ func (a *app) renderScreen() {
 				lineBuf = nil
 				styleBuf = nil
 			} else {
-				// TODO
+				copiedA := copy(a.screenBuffer[row*a.cols:(row+1)*a.cols], lineBuf)
+				copiedB := copy(a.stylesBuffer[row*a.cols:(row+1)*a.cols], styleBuf)
+				assert(copiedA == copiedB)
+				lineBuf = lineBuf[copiedA:]
+				styleBuf = styleBuf[copiedB:]
 			}
 		} else if len(a.fwd) != 0 && a.fwd[len(a.fwd)-1].offset+len(a.fwd[len(a.fwd)-1].data) >= a.fileSize {
 			// Reached end of file.

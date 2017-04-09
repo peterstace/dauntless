@@ -8,11 +8,9 @@ Proof-of-concept. Completely incomplete.
 
 ## TODO List
 
-### MVP (Essential)
+### Most Important
 
 * Help screen.
-
-* Split lines mode.
 
 * Move left/right when in non-split mode.
 
