@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -22,6 +23,7 @@ type command int
 const (
 	none command = iota
 	search
+	colour
 )
 
 type line struct {
@@ -61,8 +63,6 @@ type app struct {
 	commandText string
 
 	regexes []regex
-
-	overlay bool // XXX: For debugging.
 
 	lineWrapMode bool
 	xPosition    int
@@ -113,6 +113,7 @@ func (a *app) KeyPress(b byte) {
 		'n': a.jumpToNextMatch,
 		'N': a.jumpToPrevMatch,
 		'w': a.toggleLineWrapMode,
+		'c': a.startColourCommand,
 
 		'0': func() { a.setFG(Black) },
 		'1': func() { a.setFG(Red) },
@@ -135,12 +136,6 @@ func (a *app) KeyPress(b byte) {
 		'&': func() { a.setBG(White) },
 		'*': func() { a.setBG(Invert) },
 		'(': func() { a.setBG(Default) },
-
-		// XXX For debugging:
-		//'s': func() {
-		//a.overlay = !a.overlay
-		//a.refresh()
-		//},
 	}[b]
 
 	if !ok {
@@ -374,13 +369,14 @@ func (a *app) finishSearchCommand() {
 	re, err := regexp.Compile(a.commandText)
 	if err != nil {
 		a.log.Warn("Could not compile regexp: Regexp=%q Err=%q", a.commandText, err)
+		// TODO: Should tell user?
 		return
 	}
 	a.log.Info("Regex compiled.")
 	if len(a.regexes) == 0 {
 		a.regexes = []regex{regex{}}
 	}
-	a.regexes[0] = regex{mixStyle(White, Red), re}
+	a.regexes[0] = regex{mixStyle(Invert, Invert), re}
 }
 
 func (a *app) consumeCommandChar(b byte) {
@@ -402,6 +398,8 @@ func (a *app) consumeCommandChar(b byte) {
 		switch a.commandMode {
 		case search:
 			a.finishSearchCommand()
+		case colour:
+			a.finishColourCommand()
 		case none:
 			assert(false)
 		default:
@@ -497,9 +495,47 @@ func (a *app) toggleLineWrapMode() {
 	a.refresh()
 }
 
+func (a *app) startColourCommand() {
+	a.commandMode = colour
+	a.log.Info("Accepting colour command.")
+	a.refresh()
+}
+
+var styles = [...]Style{Default, Black, Red, Green, Yellow, Blue, Magenta, Cyan, White}
+
+func (a *app) finishColourCommand() {
+
+	a.log.Info("Colour command entered: %q", a.commandText)
+
+	style, err := parseColourCode(a.commandText)
+	if err != nil {
+		a.log.Warn("Could not parse entered colour: %v", err)
+		// TODO: Should tell user?
+		return
+	}
+	a.log.Info("Style parsed.")
+
+	if len(a.regexes) > 0 {
+		a.regexes[0].style = style
+	}
+	a.refresh()
+}
+
+func parseColourCode(code string) (Style, error) {
+	err := errors.New("colour code must be in format [0-8][0-8]")
+	if len(code) != 2 {
+		return 0, err
+	}
+	fg := code[0]
+	bg := code[1]
+	if fg < '0' || fg > '8' || bg < '0' || bg > '8' {
+		return 0, err
+	}
+	return mixStyle(styles[fg-'0'], styles[bg-'0']), nil
+}
+
 func (a *app) reduceXPosition() {
 	a.changeXPosition(max(0, a.xPosition-a.cols/4))
-
 }
 
 func (a *app) increaseXPosition() {
@@ -693,6 +729,8 @@ func (a *app) renderScreen() {
 	switch a.commandMode {
 	case search:
 		commandLineText = "Enter search regexp: " + a.commandText
+	case colour:
+		commandLineText = "Enter colour code: " + a.commandText
 	case none:
 	default:
 		assert(false)
@@ -700,9 +738,8 @@ func (a *app) renderScreen() {
 	commandRow := a.rows - 1
 	copy(a.screenBuffer[commandRow*a.cols:(commandRow+1)*a.cols], commandLineText)
 
-	// XXX: Debugging.
-	if a.overlay {
-		overlaySwatch(a.screenBuffer, a.stylesBuffer, a.cols)
+	if a.commandMode == colour {
+		a.overlaySwatch()
 	}
 
 	a.screen.Write(a.screenBuffer, a.stylesBuffer, a.cols)
@@ -837,46 +874,43 @@ func buildLoadingScreen(buf []byte, cols int) {
 	copy(buf[row*cols+startCol:], loading)
 }
 
-func overlaySwatch(chars []byte, styles []Style, cols int) {
+func (a *app) overlaySwatch() {
 
-	// 10 by 10 swatches. 4 chars wide each. So 40 wide and 10 high. Plus a
-	// border of 1 around each side.
+	const sideBorder = 2
+	const topBorder = 1
+	const colourWidth = 4
+	const swatchWidth = len(styles)*colourWidth + sideBorder*2
+	const swatchHeight = len(styles) + topBorder*2
 
-	const width = 42
-	const height = 12
+	startCol := (a.cols - swatchWidth) / 2
+	startRow := (a.rows - swatchHeight) / 2
+	endCol := startCol + swatchWidth
+	endRow := startRow + swatchHeight
 
-	rows := len(chars) / cols
-	startCol := (cols - width) / 2
-	startRow := (rows - height) / 2
-
-	// Draw the border.
-	inv := mixStyle(Invert, Invert)
-	for col := startCol; col < startCol+width; col++ {
-		chars[startRow*cols+col] = ' '
-		styles[startRow*cols+col] = inv
-		chars[(startRow+height-1)*cols+col] = ' '
-		styles[(startRow+height-1)*cols+col] = inv
-	}
-	for row := startRow; row < startRow+height; row++ {
-		chars[row*cols+startCol] = ' '
-		styles[row*cols+startCol] = inv
-		chars[row*cols+startCol+width-1] = ' '
-		styles[row*cols+startCol+width-1] = inv
-	}
-
-	for fg := 0; fg <= 9; fg++ {
-		for bg := 0; bg <= 9; bg++ {
-			r := startRow + 1 + int(fg)
-			c := startCol + 2 + 4*int(bg)
-			chars[r*cols+c] = '0' + byte(fg)
-			chars[r*cols+c+1] = '0' + byte(bg)
-			chars[r*cols+c-1] = ' '
-			chars[r*cols+c+2] = ' '
-			style := mixStyle(Style(fg), Style(bg))
-			for i := 0; i < 4; i++ {
-				styles[r*cols+c-1+i] = style
+	for row := startRow; row < endRow; row++ {
+		for col := startCol; col < endCol; col++ {
+			idx := a.rowColIdx(row, col)
+			if col-startCol < 2 || endCol-col <= 2 || row-startRow < 1 || endRow-row <= 1 {
+				a.stylesBuffer[idx] = mixStyle(Invert, Invert)
 			}
+			a.screenBuffer[idx] = ' '
 		}
 	}
 
+	for fg := 0; fg < len(styles); fg++ {
+		for bg := 0; bg < len(styles); bg++ {
+			start := startCol + sideBorder + bg*colourWidth
+			row := startRow + topBorder + fg
+			a.screenBuffer[a.rowColIdx(row, start+1)] = byte(fg) + '0'
+			a.screenBuffer[a.rowColIdx(row, start+2)] = byte(bg) + '0'
+			style := mixStyle(styles[fg], styles[bg])
+			for i := 0; i < 4; i++ {
+				a.stylesBuffer[a.rowColIdx(row, start+i)] = style
+			}
+		}
+	}
+}
+
+func (a *app) rowColIdx(row, col int) int {
+	return row*a.cols + col
 }

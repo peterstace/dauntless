@@ -21,6 +21,8 @@ state.
 
 ### Important
 
+* Versioning.
+
 * Managed cursor position (currently goes off the end of the screen in tmux).
 
 * Cursor should follow current position in command mode.
@@ -51,6 +53,9 @@ state.
 
 * Some buffer sizes and chunk sizes are quite small, and would lead to bad
   performance. These should ideally be configurable.
+
+* Predefined (config file) and pre-loaded regexes. E.g. to highlight errors
+  that would always appear the same way.
 
 ### Least Important
 
