@@ -65,6 +65,7 @@ type app struct {
 	overlay bool // XXX: For debugging.
 
 	lineWrapMode bool
+	xPosition    int
 }
 
 func NewApp(reactor Reactor, filename string, loader Loader, logger Logger, screen Screen) App {
@@ -151,7 +152,25 @@ func (a *app) KeyPress(b byte) {
 }
 
 func (a *app) SpecialKeyPress(key SpecialKey) {
+
 	a.log.Info("Special key press: %v", key)
+
+	if a.commandMode != none {
+		a.log.Info("Ignoring special key press: inside command mode.")
+		return
+	}
+
+	fn, ok := map[SpecialKey]func(){
+		LeftArrowKey:  a.reduceXPosition,
+		RightArrowKey: a.increaseXPosition,
+	}[key]
+
+	if !ok {
+		a.log.Info("Unhandled special key press: %v", key)
+		return
+	}
+
+	fn()
 }
 
 func (a *app) UnknownKeySequence(seq []byte) {
@@ -474,7 +493,25 @@ func (a *app) toggleLineWrapMode() {
 		a.log.Info("Toggling into line wrap mode.")
 	}
 	a.lineWrapMode = !a.lineWrapMode
+	a.xPosition = 0
 	a.refresh()
+}
+
+func (a *app) reduceXPosition() {
+	a.changeXPosition(max(0, a.xPosition-a.cols/4))
+
+}
+
+func (a *app) increaseXPosition() {
+	a.changeXPosition(max(0, a.xPosition+a.cols/4))
+}
+
+func (a *app) changeXPosition(newPosition int) {
+	a.log.Info("Changing x position: old=%v new=%v", a.xPosition, newPosition)
+	if a.xPosition != newPosition {
+		a.xPosition = newPosition
+		a.refresh()
+	}
 }
 
 const (
@@ -626,8 +663,10 @@ func (a *app) renderScreen() {
 				fwdIdx++
 			}
 			if !a.lineWrapMode {
-				copy(a.screenBuffer[row*a.cols:(row+1)*a.cols], lineBuf)
-				copy(a.stylesBuffer[row*a.cols:(row+1)*a.cols], styleBuf)
+				if a.xPosition < len(lineBuf) {
+					copy(a.screenBuffer[row*a.cols:(row+1)*a.cols], lineBuf[a.xPosition:])
+					copy(a.stylesBuffer[row*a.cols:(row+1)*a.cols], styleBuf[a.xPosition:])
+				}
 				lineBuf = nil
 				styleBuf = nil
 			} else {

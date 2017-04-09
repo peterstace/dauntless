@@ -17,8 +17,6 @@ state.
 
 * Help screen.
 
-* Move left/right when in non-split mode.
-
 * Change regexp colour using command interface.
 
 ### Important
