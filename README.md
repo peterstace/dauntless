@@ -6,6 +6,11 @@ LV is a log file viewer. Will LV even be the final name? Who knows.
 
 Proof-of-concept. Completely incomplete.
 
+## It crashed, and now my terminal is screwed up...
+
+Enter (blindly) the command `stty sane` to restore the terminal to a useable
+state.
+
 ## TODO List
 
 ### Most Important
@@ -17,6 +22,14 @@ Proof-of-concept. Completely incomplete.
 * Change regexp colour using command interface.
 
 ### Important
+
+* Managed cursor position (currently goes off the end of the screen in tmux).
+
+* Cursor should follow current position in command mode.
+
+* Arrow keys in command mode (at least for search?).
+
+* Tilde for EOF.
 
 * Ctrl-C should cancel command inputs.
 
@@ -41,7 +54,7 @@ Proof-of-concept. Completely incomplete.
 * Some buffer sizes and chunk sizes are quite small, and would lead to bad
   performance. These should ideally be configurable.
 
-### Nice To Have
+### Least Important
 
 * Signal for term size change. This would be more efficient than running `stty
   size` externally once per second to detect a term size change.
