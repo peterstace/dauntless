@@ -14,6 +14,7 @@ type App interface {
 	SpecialKeyPress(SpecialKey)
 	UnknownKeySequence([]byte)
 	TermSize(rows, cols int, err error)
+	FileSize(int, error)
 	LoadComplete(LoadResponse)
 	Signal(os.Signal)
 }
@@ -631,6 +632,14 @@ func (a *app) TermSize(rows, cols int, err error) {
 		// number of lines loaded into the screen buffer.
 		a.fillScreenBuffer()
 		a.refresh()
+	}
+}
+
+func (a *app) FileSize(size int, err error) {
+	oldSize := a.fileSize
+	if size != oldSize {
+		a.fileSize = size
+		a.log.Info("File size changed: old=%d new=%d", oldSize, size)
 	}
 }
 
