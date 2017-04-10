@@ -31,6 +31,10 @@ type line struct {
 	data   string
 }
 
+func (l line) nextOffset() int {
+	return l.offset + len(l.data)
+}
+
 type regex struct {
 	style Style
 	re    *regexp.Regexp
@@ -203,7 +207,7 @@ func (a *app) moveDown() {
 	ln := a.fwd[0]
 	newOffset := ln.offset + len(ln.data)
 
-	if newOffset == a.fileSize {
+	if newOffset == a.fileSize { // TODO: This isn't a great way of doing it... Can just check that we wouldn't advance past the end of fwd.
 		a.log.Info("Cannot move down: reached EOF.")
 		return
 	}
@@ -518,10 +522,15 @@ const (
 )
 
 func (a *app) fillScreenBuffer() {
-	if a.needsLoadingForward() {
-		a.loadForward()
-	} else if a.needsLoadingBackward() {
-		a.loadBackward()
+
+	a.log.Info("Filling screen buffer, has initial state: fwd=%d bck=%d", len(a.fwd), len(a.bck))
+
+	// TODO: Need to get the file size before we can do anything else.
+
+	if lines := a.needsLoadingForward(); lines != 0 {
+		a.loadForward(lines)
+	} else if lines := a.needsLoadingBackward(); lines != 0 {
+		a.loadBackward(lines)
 	} else {
 		a.log.Info("Screen buffer didn't need filling.")
 	}
@@ -529,50 +538,75 @@ func (a *app) fillScreenBuffer() {
 	// TODO: Screen buffer trimming.
 }
 
-func (a *app) needsLoadingForward() bool {
+func (a *app) needsLoadingForward() int {
 	if len(a.fwd) >= a.rows*forwardLoadFactor {
-		return false
+		return 0
 	}
 	if len(a.fwd) > 0 {
 		lastLine := a.fwd[len(a.fwd)-1]
-		if lastLine.offset+len(lastLine.data) == a.fileSize {
-			return false
+		if lastLine.offset+len(lastLine.data) >= a.fileSize {
+			return 0
 		}
 	}
-	return true
+	return a.rows*forwardLoadFactor - len(a.fwd)
 }
 
-func (a *app) needsLoadingBackward() bool {
+func (a *app) needsLoadingBackward() int {
 	if a.offset == 0 {
-		return false
+		return 0
 	}
 	if len(a.bck) >= a.rows*backLoadFactor {
-		return false
+		return 0
 	}
 	if len(a.bck) > 0 {
 		lastLine := a.bck[len(a.bck)-1]
 		if lastLine.offset == 0 {
-			return false
+			return 0
 		}
 	}
-	return true
+	return a.rows*backLoadFactor - len(a.bck)
 }
 
-func (a *app) loadForward() {
+func (a *app) loadForward(amount int) {
+
+	//if a.loading {
+	//a.log.Info("Already loading forward.")
+	//return
+	//}
+
 	a.log.Debug("Loading forward.")
+
 	offset := a.offset
 	if len(a.fwd) > 0 {
-		lastLine := a.fwd[len(a.fwd)-1]
-		offset = lastLine.offset + len(lastLine.data)
+		offset = a.fwd[len(a.fwd)-1].nextOffset()
 	}
-	a.loader.Load(LoadRequest{
-		Offset:   offset,
-		Amount:   defaultLoadAmount,
-		Forwards: true,
-	})
+
+	go func() {
+		lines, err := LoadFwd(a.filename, offset, amount)
+		a.reactor.Enque(func() {
+			a.log.Info("Got lines: %d", len(lines))
+			if err != nil {
+				a.log.Warn("Error loading forward: %v", err)
+				a.reactor.Stop(err)
+				return
+			}
+			for _, data := range lines {
+				if (len(a.fwd) == 0 && offset == a.offset) ||
+					(len(a.fwd) > 0 && a.fwd[len(a.fwd)-1].nextOffset() == offset) {
+					a.log.Debug("Line: offset=%v data=%q", offset, data)
+					a.fwd = append(a.fwd, line{offset, data})
+				}
+				offset += len(data)
+			}
+			if len(lines) > 0 {
+				a.refresh()
+			}
+			a.fillScreenBuffer()
+		})
+	}()
 }
 
-func (a *app) loadBackward() {
+func (a *app) loadBackward(int) {
 	a.log.Debug("Loading backward.")
 	end := a.offset
 	if len(a.bck) > 0 {
@@ -754,7 +788,7 @@ func (a *app) drawStatusLine() {
 		lineWrapMode = "line-wrap-mode:off"
 	}
 
-	statusRight := lineWrapMode + " " + pctStr + " "
+	statusRight := fmt.Sprintf("fwd:%d bck:%d ", len(a.fwd), len(a.bck)) + lineWrapMode + " " + pctStr + " "
 	statusLeft := " " + a.filename
 
 	buf := a.screenBuffer[statusRow*a.cols : (statusRow+1)*a.cols]
