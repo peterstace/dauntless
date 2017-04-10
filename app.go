@@ -200,20 +200,14 @@ func (a *app) moveDown() {
 
 	a.log.Info("Moving down.")
 
-	if len(a.fwd) == 0 {
+	switch len(a.fwd) {
+	case 0:
 		a.log.Warn("Cannot move down: current line not loaded.")
-		return
+	case 1:
+		a.log.Warn("Cannot move down: would go past EOF.")
+	default:
+		a.moveToOffset(a.fwd[1].offset)
 	}
-
-	ln := a.fwd[0]
-	newOffset := ln.offset + len(ln.data)
-
-	if newOffset == a.fileSize { // TODO: This isn't a great way of doing it... Can just check that we wouldn't advance past the end of fwd.
-		a.log.Info("Cannot move down: reached EOF.")
-		return
-	}
-
-	a.moveToOffset(newOffset)
 }
 
 func (a *app) moveUp() {
