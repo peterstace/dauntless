@@ -579,7 +579,7 @@ func (a *app) loadForward(amount int) {
 				a.reactor.Stop(err)
 				return
 			}
-			a.log.Info("Got fwd lines: numLines=%d fwd=%d bck=%d", len(lines), len(a.fwd), len(a.bck))
+			a.log.Debug("Got fwd lines: numLines=%d initialFwd=%d initialBck=%d", len(lines), len(a.fwd), len(a.bck))
 			for _, data := range lines {
 				if (len(a.fwd) == 0 && offset == a.offset) ||
 					(len(a.fwd) > 0 && a.fwd[len(a.fwd)-1].nextOffset() == offset) {
@@ -587,6 +587,7 @@ func (a *app) loadForward(amount int) {
 				}
 				offset += len(data)
 			}
+			a.log.Debug("After adding to data structure: fwd=%d bck=%d", len(a.fwd), len(a.bck))
 			// TODO: Does it make sense to have this conditional?
 			if len(lines) > 0 {
 				a.refresh()
@@ -600,6 +601,9 @@ func (a *app) loadForward(amount int) {
 func (a *app) loadBackward(amount int) {
 
 	offset := a.offset
+	if len(a.bck) > 0 {
+		offset = a.bck[len(a.bck)-1].offset
+	}
 	a.log.Debug("Loading backward: offset=%d amount=%d", offset, amount)
 
 	a.fillingScreenBuffer = true
@@ -611,7 +615,7 @@ func (a *app) loadBackward(amount int) {
 				a.reactor.Stop(err)
 				return
 			}
-			a.log.Info("Got bck lines: numLines=%d fwd=%d bck=%d", len(lines), len(a.fwd), len(a.bck))
+			a.log.Debug("Got bck lines: numLines=%d initialFwd=%d initialBck=%d", len(lines), len(a.fwd), len(a.bck))
 			for _, data := range lines {
 				if (len(a.bck) == 0 && offset == a.offset) ||
 					(len(a.bck) > 0 && a.bck[len(a.bck)-1].offset == offset) {
@@ -619,6 +623,7 @@ func (a *app) loadBackward(amount int) {
 				}
 				offset -= len(data)
 			}
+			a.log.Debug("After adding to data structure: fwd=%d bck=%d", len(a.fwd), len(a.bck))
 			// TODO: Does it make sense to have this conditional?
 			if len(lines) > 0 {
 				a.refresh()
