@@ -71,6 +71,8 @@ type app struct {
 
 	lineWrapMode bool
 	xPosition    int
+
+	fillingScreenBuffer bool
 }
 
 func NewApp(reactor Reactor, filename string, loader Loader, logger Logger, screen Screen) App {
@@ -513,6 +515,11 @@ const (
 
 func (a *app) fillScreenBuffer() {
 
+	if a.fillingScreenBuffer {
+		a.log.Info("Aborting filling screen buffer, already in progress.")
+		return
+	}
+
 	a.log.Info("Filling screen buffer, has initial state: fwd=%d bck=%d", len(a.fwd), len(a.bck))
 
 	if lines := a.needsLoadingForward(); lines != 0 {
@@ -563,6 +570,7 @@ func (a *app) loadForward(amount int) {
 	}
 	a.log.Debug("Loading forward: offset=%d amount=%d", offset, amount)
 
+	a.fillingScreenBuffer = true
 	go func() {
 		lines, err := LoadFwd(a.filename, offset, amount)
 		a.reactor.Enque(func() {
@@ -583,6 +591,7 @@ func (a *app) loadForward(amount int) {
 			if len(lines) > 0 {
 				a.refresh()
 			}
+			a.fillingScreenBuffer = false
 			a.fillScreenBuffer()
 		})
 	}()
@@ -593,6 +602,7 @@ func (a *app) loadBackward(amount int) {
 	offset := a.offset
 	a.log.Debug("Loading backward: offset=%d amount=%d", offset, amount)
 
+	a.fillingScreenBuffer = true
 	go func() {
 		lines, err := LoadBck(a.filename, offset, amount)
 		a.reactor.Enque(func() {
@@ -613,8 +623,8 @@ func (a *app) loadBackward(amount int) {
 			if len(lines) > 0 {
 				a.refresh()
 			}
+			a.fillingScreenBuffer = false
 			a.fillScreenBuffer()
-
 		})
 	}()
 }
