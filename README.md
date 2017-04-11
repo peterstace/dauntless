@@ -77,6 +77,4 @@ goroutine. But if the panic occurs in another goroutine, we're out of luck.
 
 ### Bugs
 
-* Logging outside of reactor when jumping to bottom.
-
 * Not closing some opened files.

@@ -165,11 +165,13 @@ func (a *app) quit() {
 func (a *app) moveDownBySingleLine() {
 	a.moveDown()
 	a.refresh()
+	a.fillScreenBuffer()
 }
 
 func (a *app) moveUpBySingleLine() {
 	a.moveUp()
 	a.refresh()
+	a.fillScreenBuffer()
 }
 
 func (a *app) moveDownByHalfScreen() {
@@ -177,6 +179,7 @@ func (a *app) moveDownByHalfScreen() {
 		a.moveDown()
 	}
 	a.refresh()
+	a.fillScreenBuffer()
 }
 
 func (a *app) moveUpByHalfScreen() {
@@ -184,6 +187,7 @@ func (a *app) moveUpByHalfScreen() {
 		a.moveUp()
 	}
 	a.refresh()
+	a.fillScreenBuffer()
 }
 
 func (a *app) repaint() {
@@ -228,6 +232,7 @@ func (a *app) moveTop() {
 	a.log.Info("Jumping to start of file.")
 	a.moveToOffset(0)
 	a.refresh()
+	a.fillScreenBuffer()
 }
 
 func (a *app) moveBottom() {
@@ -236,15 +241,15 @@ func (a *app) moveBottom() {
 
 	go func() {
 		offset, err := FindJumpToBottomOffset(a.filename)
-		// TODO: Not a good idea to do stuff outside of the reactor...
-		if err != nil {
-			a.log.Warn("Could not find jump-to-bottom offset: %v", err)
-			a.reactor.Stop(err)
-			return
-		}
 		a.reactor.Enque(func() {
+			if err != nil {
+				a.log.Warn("Could not find jump-to-bottom offset: %v", err)
+				a.reactor.Stop(err)
+				return
+			}
 			a.moveToOffset(offset)
 			a.refresh()
+			a.fillScreenBuffer()
 		})
 	}()
 }
@@ -287,7 +292,6 @@ func (a *app) moveUpToOffset(offset int) {
 		a.bck = nil
 		a.offset = offset
 	}
-	a.fillScreenBuffer()
 }
 
 func (a *app) moveDownToOffset(offset int) {
@@ -313,7 +317,6 @@ func (a *app) moveDownToOffset(offset int) {
 		a.bck = nil
 		a.offset = offset
 	}
-	a.fillScreenBuffer()
 }
 
 func (a *app) startSearchCommand() {
@@ -405,6 +408,7 @@ func (a *app) jumpToNextMatch() {
 			a.log.Info("Regexp search completed with match.")
 			a.moveToOffset(offset)
 			a.refresh()
+			a.fillScreenBuffer()
 		})
 	}()
 }
@@ -438,6 +442,7 @@ func (a *app) jumpToPrevMatch() {
 			a.log.Info("Regexp search completed with match.")
 			a.moveToOffset(offset)
 			a.refresh()
+			a.fillScreenBuffer()
 		})
 	}()
 }
