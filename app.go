@@ -515,8 +515,6 @@ func (a *app) fillScreenBuffer() {
 
 	a.log.Info("Filling screen buffer, has initial state: fwd=%d bck=%d", len(a.fwd), len(a.bck))
 
-	// TODO: Need to get the file size before we can do anything else.
-
 	if lines := a.needsLoadingForward(); lines != 0 {
 		a.loadForward(lines)
 	} else if lines := a.needsLoadingBackward(); lines != 0 {
@@ -559,7 +557,7 @@ func (a *app) needsLoadingBackward() int {
 
 func (a *app) loadForward(amount int) {
 
-	a.log.Debug("Loading forward.")
+	a.log.Debug("Loading forward: amount=%d", amount)
 
 	offset := a.offset
 	if len(a.fwd) > 0 {
@@ -569,12 +567,12 @@ func (a *app) loadForward(amount int) {
 	go func() {
 		lines, err := LoadFwd(a.filename, offset, amount)
 		a.reactor.Enque(func() {
-			a.log.Info("Got lines: numLines=%d fwd=%d bck=%d", len(lines), len(a.fwd), len(a.bck))
 			if err != nil {
 				a.log.Warn("Error loading forward: %v", err)
 				a.reactor.Stop(err)
 				return
 			}
+			a.log.Info("Got fwd lines: numLines=%d fwd=%d bck=%d", len(lines), len(a.fwd), len(a.bck))
 			for _, data := range lines {
 				if (len(a.fwd) == 0 && offset == a.offset) ||
 					(len(a.fwd) > 0 && a.fwd[len(a.fwd)-1].nextOffset() == offset) {
@@ -582,6 +580,7 @@ func (a *app) loadForward(amount int) {
 				}
 				offset += len(data)
 			}
+			// TODO: Does it make sense to have this conditional?
 			if len(lines) > 0 {
 				a.refresh()
 			}
@@ -590,19 +589,36 @@ func (a *app) loadForward(amount int) {
 	}()
 }
 
-func (a *app) loadBackward(int) {
-	a.log.Debug("Loading backward.")
-	end := a.offset
-	if len(a.bck) > 0 {
-		end = a.bck[len(a.bck)-1].offset
-	}
-	start := end - defaultLoadAmount
-	start = max(0, start)
-	a.loader.Load(LoadRequest{
-		Offset:   start,
-		Amount:   end - start,
-		Forwards: false,
-	})
+func (a *app) loadBackward(amount int) {
+
+	a.log.Debug("Loading backward: amount=%d", amount)
+
+	offset := a.offset
+
+	go func() {
+		lines, err := LoadBck(a.filename, offset, amount)
+		a.reactor.Enque(func() {
+			if err != nil {
+				a.log.Warn("Error loading backward: %v", err)
+				a.reactor.Stop(err)
+				return
+			}
+			a.log.Info("Got fwd lines: numLines=%d fwd=%d bck=%d", len(lines), len(a.fwd), len(a.bck))
+			for _, data := range lines {
+				if (len(a.bck) == 0 && offset == a.offset) ||
+					(len(a.bck) > 0 && a.bck[len(a.bck)-1].offset == offset) {
+					a.bck = append(a.bck, line{offset - len(data), data})
+				}
+				offset -= len(data)
+			}
+			// TODO: Does it make sense to have this conditional?
+			if len(lines) > 0 {
+				a.refresh()
+			}
+			a.fillScreenBuffer()
+
+		})
+	}()
 }
 
 func (a *app) TermSize(rows, cols int, err error) {
