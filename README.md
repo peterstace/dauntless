@@ -77,4 +77,4 @@ goroutine. But if the panic occurs in another goroutine, we're out of luck.
 
 ### Bugs
 
-* Not closing some opened files.
+None known (yet).

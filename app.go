@@ -15,7 +15,6 @@ type App interface {
 	UnknownKeySequence([]byte)
 	TermSize(rows, cols int, err error)
 	FileSize(int, error)
-	LoadComplete(LoadResponse)
 	Signal(os.Signal)
 }
 
@@ -47,8 +46,6 @@ type app struct {
 
 	filename string
 
-	loader Loader
-
 	rows, cols int
 
 	// Invariants:
@@ -75,11 +72,10 @@ type app struct {
 	fillingScreenBuffer bool
 }
 
-func NewApp(reactor Reactor, filename string, loader Loader, logger Logger, screen Screen) App {
+func NewApp(reactor Reactor, filename string, logger Logger, screen Screen) App {
 	return &app{
 		reactor:  reactor,
 		filename: filename,
-		loader:   loader,
 		log:      logger,
 		rows:     -1,
 		cols:     -1,
@@ -821,73 +817,6 @@ func (a *app) drawStatusLine() {
 	buf := a.screenBuffer[statusRow*a.cols : (statusRow+1)*a.cols]
 	copy(buf[len(buf)-len(statusRight):], statusRight)
 	copy(buf[:], statusLeft)
-}
-
-const defaultLoadAmount = 64
-
-func (a *app) LoadComplete(resp LoadResponse) {
-
-	req := resp.Request
-
-	a.log.Info("Data loaded: From=%d To=%d Len=%d",
-		req.Offset, req.Offset+len(resp.Payload), len(resp.Payload))
-	if resp.FileSize != a.fileSize {
-		a.log.Info("File size changed: oldSize=%d newSize=%d", a.fileSize, resp.FileSize)
-		a.fileSize = resp.FileSize
-	}
-	a.fileSize = resp.FileSize
-
-	lines := extractLines(resp.Payload)
-	offset := req.Offset
-	for _, data := range lines {
-		if len(a.fwd) == 0 && offset == a.offset {
-			a.fwd = append(a.fwd, line{offset, data})
-		} else if len(a.fwd) > 0 && a.fwd[len(a.fwd)-1].offset+len(a.fwd[len(a.fwd)-1].data) == offset {
-			a.fwd = append(a.fwd, line{offset, data})
-		}
-		offset += len(data)
-	}
-	for i := len(lines) - 1; i >= 0; i-- {
-		data := lines[i]
-		if len(a.bck) == 0 && offset == a.offset {
-			a.bck = append(a.bck, line{offset - len(data), data})
-		} else if len(a.bck) > 0 && a.bck[len(a.bck)-1].offset == offset {
-			a.bck = append(a.bck, line{offset - len(data), data})
-		}
-		offset -= len(data)
-	}
-
-	if len(lines) > 0 {
-		a.refresh()
-	} else {
-		if req.Forwards {
-			reachedEndOfFile := req.Offset+len(resp.Payload) >= a.fileSize
-			if reachedEndOfFile {
-				a.log.Warn("Data loaded didn't contain at least one complete line: reached EOF")
-			} else {
-				a.log.Warn("Data loaded didn't contain at least one complete line: retrying with double amount.")
-				req.Amount *= 2
-				a.loader.Load(req)
-			}
-		} else {
-			reachedStartOfFile := req.Offset == 0
-			if reachedStartOfFile {
-				a.log.Warn("Data loaded didn't contain at least one complete line: reached offset 0")
-			} else {
-				a.log.Warn("Data loaded didn't contain at least one complete line: retrying with double amount.")
-				end := req.Offset + req.Amount
-				req.Amount *= 2
-				req.Offset = end - req.Amount
-				if req.Offset < 0 {
-					req.Amount += req.Offset // reduces req.Amount
-					req.Offset = 0
-				}
-				a.loader.Load(req)
-			}
-		}
-	}
-
-	a.fillScreenBuffer()
 }
 
 func buildLoadingScreen(buf []byte, cols int) {

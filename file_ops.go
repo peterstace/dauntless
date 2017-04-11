@@ -16,7 +16,7 @@ func FindJumpToBottomOffset(filename string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	// TODO: Should close the file... And do an audit of opened but not closed files.
+	defer f.Close()
 
 	info, err := f.Stat()
 	if err != nil {

@@ -35,12 +35,10 @@ func main() {
 	reactor := NewReactor(logger)
 
 	filename := flag.Args()[0]
-	loader := NewFileLoader(filename, reactor, logger)
 
 	screen := NewTermScreen(os.Stdout, reactor, logger)
 
-	app := NewApp(reactor, filename, loader, logger, screen)
-	loader.SetHandler(app)
+	app := NewApp(reactor, filename, logger, screen)
 
 	reactor.Enque(app.Initialise)
 	CollectFileSize(reactor, app, filename)
