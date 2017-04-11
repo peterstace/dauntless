@@ -197,17 +197,12 @@ func (a *app) discardBufferedInputAndRepaint() {
 }
 
 func (a *app) moveDown() {
-
 	a.log.Info("Moving down.")
-
-	switch len(a.fwd) {
-	case 0:
-		a.log.Warn("Cannot move down: current line not loaded.")
-	case 1:
-		a.log.Warn("Cannot move down: would go past EOF.")
-	default:
-		a.moveToOffset(a.fwd[1].offset)
+	if len(a.fwd) < 2 {
+		a.log.Warn("Cannot move down: reason=\"not enough lines loaded\" linesLoaded=%d", len(a.fwd))
+		return
 	}
+	a.moveToOffset(a.fwd[1].offset)
 }
 
 func (a *app) moveUp() {
@@ -564,11 +559,6 @@ func (a *app) needsLoadingBackward() int {
 
 func (a *app) loadForward(amount int) {
 
-	//if a.loading {
-	//a.log.Info("Already loading forward.")
-	//return
-	//}
-
 	a.log.Debug("Loading forward.")
 
 	offset := a.offset
@@ -579,7 +569,7 @@ func (a *app) loadForward(amount int) {
 	go func() {
 		lines, err := LoadFwd(a.filename, offset, amount)
 		a.reactor.Enque(func() {
-			a.log.Info("Got lines: %d", len(lines))
+			a.log.Info("Got lines: numLines=%d fwd=%d bck=%d", len(lines), len(a.fwd), len(a.bck))
 			if err != nil {
 				a.log.Warn("Error loading forward: %v", err)
 				a.reactor.Stop(err)
@@ -588,7 +578,6 @@ func (a *app) loadForward(amount int) {
 			for _, data := range lines {
 				if (len(a.fwd) == 0 && offset == a.offset) ||
 					(len(a.fwd) > 0 && a.fwd[len(a.fwd)-1].nextOffset() == offset) {
-					a.log.Debug("Line: offset=%v data=%q", offset, data)
 					a.fwd = append(a.fwd, line{offset, data})
 				}
 				offset += len(data)
@@ -634,6 +623,7 @@ func (a *app) FileSize(size int, err error) {
 	if size != oldSize {
 		a.fileSize = size
 		a.log.Info("File size changed: old=%d new=%d", oldSize, size)
+		a.fillScreenBuffer()
 	}
 }
 
