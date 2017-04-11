@@ -27,7 +27,10 @@ func FileLogger(filepath string) (Logger, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &fileLogger{new(bytes.Buffer), f, nil}, nil
+	return &fileLogger{
+		buf:  new(bytes.Buffer),
+		file: f,
+	}, nil
 }
 
 type fileLogger struct {

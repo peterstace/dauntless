@@ -59,5 +59,5 @@ func LoadBck(filename string, offset int, count int) ([]string, error) {
 		lines = append(lines, string(line))
 	}
 
-	return nil, nil
+	return lines, nil
 }

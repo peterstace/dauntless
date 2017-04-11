@@ -557,12 +557,11 @@ func (a *app) needsLoadingBackward() int {
 
 func (a *app) loadForward(amount int) {
 
-	a.log.Debug("Loading forward: amount=%d", amount)
-
 	offset := a.offset
 	if len(a.fwd) > 0 {
 		offset = a.fwd[len(a.fwd)-1].nextOffset()
 	}
+	a.log.Debug("Loading forward: offset=%d amount=%d", offset, amount)
 
 	go func() {
 		lines, err := LoadFwd(a.filename, offset, amount)
@@ -591,9 +590,8 @@ func (a *app) loadForward(amount int) {
 
 func (a *app) loadBackward(amount int) {
 
-	a.log.Debug("Loading backward: amount=%d", amount)
-
 	offset := a.offset
+	a.log.Debug("Loading backward: offset=%d amount=%d", offset, amount)
 
 	go func() {
 		lines, err := LoadBck(a.filename, offset, amount)
