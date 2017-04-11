@@ -13,6 +13,7 @@ type Logger interface {
 	Debug(format string, args ...interface{})
 	Warn(format string, args ...interface{})
 	Flush() error
+	SetCycle(int)
 }
 
 type NullLogger struct{}
@@ -20,6 +21,7 @@ type NullLogger struct{}
 func (NullLogger) Info(format string, args ...interface{})  {}
 func (NullLogger) Debug(format string, args ...interface{}) {}
 func (NullLogger) Warn(format string, args ...interface{})  {}
+func (NullLogger) SetCycle(int)                             {}
 func (NullLogger) Flush() error                             { return nil }
 
 func FileLogger(filepath string) (Logger, error) {
@@ -34,29 +36,62 @@ func FileLogger(filepath string) (Logger, error) {
 }
 
 type fileLogger struct {
-	buf  *bytes.Buffer
-	file *os.File
-	err  error
+	buf   *bytes.Buffer
+	file  *os.File
+	err   error
+	cycle int
+}
+
+type level int
+
+const (
+	info level = iota
+	debug
+	warn
+)
+
+func (l level) String() string {
+	switch l {
+	case info:
+		return "Info"
+	case debug:
+		return "Debug"
+	case warn:
+		return "Warn"
+	default:
+		assert(false)
+		return ""
+	}
 }
 
 func (f *fileLogger) Info(format string, args ...interface{}) {
-	f.log("[Info ] "+format, args...)
+	f.log(info, format, args...)
 	f.Flush()
 }
 
 func (f *fileLogger) Debug(format string, args ...interface{}) {
-	f.log("[Debug] "+format, args...)
+	f.log(debug, format, args...)
 	f.Flush()
 }
 
 func (f *fileLogger) Warn(format string, args ...interface{}) {
-	f.log("[Warn ] "+format, args...)
+	f.log(warn, format, args...)
 	f.Flush()
 }
 
-func (f *fileLogger) log(format string, args ...interface{}) {
-	format = fmt.Sprintf("%s %s\n", time.Now().Format("15:04:05.000000"), format)
+func (f *fileLogger) log(lvl level, format string, args ...interface{}) {
+	format = fmt.Sprintf(
+		"%s [%5s] [%d] %s\n",
+		time.Now().Format("15:04:05.000000"),
+		lvl,
+		f.cycle,
+		format,
+	)
 	_, f.err = fmt.Fprintf(f.buf, format, args...)
+}
+
+func (f *fileLogger) SetCycle(cycle int) {
+	f.cycle = cycle
 }
 
 func (f *fileLogger) Flush() error {

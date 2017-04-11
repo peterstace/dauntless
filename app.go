@@ -601,7 +601,7 @@ func (a *app) loadBackward(amount int) {
 				a.reactor.Stop(err)
 				return
 			}
-			a.log.Info("Got fwd lines: numLines=%d fwd=%d bck=%d", len(lines), len(a.fwd), len(a.bck))
+			a.log.Info("Got bck lines: numLines=%d fwd=%d bck=%d", len(lines), len(a.fwd), len(a.bck))
 			for _, data := range lines {
 				if (len(a.bck) == 0 && offset == a.offset) ||
 					(len(a.bck) > 0 && a.bck[len(a.bck)-1].offset == offset) {

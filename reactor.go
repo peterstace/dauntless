@@ -11,6 +11,7 @@ func NewReactor(log Logger) Reactor {
 		make(chan func(), 1024),
 		make(chan error, 1),
 		log,
+		0,
 	}
 }
 
@@ -20,6 +21,7 @@ type reactor struct {
 	queue chan func()
 	stop  chan error
 	log   Logger
+	cycle int
 }
 
 func (r *reactor) Enque(fn func()) {
@@ -28,6 +30,9 @@ func (r *reactor) Enque(fn func()) {
 
 func (r *reactor) Run() error {
 	for {
+		r.cycle++
+		r.log.SetCycle(r.cycle)
+
 		// Check stopping condition first, since it has the highest priority.
 		select {
 		case err := <-r.stop:
