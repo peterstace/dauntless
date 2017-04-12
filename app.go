@@ -109,20 +109,21 @@ func (a *app) KeyPress(b byte) {
 	}
 
 	fn, ok := map[byte]func(){
-		'q': a.quit,
-		'j': a.moveDownBySingleLine,
-		'k': a.moveUpBySingleLine,
-		'd': a.moveDownByHalfScreen,
-		'u': a.moveUpByHalfScreen,
-		'r': a.repaint,
-		'R': a.discardBufferedInputAndRepaint,
-		'g': a.moveTop,
-		'G': a.moveBottom,
-		'/': a.startSearchCommand,
-		'n': a.jumpToNextMatch,
-		'N': a.jumpToPrevMatch,
-		'w': a.toggleLineWrapMode,
-		'c': a.startColourCommand,
+		'q':  a.quit,
+		'j':  a.moveDownBySingleLine,
+		'k':  a.moveUpBySingleLine,
+		'd':  a.moveDownByHalfScreen,
+		'u':  a.moveUpByHalfScreen,
+		'r':  a.repaint,
+		'R':  a.discardBufferedInputAndRepaint,
+		'g':  a.moveTop,
+		'G':  a.moveBottom,
+		'/':  a.startSearchCommand,
+		'n':  a.jumpToNextMatch,
+		'N':  a.jumpToPrevMatch,
+		'w':  a.toggleLineWrapMode,
+		'c':  a.startColourCommand,
+		'\t': a.cycleRegexp,
 	}[b]
 
 	if !ok {
@@ -465,6 +466,19 @@ func (a *app) startColourCommand() {
 	}
 	a.commandMode = colour
 	a.log.Info("Accepting colour command.")
+	a.refresh()
+}
+
+func (a *app) cycleRegexp() {
+
+	if len(a.regexes) == 0 {
+		a.log.Warn("No REs to cycle between.")
+		return
+		// TODO: Tell user.
+	}
+
+	a.tmpRegex = nil // Any temp re gets discarded.
+	a.regexes = append(a.regexes[1:], a.regexes[0])
 	a.refresh()
 }
 
