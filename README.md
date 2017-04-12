@@ -25,6 +25,8 @@ state.
 
 * Change current regex text.
 
+* Display the current regex (in its own style!).
+
 ### Important
 
 * Help screen. Application name, author, copyright notice. Then a list of key
