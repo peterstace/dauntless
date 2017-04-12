@@ -77,8 +77,6 @@ func NewApp(reactor Reactor, filename string, logger Logger, screen Screen) App 
 		reactor:  reactor,
 		filename: filename,
 		log:      logger,
-		rows:     -1,
-		cols:     -1,
 		screen:   screen,
 	}
 }
@@ -517,8 +515,10 @@ func (a *app) changeXPosition(newPosition int) {
 }
 
 const (
-	backLoadFactor    = 1
-	forwardLoadFactor = 2
+	backLoadFactor      = 1
+	forwardLoadFactor   = 2
+	backUnloadFactor    = 2
+	forwardUnloadFactor = 3
 )
 
 func (a *app) fillScreenBuffer() {
@@ -538,7 +538,11 @@ func (a *app) fillScreenBuffer() {
 		a.log.Info("Screen buffer didn't need filling.")
 	}
 
-	// TODO: Screen buffer trimming.
+	// Prune buffers.
+	neededFwd := min(len(a.fwd), a.rows*forwardUnloadFactor)
+	a.fwd = a.fwd[:neededFwd]
+	neededBck := min(len(a.bck), a.rows*backUnloadFactor)
+	a.bck = a.bck[:neededBck]
 }
 
 func (a *app) needsLoadingForward() int {
@@ -665,11 +669,6 @@ func (a *app) FileSize(size int, err error) {
 }
 
 func (a *app) refresh() {
-
-	if a.rows < 0 || a.cols < 0 {
-		a.log.Warn("Can't refresh, don't know term size yet")
-		return
-	}
 
 	a.log.Info("Refreshing")
 

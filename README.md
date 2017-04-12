@@ -15,8 +15,6 @@ state.
 
 ### Most Important
 
-* Prune fwd and bck.
-
 * Allow multiple regexps.
 
 * Cycle between regexps.
