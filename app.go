@@ -64,7 +64,8 @@ type app struct {
 	commandMode command
 	commandText string
 
-	regexes []regex
+	tmpRegex *regexp.Regexp
+	regexes  []regex
 
 	lineWrapMode bool
 	xPosition    int
@@ -108,20 +109,22 @@ func (a *app) KeyPress(b byte) {
 	}
 
 	fn, ok := map[byte]func(){
-		'q': a.quit,
-		'j': a.moveDownBySingleLine,
-		'k': a.moveUpBySingleLine,
-		'd': a.moveDownByHalfScreen,
-		'u': a.moveUpByHalfScreen,
-		'r': a.repaint,
-		'R': a.discardBufferedInputAndRepaint,
-		'g': a.moveTop,
-		'G': a.moveBottom,
-		'/': a.startSearchCommand,
-		'n': a.jumpToNextMatch,
-		'N': a.jumpToPrevMatch,
-		'w': a.toggleLineWrapMode,
-		'c': a.startColourCommand,
+		'q':  a.quit,
+		'j':  a.moveDownBySingleLine,
+		'k':  a.moveUpBySingleLine,
+		'd':  a.moveDownByHalfScreen,
+		'u':  a.moveUpByHalfScreen,
+		'r':  a.repaint,
+		'R':  a.discardBufferedInputAndRepaint,
+		'g':  a.moveTop,
+		'G':  a.moveBottom,
+		'/':  a.startSearchCommand,
+		'n':  a.jumpToNextMatch,
+		'N':  a.jumpToPrevMatch,
+		'w':  a.toggleLineWrapMode,
+		'c':  a.startColourCommand,
+		'\t': a.cycleRegexp,
+		'x':  a.deleteRegexp,
 	}[b]
 
 	if !ok {
@@ -335,10 +338,7 @@ func (a *app) finishSearchCommand() {
 		return
 	}
 	a.log.Info("Regex compiled.")
-	if len(a.regexes) == 0 {
-		a.regexes = []regex{regex{}}
-	}
-	a.regexes[0] = regex{mixStyle(Invert, Invert), re}
+	a.tmpRegex = re
 }
 
 func (a *app) consumeCommandChar(b byte) {
@@ -378,8 +378,10 @@ func (a *app) consumeCommandChar(b byte) {
 
 func (a *app) jumpToNextMatch() {
 
-	if len(a.regexes) == 0 {
+	re := a.currentRE()
+	if re == nil {
 		a.log.Info("No regex to jump to.")
+		// TODO: Display to user
 		return
 	}
 
@@ -387,18 +389,16 @@ func (a *app) jumpToNextMatch() {
 		a.log.Warn("Cannot search for next match: current line is not loaded.")
 		return
 	}
-	startOffset := a.fwd[0].offset + len(a.fwd[0].data) // TODO: A 'endOffset' method would be nice here.
+	startOffset := a.fwd[0].nextOffset()
 
-	rgx := a.regexes[0]
-	a.log.Info("Searching for next regexp match: regexp=%q", rgx.re)
+	a.log.Info("Searching for next regexp match: regexp=%q", re)
 
-	reCopy := rgx.re.Copy()
 	go func() {
-		offset, err := FindNextMatch(a.filename, startOffset, reCopy)
+		offset, err := FindNextMatch(a.filename, startOffset, re)
 		a.reactor.Enque(func() {
 			if err == io.EOF {
 				a.log.Info("Regexp search complete: no match found.")
-				// TODO: Should somehow display this to the user?
+				// TODO: Display to user.
 				return
 			}
 			if err != nil {
@@ -416,19 +416,19 @@ func (a *app) jumpToNextMatch() {
 
 func (a *app) jumpToPrevMatch() {
 
-	if len(a.regexes) == 0 {
+	re := a.currentRE()
+	if re == nil {
 		a.log.Info("No regex to jump to.")
+		// TODO: Display to user.
 		return
 	}
 
 	endOffset := a.offset
 
-	rgx := a.regexes[0]
-	a.log.Info("Searching for previous regexp match: regexp=%q", rgx.re)
+	a.log.Info("Searching for previous regexp match: regexp=%q", re)
 
-	reCopy := rgx.re.Copy()
 	go func() {
-		offset, err := FindPrevMatch(a.filename, endOffset, reCopy)
+		offset, err := FindPrevMatch(a.filename, endOffset, re)
 		a.reactor.Enque(func() {
 			if err != nil && err != io.EOF {
 				a.log.Warn("Regexp search completed with error: %v", err)
@@ -460,8 +460,38 @@ func (a *app) toggleLineWrapMode() {
 }
 
 func (a *app) startColourCommand() {
+	if a.currentRE() == nil {
+		a.log.Warn("Cannot start colour command: no regex")
+		// TODO: Tell user.
+		return
+	}
 	a.commandMode = colour
 	a.log.Info("Accepting colour command.")
+	a.refresh()
+}
+
+func (a *app) cycleRegexp() {
+
+	if len(a.regexes) == 0 {
+		a.log.Warn("No REs to cycle between.")
+		return
+		// TODO: Tell user.
+	}
+
+	a.tmpRegex = nil // Any temp re gets discarded.
+	a.regexes = append(a.regexes[1:], a.regexes[0])
+	a.refresh()
+}
+
+func (a *app) deleteRegexp() {
+	if a.tmpRegex != nil {
+		a.tmpRegex = nil
+	} else if len(a.regexes) > 0 {
+		a.regexes = a.regexes[1:]
+	} else {
+		a.log.Warn("No REs to delete.")
+		// TODO: Tell user.
+	}
 	a.refresh()
 }
 
@@ -479,9 +509,16 @@ func (a *app) finishColourCommand() {
 	}
 	a.log.Info("Style parsed.")
 
-	if len(a.regexes) > 0 {
+	if a.tmpRegex != nil {
+		a.regexes = append([]regex{{style, a.tmpRegex}}, a.regexes...)
+		a.tmpRegex = nil
+	} else if len(a.regexes) > 0 {
 		a.regexes[0].style = style
+	} else {
+		// Should not have been allowed to start the colour command.
+		assert(false)
 	}
+
 	a.refresh()
 }
 
@@ -778,8 +815,13 @@ func (a *app) renderLine(data string) []byte {
 }
 
 func (a *app) renderStyle(data string) []Style {
+
+	regexes := a.regexes
+	if a.tmpRegex != nil {
+		regexes = append(regexes, regex{mixStyle(Invert, Invert), a.tmpRegex})
+	}
 	buf := make([]Style, len(data))
-	for _, regex := range a.regexes {
+	for _, regex := range regexes {
 		for _, match := range regex.re.FindAllStringIndex(data, -1) {
 			for i := match[0]; i < match[1]; i++ {
 				buf[i] = regex.style
@@ -816,8 +858,15 @@ func (a *app) drawStatusLine() {
 		lineWrapMode = "line-wrap-mode:off"
 	}
 
+	currentRegexpStr := ""
+	if a.tmpRegex != nil {
+		currentRegexpStr = "re(tmp):" + a.tmpRegex.String()
+	} else if len(a.regexes) > 0 {
+		currentRegexpStr = fmt.Sprintf("re(%d):%s", len(a.regexes), a.regexes[0].re.String())
+	}
+
 	statusRight := fmt.Sprintf("fwd:%d bck:%d ", len(a.fwd), len(a.bck)) + lineWrapMode + " " + pctStr + " "
-	statusLeft := " " + a.filename
+	statusLeft := " " + a.filename + " " + currentRegexpStr
 
 	buf := a.screenBuffer[statusRow*a.cols : (statusRow+1)*a.cols]
 	copy(buf[len(buf)-len(statusRight):], statusRight)
@@ -870,4 +919,12 @@ func (a *app) overlaySwatch() {
 
 func (a *app) rowColIdx(row, col int) int {
 	return row*a.cols + col
+}
+
+func (a *app) currentRE() *regexp.Regexp {
+	re := a.tmpRegex
+	if re == nil && len(a.regexes) > 0 {
+		re = a.regexes[0].re
+	}
+	return re
 }
