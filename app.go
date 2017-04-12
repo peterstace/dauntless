@@ -90,7 +90,14 @@ func (a *app) Initialise() {
 
 func (a *app) Signal(sig os.Signal) {
 	a.log.Info("Caught signal: %v", sig)
-	a.quit()
+	if a.commandMode == none {
+		a.quit()
+	} else {
+		a.log.Info("Cancelling command.")
+		a.commandMode = none
+		a.commandText = ""
+		a.refresh()
+	}
 }
 
 func (a *app) KeyPress(b byte) {

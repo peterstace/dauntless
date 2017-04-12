@@ -15,8 +15,6 @@ state.
 
 ### Most Important
 
-* Ctrl-C should cancel command inputs.
-
 * Prune fwd and bck.
 
 * Allow multiple regexps.
@@ -55,6 +53,8 @@ state.
 
 * Predefined (config file) and pre-loaded regexes. E.g. to highlight errors
   that would always appear the same way.
+
+* Timeout for displaying loading screen.
 
 ### Least Important
 
