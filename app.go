@@ -376,11 +376,7 @@ func (a *app) consumeCommandChar(b byte) {
 
 func (a *app) jumpToNextMatch() {
 
-	re := a.tmpRegex
-	if re == nil && len(a.regexes) > 0 {
-		re = a.regexes[0].re
-	}
-
+	re := a.currentRE()
 	if re == nil {
 		a.log.Info("No regex to jump to.")
 		// TODO: Display to user
@@ -418,11 +414,7 @@ func (a *app) jumpToNextMatch() {
 
 func (a *app) jumpToPrevMatch() {
 
-	re := a.tmpRegex
-	if re == nil && len(a.regexes) > 0 {
-		re = a.regexes[0].re
-	}
-
+	re := a.currentRE()
 	if re == nil {
 		a.log.Info("No regex to jump to.")
 		// TODO: Display to user.
@@ -466,7 +458,7 @@ func (a *app) toggleLineWrapMode() {
 }
 
 func (a *app) startColourCommand() {
-	if a.tmpRegex == nil && len(a.regexes) == 0 {
+	if a.currentRE() == nil {
 		a.log.Warn("Cannot start colour command: no regex")
 		// TODO: Tell user.
 		return
@@ -839,8 +831,15 @@ func (a *app) drawStatusLine() {
 		lineWrapMode = "line-wrap-mode:off"
 	}
 
+	currentRegexpStr := ""
+	if a.tmpRegex != nil {
+		currentRegexpStr = "re(tmp):" + a.tmpRegex.String()
+	} else if len(a.regexes) > 0 {
+		currentRegexpStr = fmt.Sprintf("re(%d):%s", len(a.regexes), a.regexes[0].re.String())
+	}
+
 	statusRight := fmt.Sprintf("fwd:%d bck:%d ", len(a.fwd), len(a.bck)) + lineWrapMode + " " + pctStr + " "
-	statusLeft := " " + a.filename
+	statusLeft := " " + a.filename + " " + currentRegexpStr
 
 	buf := a.screenBuffer[statusRow*a.cols : (statusRow+1)*a.cols]
 	copy(buf[len(buf)-len(statusRight):], statusRight)
@@ -893,4 +892,12 @@ func (a *app) overlaySwatch() {
 
 func (a *app) rowColIdx(row, col int) int {
 	return row*a.cols + col
+}
+
+func (a *app) currentRE() *regexp.Regexp {
+	re := a.tmpRegex
+	if re == nil && len(a.regexes) > 0 {
+		re = a.regexes[0].re
+	}
+	return re
 }
