@@ -8,9 +8,7 @@ import (
 
 func FindJumpToBottomOffset(filename string) (int, error) {
 
-	// TODO: This implementation is a bit silly... Would be better to just load
-	// successive chunks backwards from the end of the file until we find the
-	// first newline.
+	// TODO: Should use the backward line reader.
 
 	f, err := os.Open(filename)
 	if err != nil {

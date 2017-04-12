@@ -2,7 +2,7 @@ package main
 
 import "io"
 
-const lineReaderReadSize = 8 // TODO: This is stupidly small. Mainly for ease of testing.
+const lineReaderReadSize = 1 << 12
 
 func NewBackwardLineReader(reader io.ReaderAt, offset int) *BackwardLineReader {
 	return &BackwardLineReader{reader, offset, make([]byte, lineReaderReadSize), nil}
