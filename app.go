@@ -124,6 +124,7 @@ func (a *app) KeyPress(b byte) {
 		'w':  a.toggleLineWrapMode,
 		'c':  a.startColourCommand,
 		'\t': a.cycleRegexp,
+		'x':  a.deleteRegexp,
 	}[b]
 
 	if !ok {
@@ -479,6 +480,18 @@ func (a *app) cycleRegexp() {
 
 	a.tmpRegex = nil // Any temp re gets discarded.
 	a.regexes = append(a.regexes[1:], a.regexes[0])
+	a.refresh()
+}
+
+func (a *app) deleteRegexp() {
+	if a.tmpRegex != nil {
+		a.tmpRegex = nil
+	} else if len(a.regexes) > 0 {
+		a.regexes = a.regexes[1:]
+	} else {
+		a.log.Warn("No REs to delete.")
+		// TODO: Tell user.
+	}
 	a.refresh()
 }
 
