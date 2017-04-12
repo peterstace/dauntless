@@ -15,18 +15,6 @@ state.
 
 ### Most Important
 
-* Allow multiple regexps.
-
-* Cycle between regexps.
-
-* Change colour of existing regexp.
-
-* Delete current regex.
-
-* Change current regex text.
-
-* Display the current regex (in its own style!).
-
 ### Important
 
 * Help screen. Application name, author, copyright notice. Then a list of key

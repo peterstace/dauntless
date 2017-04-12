@@ -858,7 +858,7 @@ func (a *app) drawStatusLine() {
 		lineWrapMode = "line-wrap-mode:off"
 	}
 
-	currentRegexpStr := ""
+	currentRegexpStr := "re:<none>"
 	if a.tmpRegex != nil {
 		currentRegexpStr = "re(tmp):" + a.tmpRegex.String()
 	} else if len(a.regexes) > 0 {
