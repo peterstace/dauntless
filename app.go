@@ -737,10 +737,9 @@ func (a *app) renderScreen() {
 				lineBuf = lineBuf[copiedA:]
 				styleBuf = styleBuf[copiedB:]
 			}
-		} else if len(a.fwd) != 0 && a.fwd[len(a.fwd)-1].offset+len(a.fwd[len(a.fwd)-1].data) >= a.fileSize {
+		} else if len(a.fwd) != 0 && a.fwd[len(a.fwd)-1].nextOffset() >= a.fileSize {
 			// Reached end of file.
-			assert(a.fwd[len(a.fwd)-1].offset+len(a.fwd[len(a.fwd)-1].data) == a.fileSize) // Assert that it's actually equal.
-			break
+			a.screenBuffer[a.rowColIdx(row, 0)] = '~'
 		} else {
 			a.clearScreenBuffers()
 			buildLoadingScreen(a.screenBuffer, a.cols)

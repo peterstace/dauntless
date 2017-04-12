@@ -21,6 +21,10 @@ state.
 
 * Change colour of existing regexp.
 
+* Delete current regex.
+
+* Change current regex text.
+
 ### Important
 
 * Help screen. Application name, author, copyright notice. Then a list of key
@@ -33,8 +37,6 @@ state.
 * Cursor should follow current position in command mode.
 
 * Arrow keys in command mode (at least for search?).
-
-* Tilde for EOF.
 
 * Display message to user.
 
