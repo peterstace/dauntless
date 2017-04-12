@@ -754,9 +754,9 @@ func (a *app) renderScreen() {
 	commandLineText := ""
 	switch a.commandMode {
 	case search:
-		commandLineText = "Enter search regexp: " + a.commandText
+		commandLineText = "Enter search regexp (interrupt to cancel): " + a.commandText
 	case colour:
-		commandLineText = "Enter colour code: " + a.commandText
+		commandLineText = "Enter colour code (interrupt to cancel): " + a.commandText
 	case none:
 	default:
 		assert(false)
