@@ -6,6 +6,22 @@ import (
 	"regexp"
 )
 
+func FindStartOfLine(filename string, offset int) (int, error) {
+
+	f, err := os.Open(filename)
+	if err != nil {
+		return 0, err
+	}
+	defer f.Close()
+
+	reader := NewBackwardLineReader(f, offset)
+	line, err := reader.ReadLine()
+	if err != nil {
+		return 0, err
+	}
+	return offset - len(line), nil
+}
+
 func FindJumpToBottomOffset(filename string) (int, error) {
 
 	// TODO: Should use the backward line reader.

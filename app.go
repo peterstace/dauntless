@@ -24,6 +24,7 @@ const (
 	none command = iota
 	search
 	colour
+	seek
 )
 
 type line struct {
@@ -125,6 +126,7 @@ func (a *app) KeyPress(b byte) {
 		'c':  a.startColourCommand,
 		'\t': a.cycleRegexp,
 		'x':  a.deleteRegexp,
+		's':  a.startSeekCommand,
 	}[b]
 
 	if !ok {
@@ -362,6 +364,8 @@ func (a *app) consumeCommandChar(b byte) {
 			a.finishSearchCommand()
 		case colour:
 			a.finishColourCommand()
+		case seek:
+			a.finishSeekCommand()
 		case none:
 			assert(false)
 		default:
@@ -533,6 +537,46 @@ func parseColourCode(code string) (Style, error) {
 		return 0, err
 	}
 	return mixStyle(styles[fg-'0'], styles[bg-'0']), nil
+}
+
+func (a *app) startSeekCommand() {
+	a.commandMode = seek
+	a.log.Info("Accepting seek command.")
+	a.refresh()
+}
+
+func (a *app) finishSeekCommand() {
+
+	a.log.Info("Seek command entered: %q", a.commandText)
+
+	var seekPct float64
+	_, err := fmt.Sscanf(a.commandText, "%f", &seekPct)
+	if err != nil {
+		a.log.Warn("Could not parse entered seek percentage: %v", err)
+		// TODO: Should tell user.
+		return
+	}
+
+	if seekPct < 0 || seekPct > 100 {
+		a.log.Warn("Seek percentage out of range [0, 100]: %v", seekPct)
+		// TODO: Tell user.
+		return
+	}
+
+	target := int(seekPct / 100.0 * float64(a.fileSize))
+	go func() {
+		offset, err := FindStartOfLine(a.filename, target)
+		a.reactor.Enque(func() {
+			if err != nil {
+				a.log.Warn("Could to find start of line at offset: %v", err)
+				a.reactor.Stop(err)
+				return
+			}
+			a.moveToOffset(offset)
+			a.refresh()
+			a.fillScreenBuffer()
+		})
+	}()
 }
 
 func (a *app) reduceXPosition() {
@@ -792,6 +836,8 @@ func (a *app) renderScreen() {
 		commandLineText = "Enter search regexp (interrupt to cancel): " + a.commandText
 	case colour:
 		commandLineText = "Enter colour code (interrupt to cancel): " + a.commandText
+	case seek:
+		commandLineText = "Enter seek percentage (interrupt to cancel): " + a.commandText
 	case none:
 	default:
 		assert(false)

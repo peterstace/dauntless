@@ -23,6 +23,8 @@ state.
 
 ### Important
 
+* Edit over scp.
+
 * Help screen. Application name, author, copyright notice. Then a list of key
   mappings.
 
