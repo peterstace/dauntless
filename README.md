@@ -15,8 +15,6 @@ state.
 
 ### Most Important
 
-* Versioning.
-
 * Display message to user.
 
 * Configuration file.

@@ -6,11 +6,19 @@ import (
 	"os"
 )
 
+const version = "Dauntless v0.1.0"
+
 func main() {
 
 	var logfile string
 	flag.StringVar(&logfile, "l", "", "debug logfile")
+	vFlag := flag.Bool("v", false, "version")
 	flag.Parse()
+
+	if *vFlag {
+		fmt.Println(version)
+		return
+	}
 
 	if len(flag.Args()) != 1 {
 		fmt.Fprintf(os.Stderr, "Usage: %s <filename>\n", os.Args[0])
