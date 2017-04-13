@@ -550,7 +550,7 @@ func (a *app) finishSeekCommand() {
 	a.log.Info("Seek command entered: %q", a.commandText)
 
 	var seekPct float64
-	_, err := fmt.Sscanf(a.commandText, "%f", &seekPct)
+	_, err := fmt.Sscanf(a.commandText, "%f\n", &seekPct)
 	if err != nil {
 		a.log.Warn("Could not parse entered seek percentage: %v", err)
 		// TODO: Should tell user.
