@@ -11,7 +11,7 @@ features that haven't been implemented yet.
 ## Dauntless Crashed (and now my terminal is messed up!)
 
 Dauntless is still in active development, and may crash. When Dauntless starts
-up, it enters (`cbreak` mode)[https://en.wikipedia.org/wiki/Cooked_mode]. If it
+up, it enters [`cbreak` mode](https://en.wikipedia.org/wiki/Cooked_mode). If it
 crashes, then it may not exit `cbreak` mode before exiting. To manually leave
 `cbreak` mode, enter (blindly!) the command `stty sane`.
 
