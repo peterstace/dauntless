@@ -17,8 +17,7 @@ state.
 
 * Rebrand to "Dauntless".
 
-* Display message to user. Even when moving page up/down and already at the
-  top/bottom. And when moving left/right.
+* Display message to user. Moving up/down/left/right/top/bottom when there is no where more to go.
 
 * Configuration file.
 
