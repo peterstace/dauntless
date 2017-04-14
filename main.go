@@ -6,7 +6,7 @@ import (
 	"os"
 )
 
-const version = "Dauntless v0.1.0"
+const version = "Dauntless <unversioned>"
 
 func main() {
 
