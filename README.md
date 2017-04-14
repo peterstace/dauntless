@@ -1,29 +1,33 @@
-# LV
+# Dauntless
 
-LV is a log file viewer. Will LV even be the final name? Who knows.
+Dauntless is a log viewer inspired by GNU less. It contains additional features
+that make analysing log files easier.
 
 ## Status
 
-Proof-of-concept. Completely incomplete.
+It's currently at feature-parity with `less`. There are still some planned
+features that haven't been implemented yet.
 
-## It crashed, and now my terminal is screwed up...
+## Dauntless Crashed (and now my terminal is messed up!)
 
-Enter (blindly) the command `stty sane` to restore the terminal to a useable
-state.
+Dauntless is still in active development, and may crash. When Dauntless starts
+up, it enters (`cbreak` mode)[https://en.wikipedia.org/wiki/Cooked_mode]. If it
+crashes, then it may not exit `cbreak` mode before exiting. To manually leave
+`cbreak` mode, enter (blindly!) the command `stty sane`.
 
 ## TODO List
 
 ### Most Important
 
-* Rebrand to "Dauntless".
+* Bisect file.
 
 * Configuration file.
+
+* Only consider lines matching custom regexp during bisection.
 
 ### Important
 
 * Timeout for displaying loading screen.
-
-* Bisect file. Only consider lines matching custom regexp.
 
 * Managed cursor position (currently goes off the end of the screen in tmux).
 
@@ -45,7 +49,9 @@ state.
 
 * Bookmarks.
 
-* Edit over scp.
+* View bz2 files in-place.
+
+* View over scp.
 
 * Signal for term size change. This would be more efficient than running `stty
   size` externally once per second to detect a term size change.
