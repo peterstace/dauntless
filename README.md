@@ -15,7 +15,10 @@ state.
 
 ### Most Important
 
-* Display message to user.
+* Rebrand to "Dauntless".
+
+* Display message to user. Even when moving page up/down and already at the
+  top/bottom. And when moving left/right.
 
 * Configuration file.
 
@@ -63,5 +66,7 @@ goroutine. But if the panic occurs in another goroutine, we're out of luck.
 * Add assertions back in for main data structure.
 
 ### Bugs
+
+* Seeking to zero percentage is fatal.
 
 None known (yet).

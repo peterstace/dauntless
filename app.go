@@ -1,11 +1,12 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"os"
 	"regexp"
+	"strconv"
+	"time"
 )
 
 type App interface {
@@ -72,6 +73,9 @@ type app struct {
 	xPosition    int
 
 	fillingScreenBuffer bool
+
+	msg      string
+	msgSetAt time.Time
 }
 
 func NewApp(reactor Reactor, filename string, logger Logger, screen Screen) App {
@@ -94,6 +98,7 @@ func (a *app) Signal(sig os.Signal) {
 		a.quit()
 	} else {
 		a.log.Info("Cancelling command.")
+		a.msg = "" // Don't want old message to show up.
 		a.commandMode = none
 		a.commandText = ""
 		a.refresh()
@@ -336,7 +341,7 @@ func (a *app) finishSearchCommand() {
 	re, err := regexp.Compile(a.commandText)
 	if err != nil {
 		a.log.Warn("Could not compile regexp: Regexp=%q Err=%q", a.commandText, err)
-		// TODO: Should tell user?
+		a.setMessage(err.Error())
 		return
 	}
 	a.log.Info("Regex compiled.")
@@ -359,6 +364,7 @@ func (a *app) consumeCommandChar(b byte) {
 		}
 	} else if b == 10 {
 		a.log.Info("Finished command mode.")
+		a.msg = "" // Don't want old message to show up after the command.
 		switch a.commandMode {
 		case search:
 			a.finishSearchCommand()
@@ -384,8 +390,9 @@ func (a *app) jumpToNextMatch() {
 
 	re := a.currentRE()
 	if re == nil {
-		a.log.Info("No regex to jump to.")
-		// TODO: Display to user
+		msg := "no regex to jump to"
+		a.log.Info(msg)
+		a.setMessage(msg)
 		return
 	}
 
@@ -401,8 +408,9 @@ func (a *app) jumpToNextMatch() {
 		offset, err := FindNextMatch(a.filename, startOffset, re)
 		a.reactor.Enque(func() {
 			if err == io.EOF {
-				a.log.Info("Regexp search complete: no match found.")
-				// TODO: Display to user.
+				msg := "regex search complete: no match found"
+				a.log.Info(msg)
+				a.setMessage(msg)
 				return
 			}
 			if err != nil {
@@ -422,8 +430,9 @@ func (a *app) jumpToPrevMatch() {
 
 	re := a.currentRE()
 	if re == nil {
-		a.log.Info("No regex to jump to.")
-		// TODO: Display to user.
+		msg := "no regex to jump to"
+		a.log.Info(msg)
+		a.setMessage(msg)
 		return
 	}
 
@@ -440,8 +449,9 @@ func (a *app) jumpToPrevMatch() {
 				return
 			}
 			if err == io.EOF {
-				a.log.Info("Regexp search completed: no match found.")
-				// TODO: Should somehow display this to the user?
+				msg := "regex search complete: no match found"
+				a.log.Info(msg)
+				a.setMessage(msg)
 				return
 			}
 			a.log.Info("Regexp search completed with match.")
@@ -465,8 +475,9 @@ func (a *app) toggleLineWrapMode() {
 
 func (a *app) startColourCommand() {
 	if a.currentRE() == nil {
-		a.log.Warn("Cannot start colour command: no regex")
-		// TODO: Tell user.
+		msg := "cannot select regex color: no active regex"
+		a.log.Warn(msg)
+		a.setMessage(msg)
 		return
 	}
 	a.commandMode = colour
@@ -477,9 +488,10 @@ func (a *app) startColourCommand() {
 func (a *app) cycleRegexp() {
 
 	if len(a.regexes) == 0 {
-		a.log.Warn("No REs to cycle between.")
+		msg := "no regexes to cycle between"
+		a.log.Warn(msg)
+		a.setMessage(msg)
 		return
-		// TODO: Tell user.
 	}
 
 	a.tmpRegex = nil // Any temp re gets discarded.
@@ -493,8 +505,9 @@ func (a *app) deleteRegexp() {
 	} else if len(a.regexes) > 0 {
 		a.regexes = a.regexes[1:]
 	} else {
-		a.log.Warn("No REs to delete.")
-		// TODO: Tell user.
+		msg := "no regexes to delete"
+		a.log.Warn(msg)
+		a.setMessage(msg)
 	}
 	a.refresh()
 }
@@ -508,7 +521,7 @@ func (a *app) finishColourCommand() {
 	style, err := parseColourCode(a.commandText)
 	if err != nil {
 		a.log.Warn("Could not parse entered colour: %v", err)
-		// TODO: Should tell user?
+		a.setMessage(err.Error())
 		return
 	}
 	a.log.Info("Style parsed.")
@@ -527,7 +540,7 @@ func (a *app) finishColourCommand() {
 }
 
 func parseColourCode(code string) (Style, error) {
-	err := errors.New("colour code must be in format [0-8][0-8]")
+	err := fmt.Errorf("colour code must be in format [0-8][0-8]: %v", code)
 	if len(code) != 2 {
 		return 0, err
 	}
@@ -549,17 +562,18 @@ func (a *app) finishSeekCommand() {
 
 	a.log.Info("Seek command entered: %q", a.commandText)
 
-	var seekPct float64
-	_, err := fmt.Sscanf(a.commandText, "%f\n", &seekPct)
+	seekPct, err := strconv.ParseFloat(a.commandText, 64)
 	if err != nil {
-		a.log.Warn("Could not parse entered seek percentage: %v", err)
-		// TODO: Should tell user.
+		msg := fmt.Sprintf("could not parse seek percentage: %v", err)
+		a.log.Warn(msg)
+		a.setMessage(msg)
 		return
 	}
 
 	if seekPct < 0 || seekPct > 100 {
-		a.log.Warn("Seek percentage out of range [0, 100]: %v", seekPct)
-		// TODO: Tell user.
+		msg := fmt.Sprintf("Seek percentage out of range [0, 100]: %v", seekPct)
+		a.log.Warn(msg)
+		a.setMessage(msg)
 		return
 	}
 
@@ -839,6 +853,9 @@ func (a *app) renderScreen() {
 	case seek:
 		commandLineText = "Enter seek percentage (interrupt to cancel): " + a.commandText
 	case none:
+		if time.Now().Sub(a.msgSetAt) < msgLingerDuration {
+			commandLineText = a.msg
+		}
 	default:
 		assert(false)
 	}
@@ -973,4 +990,17 @@ func (a *app) currentRE() *regexp.Regexp {
 		re = a.regexes[0].re
 	}
 	return re
+}
+
+const msgLingerDuration = 5 * time.Second
+
+func (a *app) setMessage(msg string) {
+	a.log.Info("Setting message: %q", msg)
+	a.msg = msg
+	a.msgSetAt = time.Now()
+	a.refresh()
+	go func() {
+		time.Sleep(msgLingerDuration)
+		a.refresh()
+	}()
 }
