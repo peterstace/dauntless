@@ -17,24 +17,22 @@ state.
 
 * Rebrand to "Dauntless".
 
-* Display message to user. Moving up/down/left/right/top/bottom when there is no where more to go.
-
 * Configuration file.
 
 ### Important
 
-* Edit over scp.
+* Timeout for displaying loading screen.
+
+* Bisect file. Only consider lines matching custom regexp.
+
+* Managed cursor position (currently goes off the end of the screen in tmux).
 
 * Help screen. Application name, author, copyright notice. Then a list of key
   mappings.
 
-* Managed cursor position (currently goes off the end of the screen in tmux).
-
-* Cursor should follow current position in command mode.
-
 * Arrow keys in command mode (at least for search?).
 
-* Bookmarks.
+* Cursor should follow current position in command mode.
 
 * Custom indentation in split lines mode.
 
@@ -43,11 +41,11 @@ state.
 * Predefined (config file) and pre-loaded regexes. E.g. to highlight errors
   that would always appear the same way.
 
-* Timeout for displaying loading screen.
-
-* Bisect file. Only consider lines matching custom regexp.
-
 ### Least Important
+
+* Bookmarks.
+
+* Edit over scp.
 
 * Signal for term size change. This would be more efficient than running `stty
   size` externally once per second to detect a term size change.
