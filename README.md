@@ -1,7 +1,8 @@
 # Dauntless
 
-Dauntless is a log viewer inspired by GNU less. It contains additional features
-that make analysing log files easier.
+Dauntless is a log viewer inspired by [GNU
+less](https://www.gnu.org/software/less/). It contains additional features that
+make analysing log files easier.
 
 ## Status
 
