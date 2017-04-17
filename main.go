@@ -4,15 +4,18 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"regexp"
 )
 
-const version = "Dauntless v0.1.0"
+const version = "Dauntless 0.2.0"
 
 func main() {
 
 	var logfile string
-	flag.StringVar(&logfile, "l", "", "debug logfile")
-	vFlag := flag.Bool("v", false, "version")
+	flag.StringVar(&logfile, "debug-logfile", "", "debug logfile")
+	vFlag := flag.Bool("version", false, "version")
+	wrapPrefix := flag.String("wrap-prefix", "", "prefix string for wrapped lines")
+	bisectMask := flag.String("bisect-mask", "", "only consider lines matching this regex when bisecting")
 	flag.Parse()
 
 	if *vFlag {
@@ -24,6 +27,14 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Usage: %s <filename>\n", os.Args[0])
 		os.Exit(1)
 	}
+
+	mask, err := regexp.Compile(*bisectMask)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Could not compile regex: %v\n", err)
+		os.Exit(1)
+	}
+
+	config := Config{*wrapPrefix, mask}
 
 	var logger Logger
 	if logfile == "" {
@@ -46,20 +57,20 @@ func main() {
 
 	screen := NewTermScreen(os.Stdout, reactor, logger)
 
-	app := NewApp(reactor, filename, logger, screen)
+	app := NewApp(reactor, filename, logger, screen, config)
 
 	reactor.Enque(app.Initialise)
 	CollectFileSize(reactor, app, filename)
 	collectSignals(reactor, app)
 	collectInput(reactor, app)
 	collectTermSize(reactor, app)
-	err := reactor.Run()
+	err = reactor.Run()
 
 	ttyState.leaveRaw()
 	leaveAlt()
 
 	if err != nil {
-		fmt.Printf("Error: %v", err)
+		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
 }

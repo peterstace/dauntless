@@ -26,6 +26,7 @@ const (
 	search
 	colour
 	seek
+	bisect
 )
 
 type line struct {
@@ -45,6 +46,7 @@ type regex struct {
 type app struct {
 	reactor Reactor
 	log     Logger
+	config  Config
 
 	filename string
 
@@ -78,11 +80,12 @@ type app struct {
 	msgSetAt time.Time
 }
 
-func NewApp(reactor Reactor, filename string, logger Logger, screen Screen) App {
+func NewApp(reactor Reactor, filename string, logger Logger, screen Screen, config Config) App {
 	return &app{
 		reactor:  reactor,
 		filename: filename,
 		log:      logger,
+		config:   config,
 		screen:   screen,
 	}
 }
@@ -132,6 +135,7 @@ func (a *app) KeyPress(b byte) {
 		'\t': a.cycleRegexp,
 		'x':  a.deleteRegexp,
 		's':  a.startSeekCommand,
+		'b':  a.startBisectCommand,
 	}[b]
 
 	if !ok {
@@ -372,6 +376,8 @@ func (a *app) consumeCommandChar(b byte) {
 			a.finishColourCommand()
 		case seek:
 			a.finishSeekCommand()
+		case bisect:
+			a.finishBisectCommand()
 		case none:
 			assert(false)
 		default:
@@ -583,6 +589,30 @@ func (a *app) finishSeekCommand() {
 		a.reactor.Enque(func() {
 			if err != nil {
 				a.log.Warn("Could to find start of line at offset: %v", err)
+				a.reactor.Stop(err)
+				return
+			}
+			a.moveToOffset(offset)
+			a.refresh()
+			a.fillScreenBuffer()
+		})
+	}()
+}
+
+func (a *app) startBisectCommand() {
+	a.commandMode = bisect
+	a.log.Info("Accepting bisect command.")
+	a.refresh()
+}
+
+func (a *app) finishBisectCommand() {
+	a.log.Info("Bisect command entered: %q", a.commandText)
+	target := a.commandText
+	go func() {
+		offset, err := Bisect(a.filename, target, a.config.BisectMask)
+		a.reactor.Enque(func() {
+			if err != nil {
+				a.log.Warn("Could not find bisect target: %v", err)
 				a.reactor.Stop(err)
 				return
 			}
@@ -809,6 +839,7 @@ func (a *app) renderScreen() {
 	lineRows := a.rows - 2 // 2 rows reserved for status line and command line.
 	for row := 0; row < lineRows; row++ {
 		if fwdIdx < len(a.fwd) {
+			usePrefix := len(lineBuf) != 0
 			if len(lineBuf) == 0 {
 				assert(len(styleBuf) == 0)
 				data := a.fwd[fwdIdx].data
@@ -826,8 +857,13 @@ func (a *app) renderScreen() {
 				lineBuf = nil
 				styleBuf = nil
 			} else {
-				copiedA := copy(a.screenBuffer[row*a.cols:(row+1)*a.cols], lineBuf)
-				copiedB := copy(a.stylesBuffer[row*a.cols:(row+1)*a.cols], styleBuf)
+				var prefix string
+				if usePrefix && len(a.config.WrapPrefix)+1 < a.cols {
+					prefix = a.config.WrapPrefix
+				}
+				copy(a.screenBuffer[row*a.cols:(row+1)*a.cols], prefix)
+				copiedA := copy(a.screenBuffer[row*a.cols+len(prefix):(row+1)*a.cols], lineBuf)
+				copiedB := copy(a.stylesBuffer[row*a.cols+len(prefix):(row+1)*a.cols], styleBuf)
 				assert(copiedA == copiedB)
 				lineBuf = lineBuf[copiedA:]
 				styleBuf = styleBuf[copiedB:]
@@ -852,6 +888,8 @@ func (a *app) renderScreen() {
 		commandLineText = "Enter colour code (interrupt to cancel): " + a.commandText
 	case seek:
 		commandLineText = "Enter seek percentage (interrupt to cancel): " + a.commandText
+	case bisect:
+		commandLineText = "Enter bisect target (interrupt to cancel): " + a.commandText
 	case none:
 		if time.Now().Sub(a.msgSetAt) < msgLingerDuration {
 			commandLineText = a.msg

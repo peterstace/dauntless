@@ -1,7 +1,8 @@
 # Dauntless
 
-Dauntless is a log viewer inspired by GNU less. It contains additional features
-that make analysing log files easier.
+Dauntless is a log viewer inspired by [GNU
+less](https://www.gnu.org/software/less/). It contains additional features that
+make analysing log files easier.
 
 ## Status
 
@@ -19,20 +20,14 @@ crashes, then it may not exit `cbreak` mode before exiting. To manually leave
 
 ### Most Important
 
-* Bisect file.
-
-* Configuration file.
-
-* Only consider lines matching custom regexp during bisection.
+* Help screen. Application name, author, copyright notice. Then a list of key
+  mappings.
 
 ### Important
 
 * Timeout for displaying loading screen.
 
 * Managed cursor position (currently goes off the end of the screen in tmux).
-
-* Help screen. Application name, author, copyright notice. Then a list of key
-  mappings.
 
 * Arrow keys in command mode (at least for search?).
 
