@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"regexp"
 )
 
 const version = "Dauntless <unversioned>"
@@ -14,6 +15,7 @@ func main() {
 	flag.StringVar(&logfile, "debug-logfile", "", "debug logfile")
 	vFlag := flag.Bool("version", false, "version")
 	wrapPrefix := flag.String("wrap-prefix", "", "prefix string for wrapped lines")
+	bisectMask := flag.String("bisect-mask", "", "only consider lines matching this regex when bisecting")
 	flag.Parse()
 
 	if *vFlag {
@@ -26,7 +28,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	config := Config{*wrapPrefix}
+	mask, err := regexp.Compile(*bisectMask)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Could not compile regex: %v\n", err)
+		os.Exit(1)
+	}
+
+	config := Config{*wrapPrefix, mask}
 
 	var logger Logger
 	if logfile == "" {
@@ -56,13 +64,13 @@ func main() {
 	collectSignals(reactor, app)
 	collectInput(reactor, app)
 	collectTermSize(reactor, app)
-	err := reactor.Run()
+	err = reactor.Run()
 
 	ttyState.leaveRaw()
 	leaveAlt()
 
 	if err != nil {
-		fmt.Printf("Error: %v", err)
+		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
 }

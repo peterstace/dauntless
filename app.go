@@ -26,6 +26,7 @@ const (
 	search
 	colour
 	seek
+	bisect
 )
 
 type line struct {
@@ -134,6 +135,7 @@ func (a *app) KeyPress(b byte) {
 		'\t': a.cycleRegexp,
 		'x':  a.deleteRegexp,
 		's':  a.startSeekCommand,
+		'b':  a.startBisectCommand,
 	}[b]
 
 	if !ok {
@@ -374,6 +376,8 @@ func (a *app) consumeCommandChar(b byte) {
 			a.finishColourCommand()
 		case seek:
 			a.finishSeekCommand()
+		case bisect:
+			a.finishBisectCommand()
 		case none:
 			assert(false)
 		default:
@@ -585,6 +589,30 @@ func (a *app) finishSeekCommand() {
 		a.reactor.Enque(func() {
 			if err != nil {
 				a.log.Warn("Could to find start of line at offset: %v", err)
+				a.reactor.Stop(err)
+				return
+			}
+			a.moveToOffset(offset)
+			a.refresh()
+			a.fillScreenBuffer()
+		})
+	}()
+}
+
+func (a *app) startBisectCommand() {
+	a.commandMode = bisect
+	a.log.Info("Accepting bisect command.")
+	a.refresh()
+}
+
+func (a *app) finishBisectCommand() {
+	a.log.Info("Bisect command entered: %q", a.commandText)
+	target := a.commandText
+	go func() {
+		offset, err := Bisect(a.filename, target, a.config.BisectMask)
+		a.reactor.Enque(func() {
+			if err != nil {
+				a.log.Warn("Could not find bisect target: %v", err)
 				a.reactor.Stop(err)
 				return
 			}
@@ -860,6 +888,8 @@ func (a *app) renderScreen() {
 		commandLineText = "Enter colour code (interrupt to cancel): " + a.commandText
 	case seek:
 		commandLineText = "Enter seek percentage (interrupt to cancel): " + a.commandText
+	case bisect:
+		commandLineText = "Enter bisect target (interrupt to cancel): " + a.commandText
 	case none:
 		if time.Now().Sub(a.msgSetAt) < msgLingerDuration {
 			commandLineText = a.msg
