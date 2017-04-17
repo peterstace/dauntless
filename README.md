@@ -22,8 +22,6 @@ crashes, then it may not exit `cbreak` mode before exiting. To manually leave
 
 * Bisect file.
 
-* Configuration file.
-
 * Only consider lines matching custom regexp during bisection.
 
 ### Important
