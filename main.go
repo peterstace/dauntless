@@ -7,7 +7,7 @@ import (
 	"regexp"
 )
 
-const version = "Dauntless 0.2.0"
+const version = "Dauntless <unversioned>"
 
 func main() {
 
