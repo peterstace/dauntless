@@ -45,6 +45,7 @@ type regex struct {
 type app struct {
 	reactor Reactor
 	log     Logger
+	config  Config
 
 	filename string
 
@@ -78,11 +79,12 @@ type app struct {
 	msgSetAt time.Time
 }
 
-func NewApp(reactor Reactor, filename string, logger Logger, screen Screen) App {
+func NewApp(reactor Reactor, filename string, logger Logger, screen Screen, config Config) App {
 	return &app{
 		reactor:  reactor,
 		filename: filename,
 		log:      logger,
+		config:   config,
 		screen:   screen,
 	}
 }
@@ -809,6 +811,7 @@ func (a *app) renderScreen() {
 	lineRows := a.rows - 2 // 2 rows reserved for status line and command line.
 	for row := 0; row < lineRows; row++ {
 		if fwdIdx < len(a.fwd) {
+			usePrefix := len(lineBuf) != 0
 			if len(lineBuf) == 0 {
 				assert(len(styleBuf) == 0)
 				data := a.fwd[fwdIdx].data
@@ -826,8 +829,13 @@ func (a *app) renderScreen() {
 				lineBuf = nil
 				styleBuf = nil
 			} else {
-				copiedA := copy(a.screenBuffer[row*a.cols:(row+1)*a.cols], lineBuf)
-				copiedB := copy(a.stylesBuffer[row*a.cols:(row+1)*a.cols], styleBuf)
+				var prefix string
+				if usePrefix && len(a.config.WrapPrefix)+1 < a.cols {
+					prefix = a.config.WrapPrefix
+				}
+				copy(a.screenBuffer[row*a.cols:(row+1)*a.cols], prefix)
+				copiedA := copy(a.screenBuffer[row*a.cols+len(prefix):(row+1)*a.cols], lineBuf)
+				copiedB := copy(a.stylesBuffer[row*a.cols+len(prefix):(row+1)*a.cols], styleBuf)
 				assert(copiedA == copiedB)
 				lineBuf = lineBuf[copiedA:]
 				styleBuf = styleBuf[copiedB:]

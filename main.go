@@ -11,8 +11,9 @@ const version = "Dauntless <unversioned>"
 func main() {
 
 	var logfile string
-	flag.StringVar(&logfile, "l", "", "debug logfile")
-	vFlag := flag.Bool("v", false, "version")
+	flag.StringVar(&logfile, "debug-logfile", "", "debug logfile")
+	vFlag := flag.Bool("version", false, "version")
+	wrapPrefix := flag.String("wrap-prefix", "", "prefix string for wrapped lines")
 	flag.Parse()
 
 	if *vFlag {
@@ -24,6 +25,8 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Usage: %s <filename>\n", os.Args[0])
 		os.Exit(1)
 	}
+
+	config := Config{*wrapPrefix}
 
 	var logger Logger
 	if logfile == "" {
@@ -46,7 +49,7 @@ func main() {
 
 	screen := NewTermScreen(os.Stdout, reactor, logger)
 
-	app := NewApp(reactor, filename, logger, screen)
+	app := NewApp(reactor, filename, logger, screen, config)
 
 	reactor.Enque(app.Initialise)
 	CollectFileSize(reactor, app, filename)
