@@ -20,18 +20,14 @@ crashes, then it may not exit `cbreak` mode before exiting. To manually leave
 
 ### Most Important
 
-* Help screen. Application name, author, copyright notice. Then a list of key
-  mappings.
+* Timeout for displaying loading screen.
 
 ### Important
 
-* Timeout for displaying loading screen.
-
-* Managed cursor position (currently goes off the end of the screen in tmux).
+* Help screen. Application name, author, copyright notice. Then a list of key
+  mappings.
 
 * Arrow keys in command mode (at least for search?).
-
-* Cursor should follow current position in command mode.
 
 * Custom disable/enable regexp colour choices.
 
@@ -53,6 +49,10 @@ crashes, then it may not exit `cbreak` mode before exiting. To manually leave
   Can use defers to restore the term state if the panic occurs in the main
 goroutine. But if the panic occurs in another goroutine, we're out of luck.
 
+* Scrolling support when entering a command. Currently, the user cannot see
+  what they're entering past the end of the screen if they're entering
+something long.
+
 ### Technical Debt
 
 * Inefficiency in finding next match (use std lib line reader)
@@ -61,8 +61,6 @@ goroutine. But if the panic occurs in another goroutine, we're out of luck.
 
 * Add assertions back in for main data structure.
 
-### Bugs
+### Known Bugs
 
 * Seeking to zero percentage is fatal.
-
-None known (yet).
