@@ -33,8 +33,6 @@ crashes, then it may not exit `cbreak` mode before exiting. To manually leave
 
 * Cursor should follow current position in command mode.
 
-* Custom indentation in split lines mode.
-
 * Custom disable/enable regexp colour choices.
 
 * Predefined (config file) and pre-loaded regexes. E.g. to highlight errors
