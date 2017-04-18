@@ -82,7 +82,7 @@ func (s Style) String() string {
 }
 
 type Screen interface {
-	Write(chars []byte, styles []Style, cols int)
+	Write(chars []byte, styles []Style, cols int, colPos int)
 }
 
 func NewTermScreen(w io.Writer, r Reactor, log Logger) Screen {
@@ -107,7 +107,7 @@ type termScreen struct {
 	log     Logger
 }
 
-func (t *termScreen) Write(chars []byte, styles []Style, cols int) {
+func (t *termScreen) Write(chars []byte, styles []Style, cols int, colPos int) {
 
 	t.log.Info("Preparing screen write contents.")
 
@@ -126,6 +126,7 @@ func (t *termScreen) Write(chars []byte, styles []Style, cols int) {
 		assert(chars[i] >= 32 && chars[i] <= 126) // Char must be visible.
 		t.nextWrite.WriteByte(chars[i])
 	}
+	fmt.Fprintf(t.nextWrite, "\x1b[%d;%dH", len(chars)/cols+1, colPos+1)
 
 	if t.writeInProgress {
 		t.log.Info("Write already in progress, will write after completion.")

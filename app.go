@@ -904,7 +904,11 @@ func (a *app) renderScreen() {
 		a.overlaySwatch()
 	}
 
-	a.screen.Write(a.screenBuffer, a.stylesBuffer, a.cols)
+	col := a.cols - 1
+	if a.commandMode != none {
+		col = max(col, len(commandLineText))
+	}
+	a.screen.Write(a.screenBuffer, a.stylesBuffer, a.cols, col)
 }
 
 func (a *app) renderLine(data string) []byte {
