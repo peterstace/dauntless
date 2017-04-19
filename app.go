@@ -116,26 +116,39 @@ func (a *app) KeyPress(k Key) {
 	}
 
 	fn, ok := map[Key]func(){
-		"q":           a.quit,
-		"j":           a.moveDownBySingleLine,
-		"k":           a.moveUpBySingleLine,
-		"d":           a.moveDownByHalfScreen,
-		"u":           a.moveUpByHalfScreen,
-		"r":           a.repaint,
-		"R":           a.discardBufferedInputAndRepaint,
-		"g":           a.moveTop,
-		"G":           a.moveBottom,
-		"/":           a.startSearchCommand,
-		"n":           a.jumpToNextMatch,
-		"N":           a.jumpToPrevMatch,
-		"w":           a.toggleLineWrapMode,
-		"c":           a.startColourCommand,
-		"\t":          a.cycleRegexp,
-		"x":           a.deleteRegexp,
-		"s":           a.startSeekCommand,
-		"b":           a.startBisectCommand,
+		"q": a.quit,
+
+		"j": a.moveDownBySingleLine,
+		"k": a.moveUpBySingleLine,
+		"d": a.moveDownByHalfScreen,
+		"u": a.moveUpByHalfScreen,
+
+		DownArrowKey: a.moveDownBySingleLine,
+		UpArrowKey:   a.moveUpBySingleLine,
+		PageDownKey:  a.moveDownByHalfScreen,
+		PageUpKey:    a.moveUpByHalfScreen,
+
 		LeftArrowKey:  a.reduceXPosition,
 		RightArrowKey: a.increaseXPosition,
+
+		"r": a.repaint,
+		"R": a.discardBufferedInputAndRepaint,
+
+		"g": a.moveTop,
+		"G": a.moveBottom,
+
+		"/": a.startSearchCommand,
+		"n": a.jumpToNextMatch,
+		"N": a.jumpToPrevMatch,
+
+		"w": a.toggleLineWrapMode,
+
+		"c":  a.startColourCommand,
+		"\t": a.cycleRegexp,
+		"x":  a.deleteRegexp,
+
+		"s": a.startSeekCommand,
+		"b": a.startBisectCommand,
 	}[k]
 
 	if !ok {
