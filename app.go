@@ -906,7 +906,7 @@ func (a *app) renderScreen() {
 
 	col := a.cols - 1
 	if a.commandMode != none {
-		col = max(col, len(commandLineText))
+		col = min(col, len(commandLineText))
 	}
 	a.screen.Write(a.screenBuffer, a.stylesBuffer, a.cols, col)
 }
