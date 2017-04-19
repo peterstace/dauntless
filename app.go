@@ -11,9 +11,7 @@ import (
 
 type App interface {
 	Initialise()
-	KeyPress(byte)
-	SpecialKeyPress(SpecialKey)
-	UnknownKeySequence([]byte)
+	KeyPress(Key)
 	TermSize(rows, cols int, err error)
 	FileSize(int, error)
 	Signal(os.Signal)
@@ -108,68 +106,44 @@ func (a *app) Signal(sig os.Signal) {
 	}
 }
 
-func (a *app) KeyPress(b byte) {
+func (a *app) KeyPress(k Key) {
 
-	a.log.Info("Key press: %q", string([]byte{b}))
-
-	if a.commandMode != none {
-		a.consumeCommandChar(b)
-		return
-	}
-
-	fn, ok := map[byte]func(){
-		'q':  a.quit,
-		'j':  a.moveDownBySingleLine,
-		'k':  a.moveUpBySingleLine,
-		'd':  a.moveDownByHalfScreen,
-		'u':  a.moveUpByHalfScreen,
-		'r':  a.repaint,
-		'R':  a.discardBufferedInputAndRepaint,
-		'g':  a.moveTop,
-		'G':  a.moveBottom,
-		'/':  a.startSearchCommand,
-		'n':  a.jumpToNextMatch,
-		'N':  a.jumpToPrevMatch,
-		'w':  a.toggleLineWrapMode,
-		'c':  a.startColourCommand,
-		'\t': a.cycleRegexp,
-		'x':  a.deleteRegexp,
-		's':  a.startSeekCommand,
-		'b':  a.startBisectCommand,
-	}[b]
-
-	if !ok {
-		a.log.Info("Unhandled key press: %d", b)
-		return
-	}
-
-	fn()
-}
-
-func (a *app) SpecialKeyPress(key SpecialKey) {
-
-	a.log.Info("Special key press: %v", key)
+	a.log.Info("Key press: %s", k)
 
 	if a.commandMode != none {
-		a.log.Info("Ignoring special key press: inside command mode.")
+		a.consumeCommandKey(k)
 		return
 	}
 
-	fn, ok := map[SpecialKey]func(){
+	fn, ok := map[Key]func(){
+		"q":           a.quit,
+		"j":           a.moveDownBySingleLine,
+		"k":           a.moveUpBySingleLine,
+		"d":           a.moveDownByHalfScreen,
+		"u":           a.moveUpByHalfScreen,
+		"r":           a.repaint,
+		"R":           a.discardBufferedInputAndRepaint,
+		"g":           a.moveTop,
+		"G":           a.moveBottom,
+		"/":           a.startSearchCommand,
+		"n":           a.jumpToNextMatch,
+		"N":           a.jumpToPrevMatch,
+		"w":           a.toggleLineWrapMode,
+		"c":           a.startColourCommand,
+		"\t":          a.cycleRegexp,
+		"x":           a.deleteRegexp,
+		"s":           a.startSeekCommand,
+		"b":           a.startBisectCommand,
 		LeftArrowKey:  a.reduceXPosition,
 		RightArrowKey: a.increaseXPosition,
-	}[key]
+	}[k]
 
 	if !ok {
-		a.log.Info("Unhandled special key press: %v", key)
+		a.log.Info("Key press was unhandled.")
 		return
 	}
 
 	fn()
-}
-
-func (a *app) UnknownKeySequence(seq []byte) {
-	a.log.Warn("Unknown key sequence: %v", seq)
 }
 
 func (a *app) quit() {
@@ -352,10 +326,16 @@ func (a *app) finishSearchCommand() {
 	a.tmpRegex = re
 }
 
-func (a *app) consumeCommandChar(b byte) {
+func (a *app) consumeCommandKey(k Key) {
 
 	assert(a.commandMode != none)
 
+	if len(k) != 1 {
+		a.log.Warn("Ignoring multi char sequence.")
+		return
+	}
+
+	b := k[0]
 	if b >= ' ' && b <= '~' {
 		a.commandText += string([]byte{b})
 		a.log.Info("Added to command: text=%q", a.commandText)
@@ -366,7 +346,7 @@ func (a *app) consumeCommandChar(b byte) {
 		} else {
 			a.log.Info("Cannot backspace from empty command text.")
 		}
-	} else if b == 10 {
+	} else if b == '\n' {
 		a.log.Info("Finished command mode.")
 		a.msg = "" // Don't want old message to show up after the command.
 		switch a.commandMode {
