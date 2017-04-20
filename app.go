@@ -201,7 +201,7 @@ func (a *app) discardBufferedInputAndRepaint() {
 	a.log.Info("Discarding buffered input and repainting screen.")
 	a.fwd = nil
 	a.bck = nil
-	a.refresh()
+	a.fillScreenBuffer()
 }
 
 func (a *app) moveDown() {
