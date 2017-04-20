@@ -652,6 +652,7 @@ func (a *app) fillScreenBuffer() {
 		a.loadBackward(lines)
 	} else {
 		a.log.Info("Screen buffer didn't need filling.")
+		a.refresh()
 	}
 
 	// Prune buffers.
@@ -662,6 +663,9 @@ func (a *app) fillScreenBuffer() {
 }
 
 func (a *app) needsLoadingForward() int {
+	if a.fileSize == 0 {
+		return 0
+	}
 	if len(a.fwd) >= a.rows*forwardLoadFactor {
 		return 0
 	}
@@ -716,10 +720,6 @@ func (a *app) loadForward(amount int) {
 				offset += len(data)
 			}
 			a.log.Debug("After adding to data structure: fwd=%d bck=%d", len(a.fwd), len(a.bck))
-			// TODO: Does it make sense to have this conditional?
-			if len(lines) > 0 {
-				a.refresh()
-			}
 			a.fillingScreenBuffer = false
 			a.fillScreenBuffer()
 		})
@@ -752,10 +752,6 @@ func (a *app) loadBackward(amount int) {
 				offset -= len(data)
 			}
 			a.log.Debug("After adding to data structure: fwd=%d bck=%d", len(a.fwd), len(a.bck))
-			// TODO: Does it make sense to have this conditional?
-			if len(lines) > 0 {
-				a.refresh()
-			}
 			a.fillingScreenBuffer = false
 			a.fillScreenBuffer()
 		})
@@ -787,6 +783,11 @@ func (a *app) FileSize(size int, err error) {
 func (a *app) refresh() {
 
 	a.log.Info("Refreshing")
+
+	if a.cols == 0 || a.rows == 0 {
+		a.log.Info("Aborting refresh: rows=%d cols=%d", a.rows, a.cols)
+		return
+	}
 
 	dim := a.rows * a.cols
 	if len(a.screenBuffer) != dim {
@@ -859,7 +860,7 @@ func (a *app) renderScreen() {
 				lineBuf = lineBuf[copiedA:]
 				styleBuf = styleBuf[copiedB:]
 			}
-		} else if len(a.fwd) != 0 && a.fwd[len(a.fwd)-1].nextOffset() >= a.fileSize {
+		} else if a.fileSize == 0 || len(a.fwd) != 0 && a.fwd[len(a.fwd)-1].nextOffset() >= a.fileSize {
 			// Reached end of file. `a.fileSize` may be slightly out of date,
 			// however next time it's updated the additional lines will be
 			// displayed.
@@ -967,7 +968,7 @@ func (a *app) drawStatusLine() {
 	statusLeft := " " + a.filename + " " + currentRegexpStr
 
 	buf := a.screenBuffer[statusRow*a.cols : (statusRow+1)*a.cols]
-	copy(buf[len(buf)-len(statusRight):], statusRight)
+	copy(buf[max(0, len(buf)-len(statusRight)):], statusRight)
 	copy(buf[:], statusLeft)
 }
 

@@ -68,5 +68,3 @@ something long.
 ### Known Bugs
 
 * Seeking to zero percentage is fatal.
-
-* Opening an empty file loads forever.
