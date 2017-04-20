@@ -25,6 +25,7 @@ const (
 	colour
 	seek
 	bisect
+	quit
 )
 
 type line struct {
@@ -116,7 +117,7 @@ func (a *app) KeyPress(k Key) {
 	}
 
 	fn, ok := map[Key]func(){
-		"q": a.quit,
+		"q": a.startQuitCommand,
 
 		"j": a.moveDownBySingleLine,
 		"k": a.moveUpBySingleLine,
@@ -320,6 +321,26 @@ func (a *app) moveDownToOffset(offset int) {
 	}
 }
 
+func (a *app) startQuitCommand() {
+	a.commandMode = quit
+	a.log.Info("Accepting quit command.")
+	a.refresh()
+}
+
+func (a *app) finishQuitCommand() {
+	a.log.Info("Quit command entered: %q", a.commandText)
+	switch a.commandText {
+	case "y":
+		a.reactor.Stop(nil)
+		return
+	case "n":
+		// Do nothing.
+	default:
+		a.log.Warn("Invalid quit command.")
+		a.setMessage(fmt.Sprintf("invalid quit response (should be y/n): %v", a.commandText))
+	}
+}
+
 func (a *app) startSearchCommand() {
 	a.commandMode = search
 	a.log.Info("Accepting search command.")
@@ -370,6 +391,8 @@ func (a *app) consumeCommandKey(k Key) {
 			a.finishSeekCommand()
 		case bisect:
 			a.finishBisectCommand()
+		case quit:
+			a.finishQuitCommand()
 		case none:
 			assert(false)
 		default:
@@ -884,6 +907,8 @@ func (a *app) renderScreen() {
 		commandLineText = "Enter seek percentage (interrupt to cancel): " + a.commandText
 	case bisect:
 		commandLineText = "Enter bisect target (interrupt to cancel): " + a.commandText
+	case quit:
+		commandLineText = "Do you really want to quit? (y/n): " + a.commandText
 	case none:
 		if time.Now().Sub(a.msgSetAt) < msgLingerDuration {
 			commandLineText = a.msg
