@@ -34,8 +34,6 @@ func FindSeekOffset(filename string, seekPct float64) (int, error) {
 
 func FindJumpToBottomOffset(filename string) (int, error) {
 
-	// TODO: Should use the backward line reader.
-
 	f, err := os.Open(filename)
 	if err != nil {
 		return 0, err
@@ -46,50 +44,14 @@ func FindJumpToBottomOffset(filename string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+	size := int(info.Size())
 
-	amount := 1024
-	for true {
-
-		data := make([]byte, amount)
-		offset := info.Size() - int64(amount)
-		if offset < 0 {
-			offset = 0
-		}
-		_, err := f.ReadAt(data, offset)
-		if err != nil && err != io.EOF {
-			return 0, err
-		}
-
-		// Throw away the first part of the data, up until the first newline.
-		// This is because when we later extract the lines, it's assumed that
-		// the data begins at the start of a line (which it may not).
-		if startGoodData, ok := findFirstNewLine(data); ok { // Can also remove here.
-			data = data[startGoodData+1:]
-		} else {
-			data = nil
-		}
-
-		lines := extractLines(data) // TODO: Can remove extractLines when we delete this.
-		if len(lines) >= 1 {
-			startOfLine := int(info.Size())
-			for i := len(lines) - 1; i >= len(lines)-1; i-- {
-				startOfLine -= len(lines[i])
-			}
-			return startOfLine, nil
-		}
-
-		if offset == 0 {
-			// Got all the back back to the start of the file, and still
-			// couldn't find the required number of lines. So the required
-			// position is just the start of the file.
-			return 0, nil
-		}
-
-		amount *= 2
+	reader := NewBackwardLineReader(f, size)
+	line, err := reader.ReadLine()
+	if err == io.EOF {
+		err = nil // Handles case where size is 0.
 	}
-
-	assert(false)
-	return 0, nil
+	return size - len(line), err
 }
 
 func FindNextMatch(filename string, start int, re *regexp.Regexp) (int, error) {

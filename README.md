@@ -57,10 +57,6 @@ something long.
 
 ### Technical Debt
 
-* Inefficiency in finding next match (use std lib line reader)
-
-* Should use backward line reader when finding jump-to-bottom offset.
-
 * Add assertions back in for main data structure.
 
 ### Known Bugs
