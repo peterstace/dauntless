@@ -63,13 +63,13 @@ func FindJumpToBottomOffset(filename string) (int, error) {
 		// Throw away the first part of the data, up until the first newline.
 		// This is because when we later extract the lines, it's assumed that
 		// the data begins at the start of a line (which it may not).
-		if startGoodData, ok := findFirstNewLine(data); ok {
+		if startGoodData, ok := findFirstNewLine(data); ok { // Can also remove here.
 			data = data[startGoodData+1:]
 		} else {
 			data = nil
 		}
 
-		lines := extractLines(data)
+		lines := extractLines(data) // TODO: Can remove extractLines when we delete this.
 		if len(lines) >= 1 {
 			startOfLine := int(info.Size())
 			for i := len(lines) - 1; i >= len(lines)-1; i-- {
@@ -92,11 +92,7 @@ func FindJumpToBottomOffset(filename string) (int, error) {
 	return 0, nil
 }
 
-const matchInitialChunkSize = 64 * (1 << 10)
-
 func FindNextMatch(filename string, start int, re *regexp.Regexp) (int, error) {
-
-	// TODO: Would be better to use a bufio.Reader.ReadBytes
 
 	f, err := os.Open(filename)
 	if err != nil {
@@ -104,33 +100,20 @@ func FindNextMatch(filename string, start int, re *regexp.Regexp) (int, error) {
 	}
 	defer f.Close()
 
-	buf := make([]byte, matchInitialChunkSize)
+	if _, err := f.Seek(int64(start), 0); err != nil {
+		return 0, err
+	}
+
+	reader := bufio.NewReader(f)
 	for {
-
-		var lines []string
-		for {
-			n, err := f.ReadAt(buf, int64(start))
-			if err != nil && err != io.EOF {
-				return 0, err
-			}
-			lines = extractLines(buf[:n])
-			if len(lines) == 0 {
-				if err == io.EOF {
-					return 0, err
-				}
-				buf = make([]byte, 2*len(buf))
-			} else {
-				break
-			}
+		line, err := reader.ReadBytes('\n')
+		if err != nil {
+			return 0, err
 		}
-
-		assert(len(lines) > 0)
-		for _, line := range lines {
-			if re.MatchString(line) {
-				return start, nil
-			}
-			start += len(line)
+		if re.Match(line) {
+			return start, nil
 		}
+		start += len(line)
 	}
 }
 

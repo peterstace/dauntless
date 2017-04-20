@@ -20,8 +20,6 @@ crashes, then it may not exit `cbreak` mode before exiting. To manually leave
 
 ### Most Important
 
-* Confirmation of exit. Type yes to exit, interrupt or no to cancel.
-
 * Timeout for displaying loading screen.
 
 * Delta generation when rendering screen.
