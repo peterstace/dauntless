@@ -25,6 +25,7 @@ const (
 	colour
 	seek
 	bisect
+	quit
 )
 
 type line struct {
@@ -116,7 +117,7 @@ func (a *app) KeyPress(k Key) {
 	}
 
 	fn, ok := map[Key]func(){
-		"q": a.quit,
+		"q": a.startQuitCommand,
 
 		"j": a.moveDownBySingleLine,
 		"k": a.moveUpBySingleLine,
@@ -201,7 +202,7 @@ func (a *app) discardBufferedInputAndRepaint() {
 	a.log.Info("Discarding buffered input and repainting screen.")
 	a.fwd = nil
 	a.bck = nil
-	a.refresh()
+	a.fillScreenBuffer()
 }
 
 func (a *app) moveDown() {
@@ -260,7 +261,6 @@ func (a *app) moveToOffset(offset int) {
 	a.log.Info("Moving to offset: currentOffset=%d newOffset=%d", a.offset, offset)
 
 	assert(offset >= 0)
-	assert(offset < a.fileSize)
 
 	if a.offset == offset {
 		a.log.Info("Already at target offset.")
@@ -321,6 +321,26 @@ func (a *app) moveDownToOffset(offset int) {
 	}
 }
 
+func (a *app) startQuitCommand() {
+	a.commandMode = quit
+	a.log.Info("Accepting quit command.")
+	a.refresh()
+}
+
+func (a *app) finishQuitCommand() {
+	a.log.Info("Quit command entered: %q", a.commandText)
+	switch a.commandText {
+	case "y":
+		a.reactor.Stop(nil)
+		return
+	case "n":
+		// Do nothing.
+	default:
+		a.log.Warn("Invalid quit command.")
+		a.setMessage(fmt.Sprintf("invalid quit response (should be y/n): %v", a.commandText))
+	}
+}
+
 func (a *app) startSearchCommand() {
 	a.commandMode = search
 	a.log.Info("Accepting search command.")
@@ -371,6 +391,8 @@ func (a *app) consumeCommandKey(k Key) {
 			a.finishSeekCommand()
 		case bisect:
 			a.finishBisectCommand()
+		case quit:
+			a.finishQuitCommand()
 		case none:
 			assert(false)
 		default:
@@ -576,9 +598,8 @@ func (a *app) finishSeekCommand() {
 		return
 	}
 
-	target := int(seekPct / 100.0 * float64(a.fileSize))
 	go func() {
-		offset, err := FindStartOfLine(a.filename, target)
+		offset, err := FindSeekOffset(a.filename, seekPct)
 		a.reactor.Enque(func() {
 			if err != nil {
 				a.log.Warn("Could to find start of line at offset: %v", err)
@@ -654,6 +675,7 @@ func (a *app) fillScreenBuffer() {
 		a.loadBackward(lines)
 	} else {
 		a.log.Info("Screen buffer didn't need filling.")
+		a.refresh()
 	}
 
 	// Prune buffers.
@@ -664,6 +686,9 @@ func (a *app) fillScreenBuffer() {
 }
 
 func (a *app) needsLoadingForward() int {
+	if a.fileSize == 0 {
+		return 0
+	}
 	if len(a.fwd) >= a.rows*forwardLoadFactor {
 		return 0
 	}
@@ -718,10 +743,6 @@ func (a *app) loadForward(amount int) {
 				offset += len(data)
 			}
 			a.log.Debug("After adding to data structure: fwd=%d bck=%d", len(a.fwd), len(a.bck))
-			// TODO: Does it make sense to have this conditional?
-			if len(lines) > 0 {
-				a.refresh()
-			}
 			a.fillingScreenBuffer = false
 			a.fillScreenBuffer()
 		})
@@ -754,10 +775,6 @@ func (a *app) loadBackward(amount int) {
 				offset -= len(data)
 			}
 			a.log.Debug("After adding to data structure: fwd=%d bck=%d", len(a.fwd), len(a.bck))
-			// TODO: Does it make sense to have this conditional?
-			if len(lines) > 0 {
-				a.refresh()
-			}
 			a.fillingScreenBuffer = false
 			a.fillScreenBuffer()
 		})
@@ -789,6 +806,11 @@ func (a *app) FileSize(size int, err error) {
 func (a *app) refresh() {
 
 	a.log.Info("Refreshing")
+
+	if a.cols == 0 || a.rows == 0 {
+		a.log.Info("Aborting refresh: rows=%d cols=%d", a.rows, a.cols)
+		return
+	}
 
 	dim := a.rows * a.cols
 	if len(a.screenBuffer) != dim {
@@ -861,8 +883,10 @@ func (a *app) renderScreen() {
 				lineBuf = lineBuf[copiedA:]
 				styleBuf = styleBuf[copiedB:]
 			}
-		} else if len(a.fwd) != 0 && a.fwd[len(a.fwd)-1].nextOffset() >= a.fileSize {
-			// Reached end of file.
+		} else if a.fileSize == 0 || len(a.fwd) != 0 && a.fwd[len(a.fwd)-1].nextOffset() >= a.fileSize {
+			// Reached end of file. `a.fileSize` may be slightly out of date,
+			// however next time it's updated the additional lines will be
+			// displayed.
 			a.screenBuffer[a.rowColIdx(row, 0)] = '~'
 		} else {
 			a.clearScreenBuffers()
@@ -883,6 +907,8 @@ func (a *app) renderScreen() {
 		commandLineText = "Enter seek percentage (interrupt to cancel): " + a.commandText
 	case bisect:
 		commandLineText = "Enter bisect target (interrupt to cancel): " + a.commandText
+	case quit:
+		commandLineText = "Do you really want to quit? (y/n): " + a.commandText
 	case none:
 		if time.Now().Sub(a.msgSetAt) < msgLingerDuration {
 			commandLineText = a.msg
@@ -967,7 +993,7 @@ func (a *app) drawStatusLine() {
 	statusLeft := " " + a.filename + " " + currentRegexpStr
 
 	buf := a.screenBuffer[statusRow*a.cols : (statusRow+1)*a.cols]
-	copy(buf[len(buf)-len(statusRight):], statusRight)
+	copy(buf[max(0, len(buf)-len(statusRight)):], statusRight)
 	copy(buf[:], statusLeft)
 }
 
