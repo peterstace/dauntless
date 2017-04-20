@@ -22,8 +22,10 @@ func LoadFileSize(filename string) (int, error) {
 
 func CollectFileSize(r Reactor, a App, filename string) {
 	go func() {
-		size, err := LoadFileSize(filename)
-		r.Enque(func() { a.FileSize(size, err) })
-		time.Sleep(time.Second)
+		for {
+			size, err := LoadFileSize(filename)
+			r.Enque(func() { a.FileSize(size, err) })
+			time.Sleep(time.Second)
+		}
 	}()
 }
