@@ -9,13 +9,20 @@ import (
 	"regexp"
 )
 
-func FindStartOfLine(filename string, offset int) (int, error) {
+func FindSeekOffset(filename string, seekPct float64) (int, error) {
 
 	f, err := os.Open(filename)
 	if err != nil {
 		return 0, err
 	}
 	defer f.Close()
+
+	fileInfo, err := f.Stat()
+	if err != nil {
+		return 0, err
+	}
+
+	offset := int(float64(fileInfo.Size()) / 100.0 * seekPct)
 
 	reader := NewBackwardLineReader(f, offset)
 	line, err := reader.ReadLine()

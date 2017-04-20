@@ -260,7 +260,6 @@ func (a *app) moveToOffset(offset int) {
 	a.log.Info("Moving to offset: currentOffset=%d newOffset=%d", a.offset, offset)
 
 	assert(offset >= 0)
-	assert(offset < a.fileSize)
 
 	if a.offset == offset {
 		a.log.Info("Already at target offset.")
@@ -576,9 +575,8 @@ func (a *app) finishSeekCommand() {
 		return
 	}
 
-	target := int(seekPct / 100.0 * float64(a.fileSize))
 	go func() {
-		offset, err := FindStartOfLine(a.filename, target)
+		offset, err := FindSeekOffset(a.filename, seekPct)
 		a.reactor.Enque(func() {
 			if err != nil {
 				a.log.Warn("Could to find start of line at offset: %v", err)
@@ -862,7 +860,9 @@ func (a *app) renderScreen() {
 				styleBuf = styleBuf[copiedB:]
 			}
 		} else if len(a.fwd) != 0 && a.fwd[len(a.fwd)-1].nextOffset() >= a.fileSize {
-			// Reached end of file.
+			// Reached end of file. `a.fileSize` may be slightly out of date,
+			// however next time it's updated the additional lines will be
+			// displayed.
 			a.screenBuffer[a.rowColIdx(row, 0)] = '~'
 		} else {
 			a.clearScreenBuffers()

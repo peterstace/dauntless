@@ -68,3 +68,9 @@ something long.
 ### Known Bugs
 
 * Seeking to zero percentage is fatal.
+
+* R sits at loading screen forever. Until you move up or down.
+
+* Opening an empty file loads forever.
+
+* Doesn't pick up fresh lines without hitting R.
