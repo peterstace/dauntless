@@ -20,8 +20,6 @@ crashes, then it may not exit `cbreak` mode before exiting. To manually leave
 
 ### Most Important
 
-* Confirmation of exit. Type yes to exit, interrupt or no to cancel.
-
 * Timeout for displaying loading screen.
 
 * Delta generation when rendering screen.
@@ -58,10 +56,6 @@ goroutine. But if the panic occurs in another goroutine, we're out of luck.
 something long.
 
 ### Technical Debt
-
-* Inefficiency in finding next match (use std lib line reader)
-
-* Should use backward line reader when finding jump-to-bottom offset.
 
 * Add assertions back in for main data structure.
 
