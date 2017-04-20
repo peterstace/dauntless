@@ -22,7 +22,7 @@ func FindSeekOffset(filename string, seekPct float64) (int, error) {
 		return 0, err
 	}
 
-	offset := int(float64(fileInfo.Size()) / 100.0 * seekPct)
+	offset := max(1, int(float64(fileInfo.Size())/100.0*seekPct))
 
 	reader := NewBackwardLineReader(f, offset)
 	line, err := reader.ReadLine()
