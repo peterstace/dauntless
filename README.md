@@ -20,6 +20,15 @@ crashes, then it may not exit `cbreak` mode before exiting. To manually leave
 
 ### Most Important
 
+- Refactor commands.
+  - Set the current command when the command is started.
+  - String() string -- e.g. "search"
+  - Knows about a callback to call once the command is complete.
+  - Knows about the 'prompt'
+  - The colour selection command has to know about the swatch somehow. Maybe an
+    "overlay" method.
+
+
 * Confirmation of exit. Type yes to exit, interrupt or no to cancel.
 
 * Timeout for displaying loading screen.

@@ -15,6 +15,12 @@ type App interface {
 	TermSize(rows, cols int, err error)
 	FileSize(int, error)
 	Signal(os.Signal)
+
+	CommandFailed(error)
+	SearchCommandEntered(*regexp.Regexp)
+	ColourCommandEntered(Style)
+	SeekCommandEntered(pct float64)
+	BisectCommandEntered(target string)
 }
 
 type command int
@@ -386,11 +392,11 @@ func (a *app) consumeCommandKey(k Key) {
 		case search:
 			a.finishSearchCommand()
 		case colour:
-			a.finishColourCommand()
+			//a.finishColourCommand()
 		case seek:
 			a.finishSeekCommand()
 		case bisect:
-			a.finishBisectCommand()
+			//a.finishBisectCommand()
 		case quit:
 			a.finishQuitCommand()
 		case none:
@@ -535,17 +541,9 @@ func (a *app) deleteRegexp() {
 
 var styles = [...]Style{Default, Black, Red, Green, Yellow, Blue, Magenta, Cyan, White}
 
-func (a *app) finishColourCommand() {
+func (a *app) ColourCommandEntered(style Style) {
 
-	a.log.Info("Colour command entered: %q", a.commandText)
-
-	style, err := parseColourCode(a.commandText)
-	if err != nil {
-		a.log.Warn("Could not parse entered colour: %v", err)
-		a.setMessage(err.Error())
-		return
-	}
-	a.log.Info("Style parsed.")
+	a.log.Info("Colour command entered: %s", style)
 
 	if a.tmpRegex != nil {
 		a.regexes = append([]regex{{style, a.tmpRegex}}, a.regexes...)
@@ -559,6 +557,20 @@ func (a *app) finishColourCommand() {
 
 	a.refresh()
 }
+
+//func (a *app) finishColourCommand() {
+
+//a.log.Info("Colour command entered: %q", a.commandText)
+
+//style, err := parseColourCode(a.commandText)
+//if err != nil {
+//a.log.Warn("Could not parse entered colour: %v", err)
+//a.setMessage(err.Error())
+//return
+//}
+//a.log.Info("Style parsed.")
+
+//}
 
 func parseColourCode(code string) (Style, error) {
 	err := fmt.Errorf("colour code must be in format [0-8][0-8]: %v", code)
@@ -619,9 +631,8 @@ func (a *app) startBisectCommand() {
 	a.refresh()
 }
 
-func (a *app) finishBisectCommand() {
+func (a *app) BisectCommandEntered(target string) {
 	a.log.Info("Bisect command entered: %q", a.commandText)
-	target := a.commandText
 	go func() {
 		offset, err := Bisect(a.filename, target, a.config.BisectMask)
 		a.reactor.Enque(func() {
