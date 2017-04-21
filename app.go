@@ -13,7 +13,7 @@ type App interface {
 	Initialise()
 	KeyPress(Key)
 	TermSize(rows, cols int, err error)
-	FileSize(int, error)
+	FileSize(int)
 	Signal(os.Signal)
 }
 
@@ -789,7 +789,7 @@ func (a *app) TermSize(rows, cols int, err error) {
 	}
 }
 
-func (a *app) FileSize(size int, err error) {
+func (a *app) FileSize(size int) {
 	oldSize := a.fileSize
 	if size != oldSize {
 		a.fileSize = size
