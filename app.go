@@ -97,7 +97,7 @@ func (a *app) Initialise() {
 func (a *app) Signal(sig os.Signal) {
 	a.log.Info("Caught signal: %v", sig)
 	if a.commandMode == none {
-		a.quit()
+		a.startQuitCommand()
 	} else {
 		a.log.Info("Cancelling command.")
 		a.msg = "" // Don't want old message to show up.
@@ -158,11 +158,6 @@ func (a *app) KeyPress(k Key) {
 	}
 
 	fn()
-}
-
-func (a *app) quit() {
-	a.log.Info("Quitting.")
-	a.reactor.Stop(nil)
 }
 
 func (a *app) moveDownBySingleLine() {
