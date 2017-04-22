@@ -28,19 +28,17 @@ crashes, then it may not exit `cbreak` mode before exiting. To manually leave
   - The colour selection command has to know about the swatch somehow. Maybe an
     "overlay" method.
 
-
-* Confirmation of exit. Type yes to exit, interrupt or no to cancel.
-
 * Timeout for displaying loading screen.
 
-* Delta generation when rendering screen.
+* Delta generation when rendering screen. Especially for the "nothing" case.
 
 ### Important
 
 * Help screen. Application name, author, copyright notice. Then a list of key
   mappings.
 
-* Arrow keys in command mode (at least for search?).
+* Arrow keys in command mode (at least for search?). Up/down is history.
+  Left/right/home/end for cursor.
 
 * Custom disable/enable regexp colour choices.
 
@@ -68,12 +66,6 @@ something long.
 
 ### Technical Debt
 
-* Inefficiency in finding next match (use std lib line reader)
-
-* Should use backward line reader when finding jump-to-bottom offset.
-
 * Add assertions back in for main data structure.
 
 ### Known Bugs
-
-* Seeking to zero percentage is fatal.

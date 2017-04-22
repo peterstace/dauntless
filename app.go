@@ -13,7 +13,7 @@ type App interface {
 	Initialise()
 	KeyPress(Key)
 	TermSize(rows, cols int, err error)
-	FileSize(int, error)
+	FileSize(int)
 	Signal(os.Signal)
 
 	CommandFailed(error)
@@ -103,7 +103,7 @@ func (a *app) Initialise() {
 func (a *app) Signal(sig os.Signal) {
 	a.log.Info("Caught signal: %v", sig)
 	if a.commandMode == none {
-		a.quit()
+		a.startQuitCommand()
 	} else {
 		a.log.Info("Cancelling command.")
 		a.msg = "" // Don't want old message to show up.
@@ -164,11 +164,6 @@ func (a *app) KeyPress(k Key) {
 	}
 
 	fn()
-}
-
-func (a *app) quit() {
-	a.log.Info("Quitting.")
-	a.reactor.Stop(nil)
 }
 
 func (a *app) moveDownBySingleLine() {
@@ -805,7 +800,7 @@ func (a *app) TermSize(rows, cols int, err error) {
 	}
 }
 
-func (a *app) FileSize(size int, err error) {
+func (a *app) FileSize(size int) {
 	oldSize := a.fileSize
 	if size != oldSize {
 		a.fileSize = size
