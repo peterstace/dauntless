@@ -56,7 +56,7 @@ type seek struct{}
 func (seek) Entered(cmd string, a App) {
 	seekPct, err := strconv.ParseFloat(cmd, 64)
 	if err != nil {
-		a.CommandFailed(fmt.Errorf("could not parse seek percentage: %v", err))
+		a.CommandFailed(err)
 		return
 	}
 	if seekPct < 0 || seekPct > 100 {
@@ -73,6 +73,7 @@ func (seek) Prompt() string {
 type bisect struct{}
 
 func (bisect) Entered(cmd string, a App) {
+	a.BisectCommandEntered(cmd)
 }
 
 func (bisect) Prompt() string {
