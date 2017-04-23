@@ -59,6 +59,9 @@ type app struct {
 	screenBuffer []byte
 	screen       Screen
 
+	dataMissing     bool
+	dataMissingFrom time.Time
+
 	command     CommandMode
 	commandText string
 
@@ -706,6 +709,8 @@ func (a *app) clearScreenBuffers() {
 	}
 }
 
+const loadingScreenGrace = 200 * time.Millisecond
+
 func (a *app) renderScreen() {
 
 	a.log.Info("Rendering screen.")
@@ -748,15 +753,29 @@ func (a *app) renderScreen() {
 				lineBuf = lineBuf[copiedA:]
 				styleBuf = styleBuf[copiedB:]
 			}
+			a.dataMissing = false
 		} else if a.fileSize == 0 || len(a.fwd) != 0 && a.fwd[len(a.fwd)-1].nextOffset() >= a.fileSize {
 			// Reached end of file. `a.fileSize` may be slightly out of date,
 			// however next time it's updated the additional lines will be
 			// displayed.
 			a.screenBuffer[a.rowColIdx(row, 0)] = '~'
-		} else {
+			a.dataMissing = false
+		} else if a.dataMissing && time.Now().Sub(a.dataMissingFrom) > loadingScreenGrace {
+			// Haven't been able to display any data for at least the grace
+			// period, so display the loading screen instead.
 			a.clearScreenBuffers()
 			buildLoadingScreen(a.screenBuffer, a.cols)
 			break
+		} else {
+			// Cannot display the data, but within the grace period. Abort the
+			// display procedure, trying again after the grace period.
+			a.dataMissing = true
+			a.dataMissingFrom = time.Now()
+			go func() {
+				time.Sleep(loadingScreenGrace)
+				a.reactor.Enque(func() {})
+			}()
+			return
 		}
 	}
 
