@@ -86,7 +86,10 @@ func NewApp(reactor Reactor, filename string, logger Logger, screen Screen, conf
 
 func (a *app) Initialise() {
 	a.log.Info("***************** Initialising log viewer ******************")
-	a.fillScreenBuffer()
+	a.reactor.SetPostHook(func() {
+		a.fillScreenBuffer()
+		a.refresh()
+	})
 }
 
 func (a *app) Signal(sig os.Signal) {
@@ -98,7 +101,6 @@ func (a *app) Signal(sig os.Signal) {
 		a.msg = "" // Don't want old message to show up.
 		a.command = nil
 		a.commandText = ""
-		a.refresh()
 	}
 }
 
@@ -114,21 +116,20 @@ func (a *app) KeyPress(k Key) {
 	fn, ok := map[Key]func(){
 		"q": a.startQuitCommand,
 
-		"j": a.moveDownBySingleLine,
-		"k": a.moveUpBySingleLine,
+		"j": a.moveDown,
+		"k": a.moveUp,
 		"d": a.moveDownByHalfScreen,
 		"u": a.moveUpByHalfScreen,
 
-		DownArrowKey: a.moveDownBySingleLine,
-		UpArrowKey:   a.moveUpBySingleLine,
+		DownArrowKey: a.moveDown,
+		UpArrowKey:   a.moveUp,
 		PageDownKey:  a.moveDownByHalfScreen,
 		PageUpKey:    a.moveUpByHalfScreen,
 
 		LeftArrowKey:  a.reduceXPosition,
 		RightArrowKey: a.increaseXPosition,
 
-		"r": a.repaint,
-		"R": a.discardBufferedInputAndRepaint,
+		"r": a.discardBufferedInputAndRepaint,
 
 		"g": a.moveTop,
 		"G": a.moveBottom,
@@ -155,44 +156,22 @@ func (a *app) KeyPress(k Key) {
 	fn()
 }
 
-func (a *app) moveDownBySingleLine() {
-	a.moveDown()
-	a.refresh()
-	a.fillScreenBuffer()
-}
-
-func (a *app) moveUpBySingleLine() {
-	a.moveUp()
-	a.refresh()
-	a.fillScreenBuffer()
-}
-
 func (a *app) moveDownByHalfScreen() {
 	for i := 0; i < a.rows/2; i++ {
 		a.moveDown()
 	}
-	a.refresh()
-	a.fillScreenBuffer()
 }
 
 func (a *app) moveUpByHalfScreen() {
 	for i := 0; i < a.rows/2; i++ {
 		a.moveUp()
 	}
-	a.refresh()
-	a.fillScreenBuffer()
-}
-
-func (a *app) repaint() {
-	a.log.Info("Repainting screen.")
-	a.refresh()
 }
 
 func (a *app) discardBufferedInputAndRepaint() {
 	a.log.Info("Discarding buffered input and repainting screen.")
 	a.fwd = nil
 	a.bck = nil
-	a.fillScreenBuffer()
 }
 
 func (a *app) moveDown() {
@@ -224,8 +203,6 @@ func (a *app) moveUp() {
 func (a *app) moveTop() {
 	a.log.Info("Jumping to start of file.")
 	a.moveToOffset(0)
-	a.refresh()
-	a.fillScreenBuffer()
 }
 
 func (a *app) moveBottom() {
@@ -241,8 +218,6 @@ func (a *app) moveBottom() {
 				return
 			}
 			a.moveToOffset(offset)
-			a.refresh()
-			a.fillScreenBuffer()
 		})
 	}()
 }
@@ -319,7 +294,6 @@ func (a *app) CommandFailed(err error) {
 func (a *app) startSearchCommand() {
 	a.command = search{}
 	a.log.Info("Accepting search command.")
-	a.refresh()
 }
 
 func (a *app) SearchCommandEntered(re *regexp.Regexp) {
@@ -335,7 +309,6 @@ func (a *app) startColourCommand() {
 	}
 	a.command = colour{}
 	a.log.Info("Accepting colour command.")
-	a.refresh()
 }
 
 func (a *app) ColourCommandEntered(style Style) {
@@ -348,13 +321,11 @@ func (a *app) ColourCommandEntered(style Style) {
 		// Should not have been allowed to start the colour command.
 		assert(false)
 	}
-	a.refresh()
 }
 
 func (a *app) startSeekCommand() {
 	a.command = seek{}
 	a.log.Info("Accepting seek command.")
-	a.refresh()
 }
 
 func (a *app) SeekCommandEntered(pct float64) {
@@ -367,8 +338,6 @@ func (a *app) SeekCommandEntered(pct float64) {
 				return
 			}
 			a.moveToOffset(offset)
-			a.refresh()
-			a.fillScreenBuffer()
 		})
 	}()
 }
@@ -376,7 +345,6 @@ func (a *app) SeekCommandEntered(pct float64) {
 func (a *app) startBisectCommand() {
 	a.command = bisect{}
 	a.log.Info("Accepting bisect command.")
-	a.refresh()
 }
 
 func (a *app) BisectCommandEntered(target string) {
@@ -390,8 +358,6 @@ func (a *app) BisectCommandEntered(target string) {
 				return
 			}
 			a.moveToOffset(offset)
-			a.refresh()
-			a.fillScreenBuffer()
 		})
 	}()
 }
@@ -399,7 +365,6 @@ func (a *app) BisectCommandEntered(target string) {
 func (a *app) startQuitCommand() {
 	a.command = quit{}
 	a.log.Info("Accepting quit command.")
-	a.refresh()
 }
 
 func (a *app) QuitCommandEntered(quit bool) {
@@ -438,8 +403,6 @@ func (a *app) consumeCommandKey(k Key) {
 	} else {
 		a.log.Warn("Refusing to add char to command: %d", b)
 	}
-
-	a.refresh()
 }
 
 func (a *app) jumpToNextMatch() {
@@ -476,8 +439,6 @@ func (a *app) jumpToNextMatch() {
 			}
 			a.log.Info("Regexp search completed with match.")
 			a.moveToOffset(offset)
-			a.refresh()
-			a.fillScreenBuffer()
 		})
 	}()
 }
@@ -512,8 +473,6 @@ func (a *app) jumpToPrevMatch() {
 			}
 			a.log.Info("Regexp search completed with match.")
 			a.moveToOffset(offset)
-			a.refresh()
-			a.fillScreenBuffer()
 		})
 	}()
 }
@@ -526,7 +485,6 @@ func (a *app) toggleLineWrapMode() {
 	}
 	a.lineWrapMode = !a.lineWrapMode
 	a.xPosition = 0
-	a.refresh()
 }
 
 func (a *app) cycleRegexp() {
@@ -540,7 +498,6 @@ func (a *app) cycleRegexp() {
 
 	a.tmpRegex = nil // Any temp re gets discarded.
 	a.regexes = append(a.regexes[1:], a.regexes[0])
-	a.refresh()
 }
 
 func (a *app) deleteRegexp() {
@@ -553,7 +510,6 @@ func (a *app) deleteRegexp() {
 		a.log.Warn(msg)
 		a.setMessage(msg)
 	}
-	a.refresh()
 }
 
 func (a *app) reduceXPosition() {
@@ -568,7 +524,6 @@ func (a *app) changeXPosition(newPosition int) {
 	a.log.Info("Changing x position: old=%v new=%v", a.xPosition, newPosition)
 	if a.xPosition != newPosition {
 		a.xPosition = newPosition
-		a.refresh()
 	}
 }
 
@@ -594,7 +549,6 @@ func (a *app) fillScreenBuffer() {
 		a.loadBackward(lines)
 	} else {
 		a.log.Info("Screen buffer didn't need filling.")
-		a.refresh()
 	}
 
 	// Prune buffers.
@@ -663,7 +617,6 @@ func (a *app) loadForward(amount int) {
 			}
 			a.log.Debug("After adding to data structure: fwd=%d bck=%d", len(a.fwd), len(a.bck))
 			a.fillingScreenBuffer = false
-			a.fillScreenBuffer()
 		})
 	}()
 }
@@ -695,7 +648,6 @@ func (a *app) loadBackward(amount int) {
 			}
 			a.log.Debug("After adding to data structure: fwd=%d bck=%d", len(a.fwd), len(a.bck))
 			a.fillingScreenBuffer = false
-			a.fillScreenBuffer()
 		})
 	}()
 }
@@ -705,11 +657,6 @@ func (a *app) TermSize(rows, cols int, err error) {
 		a.rows = rows
 		a.cols = cols
 		a.log.Info("Term size: rows=%d cols=%d", rows, cols)
-
-		// Since the terminal changed size, we may now need to have a different
-		// number of lines loaded into the screen buffer.
-		a.fillScreenBuffer()
-		a.refresh()
 	}
 }
 
@@ -718,7 +665,6 @@ func (a *app) FileSize(size int) {
 	if size != oldSize {
 		a.fileSize = size
 		a.log.Info("File size changed: old=%d new=%d", oldSize, size)
-		a.fillScreenBuffer()
 	}
 }
 
@@ -968,9 +914,7 @@ func (a *app) setMessage(msg string) {
 	a.log.Info("Setting message: %q", msg)
 	a.msg = msg
 	a.msgSetAt = time.Now()
-	a.refresh()
 	go func() {
 		time.Sleep(msgLingerDuration)
-		a.refresh()
 	}()
 }

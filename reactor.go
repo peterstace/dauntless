@@ -4,6 +4,7 @@ type Reactor interface {
 	Enque(func())
 	Run() error
 	Stop(error)
+	SetPostHook(func())
 }
 
 func NewReactor(log Logger) Reactor {
@@ -12,16 +13,18 @@ func NewReactor(log Logger) Reactor {
 		make(chan error, 1),
 		log,
 		0,
+		nil,
 	}
 }
 
 // TODO: Should not have a fixed queue size.
 
 type reactor struct {
-	queue chan func()
-	stop  chan error
-	log   Logger
-	cycle int
+	queue    chan func()
+	stop     chan error
+	log      Logger
+	cycle    int
+	postHook func()
 }
 
 func (r *reactor) Enque(fn func()) {
@@ -44,6 +47,9 @@ func (r *reactor) Run() error {
 		select {
 		case fn := <-r.queue:
 			fn()
+			if r.postHook != nil {
+				r.postHook()
+			}
 			err := r.log.Flush() // TODO: Flush in own goroutine.
 			if err != nil {
 				r.Stop(err)
@@ -60,4 +66,8 @@ func (r *reactor) Stop(err error) {
 	case r.stop <- err:
 	default:
 	}
+}
+
+func (r *reactor) SetPostHook(fn func()) {
+	r.postHook = fn
 }
