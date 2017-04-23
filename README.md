@@ -20,17 +20,15 @@ crashes, then it may not exit `cbreak` mode before exiting. To manually leave
 
 ### Most Important
 
-* Timeout for displaying loading screen.
-
 * Delta generation when rendering screen. Especially for the "nothing" case.
+
+* Arrow keys in command mode (at least for search?). Up/down is history.
+  Left/right/home/end for cursor.
 
 ### Important
 
 * Help screen. Application name, author, copyright notice. Then a list of key
   mappings.
-
-* Arrow keys in command mode (at least for search?). Up/down is history.
-  Left/right/home/end for cursor.
 
 * Custom disable/enable regexp colour choices.
 
