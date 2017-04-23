@@ -5,7 +5,6 @@ import (
 	"io"
 	"os"
 	"regexp"
-	"strconv"
 	"time"
 )
 
@@ -13,20 +12,16 @@ type App interface {
 	Initialise()
 	KeyPress(Key)
 	TermSize(rows, cols int, err error)
-	FileSize(int, error)
+	FileSize(int)
 	Signal(os.Signal)
+
+	CommandFailed(error)
+	SearchCommandEntered(*regexp.Regexp)
+	ColourCommandEntered(Style)
+	SeekCommandEntered(pct float64)
+	BisectCommandEntered(target string)
+	QuitCommandEntered(bool)
 }
-
-type command int
-
-const (
-	none command = iota
-	search
-	colour
-	seek
-	bisect
-	quit
-)
 
 type line struct {
 	offset int
@@ -64,7 +59,10 @@ type app struct {
 	screenBuffer []byte
 	screen       Screen
 
-	commandMode command
+	dataMissing     bool
+	dataMissingFrom time.Time
+
+	command     CommandMode
 	commandText string
 
 	tmpRegex *regexp.Regexp
@@ -91,19 +89,21 @@ func NewApp(reactor Reactor, filename string, logger Logger, screen Screen, conf
 
 func (a *app) Initialise() {
 	a.log.Info("***************** Initialising log viewer ******************")
-	a.fillScreenBuffer()
+	a.reactor.SetPostHook(func() {
+		a.fillScreenBuffer()
+		a.refresh()
+	})
 }
 
 func (a *app) Signal(sig os.Signal) {
 	a.log.Info("Caught signal: %v", sig)
-	if a.commandMode == none {
-		a.quit()
+	if a.command == nil {
+		a.startQuitCommand()
 	} else {
 		a.log.Info("Cancelling command.")
 		a.msg = "" // Don't want old message to show up.
-		a.commandMode = none
+		a.command = nil
 		a.commandText = ""
-		a.refresh()
 	}
 }
 
@@ -111,7 +111,7 @@ func (a *app) KeyPress(k Key) {
 
 	a.log.Info("Key press: %s", k)
 
-	if a.commandMode != none {
+	if a.command != nil {
 		a.consumeCommandKey(k)
 		return
 	}
@@ -119,21 +119,20 @@ func (a *app) KeyPress(k Key) {
 	fn, ok := map[Key]func(){
 		"q": a.startQuitCommand,
 
-		"j": a.moveDownBySingleLine,
-		"k": a.moveUpBySingleLine,
+		"j": a.moveDown,
+		"k": a.moveUp,
 		"d": a.moveDownByHalfScreen,
 		"u": a.moveUpByHalfScreen,
 
-		DownArrowKey: a.moveDownBySingleLine,
-		UpArrowKey:   a.moveUpBySingleLine,
+		DownArrowKey: a.moveDown,
+		UpArrowKey:   a.moveUp,
 		PageDownKey:  a.moveDownByHalfScreen,
 		PageUpKey:    a.moveUpByHalfScreen,
 
 		LeftArrowKey:  a.reduceXPosition,
 		RightArrowKey: a.increaseXPosition,
 
-		"r": a.repaint,
-		"R": a.discardBufferedInputAndRepaint,
+		"r": a.discardBufferedInputAndRepaint,
 
 		"g": a.moveTop,
 		"G": a.moveBottom,
@@ -160,49 +159,22 @@ func (a *app) KeyPress(k Key) {
 	fn()
 }
 
-func (a *app) quit() {
-	a.log.Info("Quitting.")
-	a.reactor.Stop(nil)
-}
-
-func (a *app) moveDownBySingleLine() {
-	a.moveDown()
-	a.refresh()
-	a.fillScreenBuffer()
-}
-
-func (a *app) moveUpBySingleLine() {
-	a.moveUp()
-	a.refresh()
-	a.fillScreenBuffer()
-}
-
 func (a *app) moveDownByHalfScreen() {
 	for i := 0; i < a.rows/2; i++ {
 		a.moveDown()
 	}
-	a.refresh()
-	a.fillScreenBuffer()
 }
 
 func (a *app) moveUpByHalfScreen() {
 	for i := 0; i < a.rows/2; i++ {
 		a.moveUp()
 	}
-	a.refresh()
-	a.fillScreenBuffer()
-}
-
-func (a *app) repaint() {
-	a.log.Info("Repainting screen.")
-	a.refresh()
 }
 
 func (a *app) discardBufferedInputAndRepaint() {
 	a.log.Info("Discarding buffered input and repainting screen.")
 	a.fwd = nil
 	a.bck = nil
-	a.fillScreenBuffer()
 }
 
 func (a *app) moveDown() {
@@ -234,8 +206,6 @@ func (a *app) moveUp() {
 func (a *app) moveTop() {
 	a.log.Info("Jumping to start of file.")
 	a.moveToOffset(0)
-	a.refresh()
-	a.fillScreenBuffer()
 }
 
 func (a *app) moveBottom() {
@@ -251,8 +221,6 @@ func (a *app) moveBottom() {
 				return
 			}
 			a.moveToOffset(offset)
-			a.refresh()
-			a.fillScreenBuffer()
 		})
 	}()
 }
@@ -321,47 +289,96 @@ func (a *app) moveDownToOffset(offset int) {
 	}
 }
 
-func (a *app) startQuitCommand() {
-	a.commandMode = quit
-	a.log.Info("Accepting quit command.")
-	a.refresh()
-}
-
-func (a *app) finishQuitCommand() {
-	a.log.Info("Quit command entered: %q", a.commandText)
-	switch a.commandText {
-	case "y":
-		a.reactor.Stop(nil)
-		return
-	case "n":
-		// Do nothing.
-	default:
-		a.log.Warn("Invalid quit command.")
-		a.setMessage(fmt.Sprintf("invalid quit response (should be y/n): %v", a.commandText))
-	}
+func (a *app) CommandFailed(err error) {
+	a.log.Warn("Command failed: %v", err)
+	a.setMessage(err.Error())
 }
 
 func (a *app) startSearchCommand() {
-	a.commandMode = search
+	a.command = search{}
 	a.log.Info("Accepting search command.")
-	a.refresh()
 }
 
-func (a *app) finishSearchCommand() {
-	a.log.Info("Search command entered: %q", a.commandText)
-	re, err := regexp.Compile(a.commandText)
-	if err != nil {
-		a.log.Warn("Could not compile regexp: Regexp=%q Err=%q", a.commandText, err)
-		a.setMessage(err.Error())
+func (a *app) SearchCommandEntered(re *regexp.Regexp) {
+	a.tmpRegex = re
+}
+
+func (a *app) startColourCommand() {
+	if a.currentRE() == nil {
+		msg := "cannot select regex color: no active regex"
+		a.log.Warn(msg)
+		a.setMessage(msg)
 		return
 	}
-	a.log.Info("Regex compiled.")
-	a.tmpRegex = re
+	a.command = colour{}
+	a.log.Info("Accepting colour command.")
+}
+
+func (a *app) ColourCommandEntered(style Style) {
+	if a.tmpRegex != nil {
+		a.regexes = append([]regex{{style, a.tmpRegex}}, a.regexes...)
+		a.tmpRegex = nil
+	} else if len(a.regexes) > 0 {
+		a.regexes[0].style = style
+	} else {
+		// Should not have been allowed to start the colour command.
+		assert(false)
+	}
+}
+
+func (a *app) startSeekCommand() {
+	a.command = seek{}
+	a.log.Info("Accepting seek command.")
+}
+
+func (a *app) SeekCommandEntered(pct float64) {
+	go func() {
+		offset, err := FindSeekOffset(a.filename, pct)
+		a.reactor.Enque(func() {
+			if err != nil {
+				a.log.Warn("Could to find start of line at offset: %v", err)
+				a.reactor.Stop(err)
+				return
+			}
+			a.moveToOffset(offset)
+		})
+	}()
+}
+
+func (a *app) startBisectCommand() {
+	a.command = bisect{}
+	a.log.Info("Accepting bisect command.")
+}
+
+func (a *app) BisectCommandEntered(target string) {
+	a.log.Info("Bisect command entered: %q", a.commandText)
+	go func() {
+		offset, err := Bisect(a.filename, target, a.config.BisectMask)
+		a.reactor.Enque(func() {
+			if err != nil {
+				a.log.Warn("Could not find bisect target: %v", err)
+				a.reactor.Stop(err)
+				return
+			}
+			a.moveToOffset(offset)
+		})
+	}()
+}
+
+func (a *app) startQuitCommand() {
+	a.command = quit{}
+	a.log.Info("Accepting quit command.")
+}
+
+func (a *app) QuitCommandEntered(quit bool) {
+	if quit {
+		a.reactor.Stop(nil)
+	}
 }
 
 func (a *app) consumeCommandKey(k Key) {
 
-	assert(a.commandMode != none)
+	assert(a.command != nil)
 
 	if len(k) != 1 {
 		a.log.Warn("Ignoring multi char sequence.")
@@ -382,29 +399,13 @@ func (a *app) consumeCommandKey(k Key) {
 	} else if b == '\n' {
 		a.log.Info("Finished command mode.")
 		a.msg = "" // Don't want old message to show up after the command.
-		switch a.commandMode {
-		case search:
-			a.finishSearchCommand()
-		case colour:
-			a.finishColourCommand()
-		case seek:
-			a.finishSeekCommand()
-		case bisect:
-			a.finishBisectCommand()
-		case quit:
-			a.finishQuitCommand()
-		case none:
-			assert(false)
-		default:
-			assert(false)
-		}
-		a.commandMode = none
+		assert(a.command != nil)
+		a.command.Entered(a.commandText, a)
+		a.command = nil
 		a.commandText = ""
 	} else {
 		a.log.Warn("Refusing to add char to command: %d", b)
 	}
-
-	a.refresh()
 }
 
 func (a *app) jumpToNextMatch() {
@@ -441,8 +442,6 @@ func (a *app) jumpToNextMatch() {
 			}
 			a.log.Info("Regexp search completed with match.")
 			a.moveToOffset(offset)
-			a.refresh()
-			a.fillScreenBuffer()
 		})
 	}()
 }
@@ -477,8 +476,6 @@ func (a *app) jumpToPrevMatch() {
 			}
 			a.log.Info("Regexp search completed with match.")
 			a.moveToOffset(offset)
-			a.refresh()
-			a.fillScreenBuffer()
 		})
 	}()
 }
@@ -491,19 +488,6 @@ func (a *app) toggleLineWrapMode() {
 	}
 	a.lineWrapMode = !a.lineWrapMode
 	a.xPosition = 0
-	a.refresh()
-}
-
-func (a *app) startColourCommand() {
-	if a.currentRE() == nil {
-		msg := "cannot select regex color: no active regex"
-		a.log.Warn(msg)
-		a.setMessage(msg)
-		return
-	}
-	a.commandMode = colour
-	a.log.Info("Accepting colour command.")
-	a.refresh()
 }
 
 func (a *app) cycleRegexp() {
@@ -517,7 +501,6 @@ func (a *app) cycleRegexp() {
 
 	a.tmpRegex = nil // Any temp re gets discarded.
 	a.regexes = append(a.regexes[1:], a.regexes[0])
-	a.refresh()
 }
 
 func (a *app) deleteRegexp() {
@@ -530,111 +513,6 @@ func (a *app) deleteRegexp() {
 		a.log.Warn(msg)
 		a.setMessage(msg)
 	}
-	a.refresh()
-}
-
-var styles = [...]Style{Default, Black, Red, Green, Yellow, Blue, Magenta, Cyan, White}
-
-func (a *app) finishColourCommand() {
-
-	a.log.Info("Colour command entered: %q", a.commandText)
-
-	style, err := parseColourCode(a.commandText)
-	if err != nil {
-		a.log.Warn("Could not parse entered colour: %v", err)
-		a.setMessage(err.Error())
-		return
-	}
-	a.log.Info("Style parsed.")
-
-	if a.tmpRegex != nil {
-		a.regexes = append([]regex{{style, a.tmpRegex}}, a.regexes...)
-		a.tmpRegex = nil
-	} else if len(a.regexes) > 0 {
-		a.regexes[0].style = style
-	} else {
-		// Should not have been allowed to start the colour command.
-		assert(false)
-	}
-
-	a.refresh()
-}
-
-func parseColourCode(code string) (Style, error) {
-	err := fmt.Errorf("colour code must be in format [0-8][0-8]: %v", code)
-	if len(code) != 2 {
-		return 0, err
-	}
-	fg := code[0]
-	bg := code[1]
-	if fg < '0' || fg > '8' || bg < '0' || bg > '8' {
-		return 0, err
-	}
-	return mixStyle(styles[fg-'0'], styles[bg-'0']), nil
-}
-
-func (a *app) startSeekCommand() {
-	a.commandMode = seek
-	a.log.Info("Accepting seek command.")
-	a.refresh()
-}
-
-func (a *app) finishSeekCommand() {
-
-	a.log.Info("Seek command entered: %q", a.commandText)
-
-	seekPct, err := strconv.ParseFloat(a.commandText, 64)
-	if err != nil {
-		msg := fmt.Sprintf("could not parse seek percentage: %v", err)
-		a.log.Warn(msg)
-		a.setMessage(msg)
-		return
-	}
-
-	if seekPct < 0 || seekPct > 100 {
-		msg := fmt.Sprintf("Seek percentage out of range [0, 100]: %v", seekPct)
-		a.log.Warn(msg)
-		a.setMessage(msg)
-		return
-	}
-
-	go func() {
-		offset, err := FindSeekOffset(a.filename, seekPct)
-		a.reactor.Enque(func() {
-			if err != nil {
-				a.log.Warn("Could to find start of line at offset: %v", err)
-				a.reactor.Stop(err)
-				return
-			}
-			a.moveToOffset(offset)
-			a.refresh()
-			a.fillScreenBuffer()
-		})
-	}()
-}
-
-func (a *app) startBisectCommand() {
-	a.commandMode = bisect
-	a.log.Info("Accepting bisect command.")
-	a.refresh()
-}
-
-func (a *app) finishBisectCommand() {
-	a.log.Info("Bisect command entered: %q", a.commandText)
-	target := a.commandText
-	go func() {
-		offset, err := Bisect(a.filename, target, a.config.BisectMask)
-		a.reactor.Enque(func() {
-			if err != nil {
-				a.log.Warn("Could not find bisect target: %v", err)
-				a.reactor.Stop(err)
-				return
-			}
-			a.moveToOffset(offset)
-			a.refresh()
-			a.fillScreenBuffer()
-		})
-	}()
 }
 
 func (a *app) reduceXPosition() {
@@ -649,7 +527,6 @@ func (a *app) changeXPosition(newPosition int) {
 	a.log.Info("Changing x position: old=%v new=%v", a.xPosition, newPosition)
 	if a.xPosition != newPosition {
 		a.xPosition = newPosition
-		a.refresh()
 	}
 }
 
@@ -675,7 +552,6 @@ func (a *app) fillScreenBuffer() {
 		a.loadBackward(lines)
 	} else {
 		a.log.Info("Screen buffer didn't need filling.")
-		a.refresh()
 	}
 
 	// Prune buffers.
@@ -744,7 +620,6 @@ func (a *app) loadForward(amount int) {
 			}
 			a.log.Debug("After adding to data structure: fwd=%d bck=%d", len(a.fwd), len(a.bck))
 			a.fillingScreenBuffer = false
-			a.fillScreenBuffer()
 		})
 	}()
 }
@@ -776,7 +651,6 @@ func (a *app) loadBackward(amount int) {
 			}
 			a.log.Debug("After adding to data structure: fwd=%d bck=%d", len(a.fwd), len(a.bck))
 			a.fillingScreenBuffer = false
-			a.fillScreenBuffer()
 		})
 	}()
 }
@@ -786,20 +660,14 @@ func (a *app) TermSize(rows, cols int, err error) {
 		a.rows = rows
 		a.cols = cols
 		a.log.Info("Term size: rows=%d cols=%d", rows, cols)
-
-		// Since the terminal changed size, we may now need to have a different
-		// number of lines loaded into the screen buffer.
-		a.fillScreenBuffer()
-		a.refresh()
 	}
 }
 
-func (a *app) FileSize(size int, err error) {
+func (a *app) FileSize(size int) {
 	oldSize := a.fileSize
 	if size != oldSize {
 		a.fileSize = size
 		a.log.Info("File size changed: old=%d new=%d", oldSize, size)
-		a.fillScreenBuffer()
 	}
 }
 
@@ -840,6 +708,8 @@ func (a *app) clearScreenBuffers() {
 		a.stylesBuffer[i] = mixStyle(Default, Default)
 	}
 }
+
+const loadingScreenGrace = 200 * time.Millisecond
 
 func (a *app) renderScreen() {
 
@@ -883,48 +753,52 @@ func (a *app) renderScreen() {
 				lineBuf = lineBuf[copiedA:]
 				styleBuf = styleBuf[copiedB:]
 			}
+			a.dataMissing = false
 		} else if a.fileSize == 0 || len(a.fwd) != 0 && a.fwd[len(a.fwd)-1].nextOffset() >= a.fileSize {
 			// Reached end of file. `a.fileSize` may be slightly out of date,
 			// however next time it's updated the additional lines will be
 			// displayed.
 			a.screenBuffer[a.rowColIdx(row, 0)] = '~'
-		} else {
+			a.dataMissing = false
+		} else if a.dataMissing && time.Now().Sub(a.dataMissingFrom) > loadingScreenGrace {
+			// Haven't been able to display any data for at least the grace
+			// period, so display the loading screen instead.
 			a.clearScreenBuffers()
 			buildLoadingScreen(a.screenBuffer, a.cols)
 			break
+		} else {
+			// Cannot display the data, but within the grace period. Abort the
+			// display procedure, trying again after the grace period.
+			a.dataMissing = true
+			a.dataMissingFrom = time.Now()
+			go func() {
+				time.Sleep(loadingScreenGrace)
+				a.reactor.Enque(func() {})
+			}()
+			return
 		}
 	}
 
 	a.drawStatusLine()
 
 	commandLineText := ""
-	switch a.commandMode {
-	case search:
-		commandLineText = "Enter search regexp (interrupt to cancel): " + a.commandText
-	case colour:
-		commandLineText = "Enter colour code (interrupt to cancel): " + a.commandText
-	case seek:
-		commandLineText = "Enter seek percentage (interrupt to cancel): " + a.commandText
-	case bisect:
-		commandLineText = "Enter bisect target (interrupt to cancel): " + a.commandText
-	case quit:
-		commandLineText = "Do you really want to quit? (y/n): " + a.commandText
-	case none:
+	if a.command != nil {
+		commandLineText = a.command.Prompt() + a.commandText
+	} else {
 		if time.Now().Sub(a.msgSetAt) < msgLingerDuration {
 			commandLineText = a.msg
 		}
-	default:
-		assert(false)
 	}
+
 	commandRow := a.rows - 1
 	copy(a.screenBuffer[commandRow*a.cols:(commandRow+1)*a.cols], commandLineText)
 
-	if a.commandMode == colour {
+	if a.command == (colour{}) {
 		a.overlaySwatch()
 	}
 
 	col := a.cols - 1
-	if a.commandMode != none {
+	if a.command != nil {
 		col = min(col, len(commandLineText))
 	}
 	a.screen.Write(a.screenBuffer, a.stylesBuffer, a.cols, col)
@@ -1059,9 +933,7 @@ func (a *app) setMessage(msg string) {
 	a.log.Info("Setting message: %q", msg)
 	a.msg = msg
 	a.msgSetAt = time.Now()
-	a.refresh()
 	go func() {
 		time.Sleep(msgLingerDuration)
-		a.refresh()
 	}()
 }

@@ -101,6 +101,10 @@ type termScreen struct {
 	currentWrite    *bytes.Buffer
 	nextWrite       *bytes.Buffer
 
+	lastCols   int
+	lastChars  []byte
+	lastStyles []Style
+
 	writer io.Writer
 
 	reactor Reactor
@@ -112,6 +116,27 @@ func (t *termScreen) Write(chars []byte, styles []Style, cols int, colPos int) {
 	t.log.Info("Preparing screen write contents.")
 
 	assert(len(chars) == len(styles))
+
+	same := true
+	if t.lastCols != cols || len(chars) != len(t.lastChars) {
+		same = false
+		t.lastChars = make([]byte, len(chars))
+		t.lastStyles = make([]Style, len(styles))
+	} else {
+		for i := range chars {
+			if t.lastChars[i] != chars[i] || t.lastStyles[i] != styles[i] {
+				same = false
+				break
+			}
+		}
+	}
+	if same {
+		t.log.Info("No change to screen, aborting write.")
+		return
+	}
+	t.lastCols = cols
+	copy(t.lastChars, chars)
+	copy(t.lastStyles, styles)
 
 	// Calculate byte sequence to send to terminal.
 	// TODO: Diff algorithm.
