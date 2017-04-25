@@ -64,6 +64,7 @@ type app struct {
 
 	command     CommandMode
 	commandText string
+	commandPos  int
 
 	tmpRegex *regexp.Regexp
 	regexes  []regex
@@ -104,6 +105,7 @@ func (a *app) Signal(sig os.Signal) {
 		a.msg = "" // Don't want old message to show up.
 		a.command = nil
 		a.commandText = ""
+		a.commandPos = 0
 	}
 }
 
@@ -380,31 +382,31 @@ func (a *app) consumeCommandKey(k Key) {
 
 	assert(a.command != nil)
 
-	if len(k) != 1 {
-		a.log.Warn("Ignoring multi char sequence.")
-		return
-	}
-
-	b := k[0]
-	if b >= ' ' && b <= '~' {
-		a.commandText += string([]byte{b})
-		a.log.Info("Added to command: text=%q", a.commandText)
-	} else if b == 127 {
-		if len(a.commandText) >= 1 {
-			a.commandText = a.commandText[:len(a.commandText)-1]
-			a.log.Info("Backspacing char from command text: text=%q", a.commandText)
-		} else {
-			a.log.Info("Cannot backspace from empty command text.")
+	if len(k) == 1 {
+		b := k[0]
+		if b >= ' ' && b <= '~' {
+			a.commandText = a.commandText[:a.commandPos] + string([]byte{b}) + a.commandText[a.commandPos:]
+			a.commandPos++
+		} else if b == 127 && len(a.commandText) >= 1 {
+			a.commandText = a.commandText[:a.commandPos-1] + a.commandText[a.commandPos:]
+			a.commandPos--
+		} else if b == '\n' {
+			a.log.Info("Finished command mode.")
+			a.msg = "" // Don't want old message to show up after the command.
+			assert(a.command != nil)
+			a.command.Entered(a.commandText, a)
+			a.command = nil
+			a.commandText = ""
+			a.commandPos = 0
 		}
-	} else if b == '\n' {
-		a.log.Info("Finished command mode.")
-		a.msg = "" // Don't want old message to show up after the command.
-		assert(a.command != nil)
-		a.command.Entered(a.commandText, a)
-		a.command = nil
-		a.commandText = ""
 	} else {
-		a.log.Warn("Refusing to add char to command: %d", b)
+		if k == LeftArrowKey {
+			a.commandPos = max(0, a.commandPos-1)
+		} else if k == RightArrowKey {
+			a.commandPos = min(a.commandPos+1, len(a.commandText))
+		} else if k == DeleteKey && a.commandPos < len(a.commandText) {
+			a.commandText = a.commandText[:a.commandPos] + a.commandText[a.commandPos+1:]
+		}
 	}
 }
 
@@ -781,9 +783,12 @@ func (a *app) renderScreen() {
 
 	a.drawStatusLine()
 
+	col := a.cols - 1
 	commandLineText := ""
 	if a.command != nil {
-		commandLineText = a.command.Prompt() + a.commandText
+		prompt := a.command.Prompt()
+		commandLineText = prompt + a.commandText
+		col = min(col, len(prompt)+a.commandPos)
 	} else {
 		if time.Now().Sub(a.msgSetAt) < msgLingerDuration {
 			commandLineText = a.msg
@@ -797,10 +802,6 @@ func (a *app) renderScreen() {
 		a.overlaySwatch()
 	}
 
-	col := a.cols - 1
-	if a.command != nil {
-		col = min(col, len(commandLineText))
-	}
 	a.screen.Write(a.screenBuffer, a.stylesBuffer, a.cols, col)
 }
 

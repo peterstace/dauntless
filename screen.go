@@ -104,6 +104,7 @@ type termScreen struct {
 	lastCols   int
 	lastChars  []byte
 	lastStyles []Style
+	lastColPos int
 
 	writer io.Writer
 
@@ -118,6 +119,9 @@ func (t *termScreen) Write(chars []byte, styles []Style, cols int, colPos int) {
 	assert(len(chars) == len(styles))
 
 	same := true
+	if colPos != t.lastCols {
+		same = false
+	}
 	if t.lastCols != cols || len(chars) != len(t.lastChars) {
 		same = false
 		t.lastChars = make([]byte, len(chars))
@@ -135,6 +139,7 @@ func (t *termScreen) Write(chars []byte, styles []Style, cols int, colPos int) {
 		return
 	}
 	t.lastCols = cols
+	t.lastColPos = colPos
 	copy(t.lastChars, chars)
 	copy(t.lastStyles, styles)
 

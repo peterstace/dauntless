@@ -22,8 +22,7 @@ crashes, then it may not exit `cbreak` mode before exiting. To manually leave
 
 * Delta generation when rendering screen. Especially for the "nothing" case.
 
-* Arrow keys in command mode (at least for search?). Up/down is history.
-  Left/right/home/end for cursor.
+* Up/Down keys in command mode to use history. Should be per command.
 
 ### Important
 
