@@ -20,9 +20,18 @@ crashes, then it may not exit `cbreak` mode before exiting. To manually leave
 
 ### Most Important
 
-* Delta generation when rendering screen. Especially for the "nothing" case.
+* Proper delta generation when rendering screen (including the 'nothing' case).
 
 * Up/Down keys in command mode to use history. Should be per command.
+
+* Reduce refresh interval to be faster.
+
+* Show regex in red if it doesn't compile.
+
+* Show regex highlighting as it's being typed in.
+
+* Only allow one search at a time. Show progress. Allow search to be cancelled.
+  Modal search?
 
 ### Important
 
