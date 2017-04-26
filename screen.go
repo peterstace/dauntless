@@ -7,8 +7,44 @@ import (
 	"time"
 )
 
+type ScreenState struct {
+	Chars  []byte
+	Styles []Style
+	Cols   int
+	ColPos int // Always on last row.
+}
+
+func (s ScreenState) CloneInto(into *ScreenState) {
+	if len(s.Chars) != len(into.Chars) {
+		into.Chars = make([]byte, len(s.Chars))
+		into.Styles = make([]Style, len(s.Styles))
+	}
+	assert(len(s.Styles) == len(into.Styles))
+	into.Cols = s.Cols
+	into.ColPos = s.ColPos
+	copy(into.Chars, s.Chars)
+	copy(into.Styles, s.Styles)
+}
+
+func (s ScreenState) Equal(rhs ScreenState) bool {
+	if s.Cols != rhs.Cols || s.ColPos != rhs.ColPos {
+		return false
+	}
+	for i := range s.Chars {
+		if s.Chars[i] != rhs.Chars[i] {
+			return false
+		}
+	}
+	for i := range s.Styles {
+		if s.Styles[i] != rhs.Styles[i] {
+			return false
+		}
+	}
+	return true
+}
+
 type Screen interface {
-	Write(chars []byte, styles []Style, cols int, colPos int)
+	Write(ScreenState)
 }
 
 func NewTermScreen(w io.Writer, r Reactor, log Logger) Screen {
@@ -27,10 +63,7 @@ type termScreen struct {
 	currentWrite    *bytes.Buffer
 	nextWrite       *bytes.Buffer
 
-	lastCols   int
-	lastChars  []byte
-	lastStyles []Style
-	lastColPos int
+	last ScreenState
 
 	writer io.Writer
 
@@ -38,51 +71,30 @@ type termScreen struct {
 	log     Logger
 }
 
-func (t *termScreen) Write(chars []byte, styles []Style, cols int, colPos int) {
+func (t *termScreen) Write(state ScreenState) {
 
 	t.log.Info("Preparing screen write contents.")
 
-	assert(len(chars) == len(styles))
-
-	same := true
-	if colPos != t.lastCols {
-		same = false
-	}
-	if t.lastCols != cols || len(chars) != len(t.lastChars) {
-		same = false
-		t.lastChars = make([]byte, len(chars))
-		t.lastStyles = make([]Style, len(styles))
-	} else {
-		for i := range chars {
-			if t.lastChars[i] != chars[i] || t.lastStyles[i] != styles[i] {
-				same = false
-				break
-			}
-		}
-	}
-	if same {
+	if t.last.Equal(state) {
 		t.log.Info("No change to screen, aborting write.")
 		return
 	}
-	t.lastCols = cols
-	t.lastColPos = colPos
-	copy(t.lastChars, chars)
-	copy(t.lastStyles, styles)
+	state.CloneInto(&t.last)
 
 	// Calculate byte sequence to send to terminal.
 	// TODO: Diff algorithm.
 	t.nextWrite.Reset()
 	t.nextWrite.WriteString("\x1b[H")
-	currentStyle := styles[0]
-	for i := range chars {
-		if i == 0 || styles[i] != currentStyle {
-			currentStyle = styles[i]
+	currentStyle := state.Styles[0]
+	for i := range state.Chars {
+		if i == 0 || state.Styles[i] != currentStyle {
+			currentStyle = state.Styles[i]
 			t.nextWrite.WriteString(currentStyle.escapeCode())
 		}
-		assert(chars[i] >= 32 && chars[i] <= 126) // Char must be visible.
-		t.nextWrite.WriteByte(chars[i])
+		assert(state.Chars[i] >= 32 && state.Chars[i] <= 126) // Char must be visible.
+		t.nextWrite.WriteByte(state.Chars[i])
 	}
-	fmt.Fprintf(t.nextWrite, "\x1b[%d;%dH", len(chars)/cols+1, colPos+1)
+	fmt.Fprintf(t.nextWrite, "\x1b[%d;%dH", len(state.Chars)/state.Cols+1, state.ColPos+1)
 
 	if t.writeInProgress {
 		t.log.Info("Write already in progress, will write after completion.")

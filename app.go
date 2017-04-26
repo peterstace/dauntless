@@ -802,7 +802,7 @@ func (a *app) renderScreen() {
 		a.overlaySwatch()
 	}
 
-	a.screen.Write(a.screenBuffer, a.stylesBuffer, a.cols, col)
+	a.screen.Write(ScreenState{a.screenBuffer, a.stylesBuffer, a.cols, col})
 }
 
 func (a *app) renderLine(data string) []byte {
