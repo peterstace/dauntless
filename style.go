@@ -14,11 +14,11 @@ func MixStyle(fg, bg Style) Style {
 }
 
 func (s Style) fg() int {
-	return int(30 + ((s & fgMask) ^ XORConst))
+	return int(30 + ((s & fgMask) ^ xorConst))
 }
 
 func (s Style) bg() int {
-	return int(40 + (((s & bgMask) >> 4) ^ XORConst))
+	return int(40 + (((s & bgMask) >> 4) ^ xorConst))
 }
 
 func (s *Style) setFG(fg Style) {
@@ -44,18 +44,18 @@ func (s Style) escapeCode() string {
 }
 
 const (
-	XORConst Style = 9
+	xorConst Style = 9
 
-	Black   Style = 0 ^ XORConst
-	Red     Style = 1 ^ XORConst
-	Green   Style = 2 ^ XORConst
-	Yellow  Style = 3 ^ XORConst
-	Blue    Style = 4 ^ XORConst
-	Magenta Style = 5 ^ XORConst
-	Cyan    Style = 6 ^ XORConst
-	White   Style = 7 ^ XORConst
-	Invert  Style = 8 ^ XORConst
-	Default Style = 9 ^ XORConst
+	Black   Style = 0 ^ xorConst
+	Red     Style = 1 ^ xorConst
+	Green   Style = 2 ^ xorConst
+	Yellow  Style = 3 ^ xorConst
+	Blue    Style = 4 ^ xorConst
+	Magenta Style = 5 ^ xorConst
+	Cyan    Style = 6 ^ xorConst
+	White   Style = 7 ^ xorConst
+	Invert  Style = 8 ^ xorConst
+	Default Style = 9 ^ xorConst
 )
 
 func (s Style) String() string {
