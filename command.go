@@ -44,7 +44,7 @@ func (colour) Entered(cmd string, a App) {
 		return
 	}
 
-	a.ColourCommandEntered(mixStyle(styles[fg-'0'], styles[bg-'0']))
+	a.ColourCommandEntered(MixStyle(styles[fg-'0'], styles[bg-'0']))
 }
 
 func (colour) Prompt() string {

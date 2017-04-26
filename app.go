@@ -707,7 +707,7 @@ func displayByte(b byte) byte {
 func (a *app) clearScreenBuffers() {
 	for i := range a.screenBuffer {
 		a.screenBuffer[i] = ' '
-		a.stylesBuffer[i] = mixStyle(Default, Default)
+		a.stylesBuffer[i] = MixStyle(Default, Default)
 	}
 }
 
@@ -817,7 +817,7 @@ func (a *app) renderStyle(data string) []Style {
 
 	regexes := a.regexes
 	if a.tmpRegex != nil {
-		regexes = append(regexes, regex{mixStyle(Invert, Invert), a.tmpRegex})
+		regexes = append(regexes, regex{MixStyle(Invert, Invert), a.tmpRegex})
 	}
 	buf := make([]Style, len(data))
 	for _, regex := range regexes {
@@ -834,7 +834,7 @@ func (a *app) drawStatusLine() {
 
 	statusRow := a.rows - 2
 	for col := 0; col < a.cols; col++ {
-		a.stylesBuffer[statusRow*a.cols+col] = mixStyle(Invert, Invert)
+		a.stylesBuffer[statusRow*a.cols+col] = MixStyle(Invert, Invert)
 	}
 
 	// Offset percentage.
@@ -896,7 +896,7 @@ func (a *app) overlaySwatch() {
 		for col := startCol; col < endCol; col++ {
 			idx := a.rowColIdx(row, col)
 			if col-startCol < 2 || endCol-col <= 2 || row-startRow < 1 || endRow-row <= 1 {
-				a.stylesBuffer[idx] = mixStyle(Invert, Invert)
+				a.stylesBuffer[idx] = MixStyle(Invert, Invert)
 			}
 			a.screenBuffer[idx] = ' '
 		}
@@ -908,7 +908,7 @@ func (a *app) overlaySwatch() {
 			row := startRow + topBorder + fg
 			a.screenBuffer[a.rowColIdx(row, start+1)] = byte(fg) + '0'
 			a.screenBuffer[a.rowColIdx(row, start+2)] = byte(bg) + '0'
-			style := mixStyle(styles[fg], styles[bg])
+			style := MixStyle(styles[fg], styles[bg])
 			for i := 0; i < 4; i++ {
 				a.stylesBuffer[a.rowColIdx(row, start+i)] = style
 			}
