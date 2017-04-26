@@ -7,19 +7,19 @@ import (
 )
 
 type CommandMode interface {
-	Entered(string, App)
+	Entered(string, CommandHandler)
 	Prompt() string
 }
 
 type search struct{}
 
-func (search) Entered(cmd string, a App) {
+func (search) Entered(cmd string, h CommandHandler) {
 	re, err := regexp.Compile(cmd)
 	if err != nil {
-		a.CommandFailed(err)
+		h.CommandFailed(err)
 		return
 	}
-	a.SearchCommandEntered(re)
+	h.SearchCommandEntered(re)
 }
 
 func (search) Prompt() string {
@@ -30,21 +30,21 @@ type colour struct{}
 
 var styles = [...]Style{Default, Black, Red, Green, Yellow, Blue, Magenta, Cyan, White}
 
-func (colour) Entered(cmd string, a App) {
+func (colour) Entered(cmd string, h CommandHandler) {
 
 	err := fmt.Errorf("colour code must be in format [0-8][0-8]: %v", cmd)
 	if len(cmd) != 2 {
-		a.CommandFailed(err)
+		h.CommandFailed(err)
 		return
 	}
 	fg := cmd[0]
 	bg := cmd[1]
 	if fg < '0' || fg > '8' || bg < '0' || bg > '8' {
-		a.CommandFailed(err)
+		h.CommandFailed(err)
 		return
 	}
 
-	a.ColourCommandEntered(MixStyle(styles[fg-'0'], styles[bg-'0']))
+	h.ColourCommandEntered(MixStyle(styles[fg-'0'], styles[bg-'0']))
 }
 
 func (colour) Prompt() string {
@@ -53,17 +53,17 @@ func (colour) Prompt() string {
 
 type seek struct{}
 
-func (seek) Entered(cmd string, a App) {
+func (seek) Entered(cmd string, h CommandHandler) {
 	seekPct, err := strconv.ParseFloat(cmd, 64)
 	if err != nil {
-		a.CommandFailed(err)
+		h.CommandFailed(err)
 		return
 	}
 	if seekPct < 0 || seekPct > 100 {
-		a.CommandFailed(fmt.Errorf("seek percentage out of range [0, 100]: %v", seekPct))
+		h.CommandFailed(fmt.Errorf("seek percentage out of range [0, 100]: %v", seekPct))
 		return
 	}
-	a.SeekCommandEntered(seekPct)
+	h.SeekCommandEntered(seekPct)
 }
 
 func (seek) Prompt() string {
@@ -72,8 +72,8 @@ func (seek) Prompt() string {
 
 type bisect struct{}
 
-func (bisect) Entered(cmd string, a App) {
-	a.BisectCommandEntered(cmd)
+func (bisect) Entered(cmd string, h CommandHandler) {
+	h.BisectCommandEntered(cmd)
 }
 
 func (bisect) Prompt() string {
@@ -82,14 +82,14 @@ func (bisect) Prompt() string {
 
 type quit struct{}
 
-func (quit) Entered(cmd string, a App) {
+func (quit) Entered(cmd string, h CommandHandler) {
 	switch cmd {
 	case "y":
-		a.QuitCommandEntered(true)
+		h.QuitCommandEntered(true)
 	case "n":
-		a.QuitCommandEntered(false)
+		h.QuitCommandEntered(false)
 	default:
-		a.CommandFailed(fmt.Errorf("invalid quit response (should be y/n): %v", cmd))
+		h.CommandFailed(fmt.Errorf("invalid quit response (should be y/n): %v", cmd))
 	}
 }
 

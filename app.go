@@ -14,7 +14,9 @@ type App interface {
 	TermSize(rows, cols int, err error)
 	FileSize(int)
 	Signal(os.Signal)
+}
 
+type CommandHandler interface {
 	CommandFailed(error)
 	SearchCommandEntered(*regexp.Regexp)
 	ColourCommandEntered(Style)
@@ -60,9 +62,7 @@ type app struct {
 	dataMissing     bool
 	dataMissingFrom time.Time
 
-	command     CommandMode
-	commandText string
-	commandPos  int
+	commandReader CommandReader
 
 	tmpRegex *regexp.Regexp
 	regexes  []regex
@@ -78,11 +78,12 @@ type app struct {
 
 func NewApp(reactor Reactor, filename string, logger Logger, screen Screen, config Config) App {
 	return &app{
-		reactor:  reactor,
-		filename: filename,
-		log:      logger,
-		config:   config,
-		screen:   screen,
+		reactor:       reactor,
+		filename:      filename,
+		log:           logger,
+		config:        config,
+		screen:        screen,
+		commandReader: new(commandReader),
 	}
 }
 
@@ -96,14 +97,10 @@ func (a *app) Initialise() {
 
 func (a *app) Signal(sig os.Signal) {
 	a.log.Info("Caught signal: %v", sig)
-	if a.command == nil {
-		a.startQuitCommand()
+	if a.commandReader.Enabled() {
+		a.commandReader.Clear()
 	} else {
-		a.log.Info("Cancelling command.")
-		a.msg = "" // Don't want old message to show up.
-		a.command = nil
-		a.commandText = ""
-		a.commandPos = 0
+		a.startQuitCommand()
 	}
 }
 
@@ -111,8 +108,8 @@ func (a *app) KeyPress(k Key) {
 
 	a.log.Info("Key press: %s", k)
 
-	if a.command != nil {
-		a.consumeCommandKey(k)
+	if a.commandReader.Enabled() {
+		a.commandReader.KeyPress(k, a)
 		return
 	}
 
@@ -295,7 +292,8 @@ func (a *app) CommandFailed(err error) {
 }
 
 func (a *app) startSearchCommand() {
-	a.command = search{}
+	a.commandReader.SetMode(search{})
+	a.msg = ""
 	a.log.Info("Accepting search command.")
 }
 
@@ -310,7 +308,8 @@ func (a *app) startColourCommand() {
 		a.setMessage(msg)
 		return
 	}
-	a.command = colour{}
+	a.commandReader.SetMode(colour{})
+	a.msg = ""
 	a.log.Info("Accepting colour command.")
 }
 
@@ -327,7 +326,8 @@ func (a *app) ColourCommandEntered(style Style) {
 }
 
 func (a *app) startSeekCommand() {
-	a.command = seek{}
+	a.commandReader.SetMode(seek{})
+	a.msg = ""
 	a.log.Info("Accepting seek command.")
 }
 
@@ -346,12 +346,13 @@ func (a *app) SeekCommandEntered(pct float64) {
 }
 
 func (a *app) startBisectCommand() {
-	a.command = bisect{}
+	a.commandReader.SetMode(bisect{})
+	a.msg = ""
 	a.log.Info("Accepting bisect command.")
 }
 
 func (a *app) BisectCommandEntered(target string) {
-	a.log.Info("Bisect command entered: %q", a.commandText)
+	a.log.Info("Bisect command entered: %q", target)
 	go func() {
 		offset, err := Bisect(a.filename, target, a.config.BisectMask)
 		a.reactor.Enque(func() {
@@ -366,45 +367,14 @@ func (a *app) BisectCommandEntered(target string) {
 }
 
 func (a *app) startQuitCommand() {
-	a.command = quit{}
+	a.commandReader.SetMode(quit{})
+	a.msg = ""
 	a.log.Info("Accepting quit command.")
 }
 
 func (a *app) QuitCommandEntered(quit bool) {
 	if quit {
 		a.reactor.Stop(nil)
-	}
-}
-
-func (a *app) consumeCommandKey(k Key) {
-
-	assert(a.command != nil)
-
-	if len(k) == 1 {
-		b := k[0]
-		if b >= ' ' && b <= '~' {
-			a.commandText = a.commandText[:a.commandPos] + string([]byte{b}) + a.commandText[a.commandPos:]
-			a.commandPos++
-		} else if b == 127 && len(a.commandText) >= 1 {
-			a.commandText = a.commandText[:a.commandPos-1] + a.commandText[a.commandPos:]
-			a.commandPos--
-		} else if b == '\n' {
-			a.log.Info("Finished command mode.")
-			a.msg = "" // Don't want old message to show up after the command.
-			assert(a.command != nil)
-			a.command.Entered(a.commandText, a)
-			a.command = nil
-			a.commandText = ""
-			a.commandPos = 0
-		}
-	} else {
-		if k == LeftArrowKey {
-			a.commandPos = max(0, a.commandPos-1)
-		} else if k == RightArrowKey {
-			a.commandPos = min(a.commandPos+1, len(a.commandText))
-		} else if k == DeleteKey && a.commandPos < len(a.commandText) {
-			a.commandText = a.commandText[:a.commandPos] + a.commandText[a.commandPos+1:]
-		}
 	}
 }
 
@@ -764,12 +734,11 @@ func (a *app) renderScreen() {
 
 	a.drawStatusLine(state)
 
-	col := a.cols - 1
+	state.ColPos = a.cols - 1
 	commandLineText := ""
-	if a.command != nil {
-		prompt := a.command.Prompt()
-		commandLineText = prompt + a.commandText
-		col = min(col, len(prompt)+a.commandPos)
+	if a.commandReader.Enabled() {
+		commandLineText = a.commandReader.GetText()
+		state.ColPos = min(state.ColPos, a.commandReader.GetCursorPos())
 	} else {
 		if time.Now().Sub(a.msgSetAt) < msgLingerDuration {
 			commandLineText = a.msg
@@ -779,7 +748,7 @@ func (a *app) renderScreen() {
 	commandRow := a.rows - 1
 	copy(state.Chars[commandRow*a.cols:(commandRow+1)*a.cols], commandLineText)
 
-	if a.command == (colour{}) {
+	if a.commandReader.OverlaySwatch() {
 		overlaySwatch(state)
 	}
 
