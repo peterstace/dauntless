@@ -14,6 +14,29 @@ type ScreenState struct {
 	ColPos int // Always on last row.
 }
 
+func NewScreenState(rows, cols int) ScreenState {
+	s := ScreenState{Cols: cols, ColPos: cols - 1}
+	n := rows * cols
+	s.Chars = make([]byte, n)
+	s.Styles = make([]Style, n)
+	return s
+}
+
+func (s ScreenState) Init() {
+	for i := range s.Chars {
+		s.Chars[i] = ' '
+		s.Styles[i] = 0
+	}
+}
+
+func (s ScreenState) Rows() int {
+	return len(s.Chars) / s.Cols
+}
+
+func (s ScreenState) RowColIdx(row, col int) int {
+	return row*s.Cols + col
+}
+
 func (s ScreenState) CloneInto(into *ScreenState) {
 	if len(s.Chars) != len(into.Chars) {
 		into.Chars = make([]byte, len(s.Chars))

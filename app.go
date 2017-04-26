@@ -55,9 +55,7 @@ type app struct {
 
 	fileSize int
 
-	stylesBuffer []Style
-	screenBuffer []byte
-	screen       Screen
+	screen Screen
 
 	dataMissing     bool
 	dataMissingFrom time.Time
@@ -674,20 +672,10 @@ func (a *app) FileSize(size int) {
 }
 
 func (a *app) refresh() {
-
 	a.log.Info("Refreshing")
-
 	if a.cols == 0 || a.rows == 0 {
 		a.log.Info("Aborting refresh: rows=%d cols=%d", a.rows, a.cols)
 		return
-	}
-
-	dim := a.rows * a.cols
-	if len(a.screenBuffer) != dim {
-		a.screenBuffer = make([]byte, dim)
-	}
-	if len(a.stylesBuffer) != dim {
-		a.stylesBuffer = make([]Style, dim)
 	}
 	a.renderScreen()
 }
@@ -704,20 +692,14 @@ func displayByte(b byte) byte {
 	}
 }
 
-func (a *app) clearScreenBuffers() {
-	for i := range a.screenBuffer {
-		a.screenBuffer[i] = ' '
-		a.stylesBuffer[i] = MixStyle(Default, Default)
-	}
-}
-
 const loadingScreenGrace = 200 * time.Millisecond
 
 func (a *app) renderScreen() {
 
 	a.log.Info("Rendering screen.")
 
-	a.clearScreenBuffers()
+	state := NewScreenState(a.rows, a.cols)
+	state.Init()
 
 	assert(len(a.fwd) == 0 || a.fwd[0].offset == a.offset)
 	var lineBuf []byte
@@ -738,8 +720,8 @@ func (a *app) renderScreen() {
 			}
 			if !a.lineWrapMode {
 				if a.xPosition < len(lineBuf) {
-					copy(a.screenBuffer[row*a.cols:(row+1)*a.cols], lineBuf[a.xPosition:])
-					copy(a.stylesBuffer[row*a.cols:(row+1)*a.cols], styleBuf[a.xPosition:])
+					copy(state.Chars[row*a.cols:(row+1)*a.cols], lineBuf[a.xPosition:])
+					copy(state.Styles[row*a.cols:(row+1)*a.cols], styleBuf[a.xPosition:])
 				}
 				lineBuf = nil
 				styleBuf = nil
@@ -748,9 +730,9 @@ func (a *app) renderScreen() {
 				if usePrefix && len(a.config.WrapPrefix)+1 < a.cols {
 					prefix = a.config.WrapPrefix
 				}
-				copy(a.screenBuffer[row*a.cols:(row+1)*a.cols], prefix)
-				copiedA := copy(a.screenBuffer[row*a.cols+len(prefix):(row+1)*a.cols], lineBuf)
-				copiedB := copy(a.stylesBuffer[row*a.cols+len(prefix):(row+1)*a.cols], styleBuf)
+				copy(state.Chars[row*a.cols:(row+1)*a.cols], prefix)
+				copiedA := copy(state.Chars[row*a.cols+len(prefix):(row+1)*a.cols], lineBuf)
+				copiedB := copy(state.Styles[row*a.cols+len(prefix):(row+1)*a.cols], styleBuf)
 				assert(copiedA == copiedB)
 				lineBuf = lineBuf[copiedA:]
 				styleBuf = styleBuf[copiedB:]
@@ -760,13 +742,12 @@ func (a *app) renderScreen() {
 			// Reached end of file. `a.fileSize` may be slightly out of date,
 			// however next time it's updated the additional lines will be
 			// displayed.
-			a.screenBuffer[a.rowColIdx(row, 0)] = '~'
+			state.Chars[state.RowColIdx(row, 0)] = '~'
 			a.dataMissing = false
 		} else if a.dataMissing && time.Now().Sub(a.dataMissingFrom) > loadingScreenGrace {
 			// Haven't been able to display any data for at least the grace
 			// period, so display the loading screen instead.
-			a.clearScreenBuffers()
-			buildLoadingScreen(a.screenBuffer, a.cols)
+			buildLoadingScreen(state)
 			break
 		} else {
 			// Cannot display the data, but within the grace period. Abort the
@@ -781,7 +762,7 @@ func (a *app) renderScreen() {
 		}
 	}
 
-	a.drawStatusLine()
+	a.drawStatusLine(state)
 
 	col := a.cols - 1
 	commandLineText := ""
@@ -796,13 +777,13 @@ func (a *app) renderScreen() {
 	}
 
 	commandRow := a.rows - 1
-	copy(a.screenBuffer[commandRow*a.cols:(commandRow+1)*a.cols], commandLineText)
+	copy(state.Chars[commandRow*a.cols:(commandRow+1)*a.cols], commandLineText)
 
 	if a.command == (colour{}) {
-		a.overlaySwatch()
+		overlaySwatch(state)
 	}
 
-	a.screen.Write(ScreenState{a.screenBuffer, a.stylesBuffer, a.cols, col})
+	a.screen.Write(state)
 }
 
 func (a *app) renderLine(data string) []byte {
@@ -830,11 +811,11 @@ func (a *app) renderStyle(data string) []Style {
 	return buf
 }
 
-func (a *app) drawStatusLine() {
+func (a *app) drawStatusLine(state ScreenState) {
 
 	statusRow := a.rows - 2
-	for col := 0; col < a.cols; col++ {
-		a.stylesBuffer[statusRow*a.cols+col] = MixStyle(Invert, Invert)
+	for col := 0; col < state.Cols; col++ {
+		state.Styles[statusRow*a.cols+col] = MixStyle(Invert, Invert)
 	}
 
 	// Offset percentage.
@@ -867,19 +848,20 @@ func (a *app) drawStatusLine() {
 	statusRight := fmt.Sprintf("fwd:%d bck:%d ", len(a.fwd), len(a.bck)) + lineWrapMode + " " + pctStr + " "
 	statusLeft := " " + a.filename + " " + currentRegexpStr
 
-	buf := a.screenBuffer[statusRow*a.cols : (statusRow+1)*a.cols]
+	buf := state.Chars[statusRow*a.cols : (statusRow+1)*a.cols]
 	copy(buf[max(0, len(buf)-len(statusRight)):], statusRight)
 	copy(buf[:], statusLeft)
 }
 
-func buildLoadingScreen(buf []byte, cols int) {
+func buildLoadingScreen(state ScreenState) {
+	state.Init() // Clear anything previously set.
 	const loading = "Loading..."
-	row := len(buf) / cols / 2
-	startCol := (cols - len(loading)) / 2
-	copy(buf[row*cols+startCol:], loading)
+	row := state.Rows() / 2
+	startCol := (state.Cols - len(loading)) / 2
+	copy(state.Chars[row*state.Cols+startCol:], loading)
 }
 
-func (a *app) overlaySwatch() {
+func overlaySwatch(state ScreenState) {
 
 	const sideBorder = 2
 	const topBorder = 1
@@ -887,18 +869,18 @@ func (a *app) overlaySwatch() {
 	const swatchWidth = len(styles)*colourWidth + sideBorder*2
 	const swatchHeight = len(styles) + topBorder*2
 
-	startCol := (a.cols - swatchWidth) / 2
-	startRow := (a.rows - swatchHeight) / 2
+	startCol := (state.Cols - swatchWidth) / 2
+	startRow := (state.Rows() - swatchHeight) / 2
 	endCol := startCol + swatchWidth
 	endRow := startRow + swatchHeight
 
 	for row := startRow; row < endRow; row++ {
 		for col := startCol; col < endCol; col++ {
-			idx := a.rowColIdx(row, col)
+			idx := state.RowColIdx(row, col)
 			if col-startCol < 2 || endCol-col <= 2 || row-startRow < 1 || endRow-row <= 1 {
-				a.stylesBuffer[idx] = MixStyle(Invert, Invert)
+				state.Styles[idx] = MixStyle(Invert, Invert)
 			}
-			a.screenBuffer[idx] = ' '
+			state.Chars[idx] = ' '
 		}
 	}
 
@@ -906,18 +888,14 @@ func (a *app) overlaySwatch() {
 		for bg := 0; bg < len(styles); bg++ {
 			start := startCol + sideBorder + bg*colourWidth
 			row := startRow + topBorder + fg
-			a.screenBuffer[a.rowColIdx(row, start+1)] = byte(fg) + '0'
-			a.screenBuffer[a.rowColIdx(row, start+2)] = byte(bg) + '0'
+			state.Chars[state.RowColIdx(row, start+1)] = byte(fg) + '0'
+			state.Chars[state.RowColIdx(row, start+2)] = byte(bg) + '0'
 			style := MixStyle(styles[fg], styles[bg])
 			for i := 0; i < 4; i++ {
-				a.stylesBuffer[a.rowColIdx(row, start+i)] = style
+				state.Styles[state.RowColIdx(row, start+i)] = style
 			}
 		}
 	}
-}
-
-func (a *app) rowColIdx(row, col int) int {
-	return row*a.cols + col
 }
 
 func (a *app) currentRE() *regexp.Regexp {
