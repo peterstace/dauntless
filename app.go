@@ -14,7 +14,9 @@ type App interface {
 	TermSize(rows, cols int, err error)
 	FileSize(int)
 	Signal(os.Signal)
+}
 
+type CommandHandler interface {
 	CommandFailed(error)
 	SearchCommandEntered(*regexp.Regexp)
 	ColourCommandEntered(Style)
@@ -55,15 +57,12 @@ type app struct {
 
 	fileSize int
 
-	stylesBuffer []Style
-	screenBuffer []byte
-	screen       Screen
+	screen Screen
 
 	dataMissing     bool
 	dataMissingFrom time.Time
 
-	command     CommandMode
-	commandText string
+	commandReader CommandReader
 
 	tmpRegex *regexp.Regexp
 	regexes  []regex
@@ -79,11 +78,12 @@ type app struct {
 
 func NewApp(reactor Reactor, filename string, logger Logger, screen Screen, config Config) App {
 	return &app{
-		reactor:  reactor,
-		filename: filename,
-		log:      logger,
-		config:   config,
-		screen:   screen,
+		reactor:       reactor,
+		filename:      filename,
+		log:           logger,
+		config:        config,
+		screen:        screen,
+		commandReader: new(commandReader),
 	}
 }
 
@@ -97,13 +97,10 @@ func (a *app) Initialise() {
 
 func (a *app) Signal(sig os.Signal) {
 	a.log.Info("Caught signal: %v", sig)
-	if a.command == nil {
-		a.startQuitCommand()
+	if a.commandReader.Enabled() {
+		a.commandReader.Clear()
 	} else {
-		a.log.Info("Cancelling command.")
-		a.msg = "" // Don't want old message to show up.
-		a.command = nil
-		a.commandText = ""
+		a.startQuitCommand()
 	}
 }
 
@@ -111,8 +108,8 @@ func (a *app) KeyPress(k Key) {
 
 	a.log.Info("Key press: %s", k)
 
-	if a.command != nil {
-		a.consumeCommandKey(k)
+	if a.commandReader.Enabled() {
+		a.commandReader.KeyPress(k, a)
 		return
 	}
 
@@ -295,7 +292,8 @@ func (a *app) CommandFailed(err error) {
 }
 
 func (a *app) startSearchCommand() {
-	a.command = search{}
+	a.commandReader.SetMode(search{})
+	a.msg = ""
 	a.log.Info("Accepting search command.")
 }
 
@@ -310,7 +308,8 @@ func (a *app) startColourCommand() {
 		a.setMessage(msg)
 		return
 	}
-	a.command = colour{}
+	a.commandReader.SetMode(colour{})
+	a.msg = ""
 	a.log.Info("Accepting colour command.")
 }
 
@@ -327,7 +326,8 @@ func (a *app) ColourCommandEntered(style Style) {
 }
 
 func (a *app) startSeekCommand() {
-	a.command = seek{}
+	a.commandReader.SetMode(seek{})
+	a.msg = ""
 	a.log.Info("Accepting seek command.")
 }
 
@@ -346,12 +346,13 @@ func (a *app) SeekCommandEntered(pct float64) {
 }
 
 func (a *app) startBisectCommand() {
-	a.command = bisect{}
+	a.commandReader.SetMode(bisect{})
+	a.msg = ""
 	a.log.Info("Accepting bisect command.")
 }
 
 func (a *app) BisectCommandEntered(target string) {
-	a.log.Info("Bisect command entered: %q", a.commandText)
+	a.log.Info("Bisect command entered: %q", target)
 	go func() {
 		offset, err := Bisect(a.filename, target, a.config.BisectMask)
 		a.reactor.Enque(func() {
@@ -366,45 +367,14 @@ func (a *app) BisectCommandEntered(target string) {
 }
 
 func (a *app) startQuitCommand() {
-	a.command = quit{}
+	a.commandReader.SetMode(quit{})
+	a.msg = ""
 	a.log.Info("Accepting quit command.")
 }
 
 func (a *app) QuitCommandEntered(quit bool) {
 	if quit {
 		a.reactor.Stop(nil)
-	}
-}
-
-func (a *app) consumeCommandKey(k Key) {
-
-	assert(a.command != nil)
-
-	if len(k) != 1 {
-		a.log.Warn("Ignoring multi char sequence.")
-		return
-	}
-
-	b := k[0]
-	if b >= ' ' && b <= '~' {
-		a.commandText += string([]byte{b})
-		a.log.Info("Added to command: text=%q", a.commandText)
-	} else if b == 127 {
-		if len(a.commandText) >= 1 {
-			a.commandText = a.commandText[:len(a.commandText)-1]
-			a.log.Info("Backspacing char from command text: text=%q", a.commandText)
-		} else {
-			a.log.Info("Cannot backspace from empty command text.")
-		}
-	} else if b == '\n' {
-		a.log.Info("Finished command mode.")
-		a.msg = "" // Don't want old message to show up after the command.
-		assert(a.command != nil)
-		a.command.Entered(a.commandText, a)
-		a.command = nil
-		a.commandText = ""
-	} else {
-		a.log.Warn("Refusing to add char to command: %d", b)
 	}
 }
 
@@ -672,20 +642,10 @@ func (a *app) FileSize(size int) {
 }
 
 func (a *app) refresh() {
-
 	a.log.Info("Refreshing")
-
 	if a.cols == 0 || a.rows == 0 {
 		a.log.Info("Aborting refresh: rows=%d cols=%d", a.rows, a.cols)
 		return
-	}
-
-	dim := a.rows * a.cols
-	if len(a.screenBuffer) != dim {
-		a.screenBuffer = make([]byte, dim)
-	}
-	if len(a.stylesBuffer) != dim {
-		a.stylesBuffer = make([]Style, dim)
 	}
 	a.renderScreen()
 }
@@ -702,20 +662,14 @@ func displayByte(b byte) byte {
 	}
 }
 
-func (a *app) clearScreenBuffers() {
-	for i := range a.screenBuffer {
-		a.screenBuffer[i] = ' '
-		a.stylesBuffer[i] = mixStyle(Default, Default)
-	}
-}
-
 const loadingScreenGrace = 200 * time.Millisecond
 
 func (a *app) renderScreen() {
 
 	a.log.Info("Rendering screen.")
 
-	a.clearScreenBuffers()
+	state := NewScreenState(a.rows, a.cols)
+	state.Init()
 
 	assert(len(a.fwd) == 0 || a.fwd[0].offset == a.offset)
 	var lineBuf []byte
@@ -736,8 +690,8 @@ func (a *app) renderScreen() {
 			}
 			if !a.lineWrapMode {
 				if a.xPosition < len(lineBuf) {
-					copy(a.screenBuffer[row*a.cols:(row+1)*a.cols], lineBuf[a.xPosition:])
-					copy(a.stylesBuffer[row*a.cols:(row+1)*a.cols], styleBuf[a.xPosition:])
+					copy(state.Chars[row*a.cols:(row+1)*a.cols], lineBuf[a.xPosition:])
+					copy(state.Styles[row*a.cols:(row+1)*a.cols], styleBuf[a.xPosition:])
 				}
 				lineBuf = nil
 				styleBuf = nil
@@ -746,9 +700,9 @@ func (a *app) renderScreen() {
 				if usePrefix && len(a.config.WrapPrefix)+1 < a.cols {
 					prefix = a.config.WrapPrefix
 				}
-				copy(a.screenBuffer[row*a.cols:(row+1)*a.cols], prefix)
-				copiedA := copy(a.screenBuffer[row*a.cols+len(prefix):(row+1)*a.cols], lineBuf)
-				copiedB := copy(a.stylesBuffer[row*a.cols+len(prefix):(row+1)*a.cols], styleBuf)
+				copy(state.Chars[row*a.cols:(row+1)*a.cols], prefix)
+				copiedA := copy(state.Chars[row*a.cols+len(prefix):(row+1)*a.cols], lineBuf)
+				copiedB := copy(state.Styles[row*a.cols+len(prefix):(row+1)*a.cols], styleBuf)
 				assert(copiedA == copiedB)
 				lineBuf = lineBuf[copiedA:]
 				styleBuf = styleBuf[copiedB:]
@@ -758,13 +712,12 @@ func (a *app) renderScreen() {
 			// Reached end of file. `a.fileSize` may be slightly out of date,
 			// however next time it's updated the additional lines will be
 			// displayed.
-			a.screenBuffer[a.rowColIdx(row, 0)] = '~'
+			state.Chars[state.RowColIdx(row, 0)] = '~'
 			a.dataMissing = false
 		} else if a.dataMissing && time.Now().Sub(a.dataMissingFrom) > loadingScreenGrace {
 			// Haven't been able to display any data for at least the grace
 			// period, so display the loading screen instead.
-			a.clearScreenBuffers()
-			buildLoadingScreen(a.screenBuffer, a.cols)
+			buildLoadingScreen(state)
 			break
 		} else {
 			// Cannot display the data, but within the grace period. Abort the
@@ -779,11 +732,13 @@ func (a *app) renderScreen() {
 		}
 	}
 
-	a.drawStatusLine()
+	a.drawStatusLine(state)
 
+	state.ColPos = a.cols - 1
 	commandLineText := ""
-	if a.command != nil {
-		commandLineText = a.command.Prompt() + a.commandText
+	if a.commandReader.Enabled() {
+		commandLineText = a.commandReader.GetText()
+		state.ColPos = min(state.ColPos, a.commandReader.GetCursorPos())
 	} else {
 		if time.Now().Sub(a.msgSetAt) < msgLingerDuration {
 			commandLineText = a.msg
@@ -791,17 +746,13 @@ func (a *app) renderScreen() {
 	}
 
 	commandRow := a.rows - 1
-	copy(a.screenBuffer[commandRow*a.cols:(commandRow+1)*a.cols], commandLineText)
+	copy(state.Chars[commandRow*a.cols:(commandRow+1)*a.cols], commandLineText)
 
-	if a.command == (colour{}) {
-		a.overlaySwatch()
+	if a.commandReader.OverlaySwatch() {
+		overlaySwatch(state)
 	}
 
-	col := a.cols - 1
-	if a.command != nil {
-		col = min(col, len(commandLineText))
-	}
-	a.screen.Write(a.screenBuffer, a.stylesBuffer, a.cols, col)
+	a.screen.Write(state)
 }
 
 func (a *app) renderLine(data string) []byte {
@@ -816,7 +767,7 @@ func (a *app) renderStyle(data string) []Style {
 
 	regexes := a.regexes
 	if a.tmpRegex != nil {
-		regexes = append(regexes, regex{mixStyle(Invert, Invert), a.tmpRegex})
+		regexes = append(regexes, regex{MixStyle(Invert, Invert), a.tmpRegex})
 	}
 	buf := make([]Style, len(data))
 	for _, regex := range regexes {
@@ -829,11 +780,11 @@ func (a *app) renderStyle(data string) []Style {
 	return buf
 }
 
-func (a *app) drawStatusLine() {
+func (a *app) drawStatusLine(state ScreenState) {
 
 	statusRow := a.rows - 2
-	for col := 0; col < a.cols; col++ {
-		a.stylesBuffer[statusRow*a.cols+col] = mixStyle(Invert, Invert)
+	for col := 0; col < state.Cols; col++ {
+		state.Styles[statusRow*a.cols+col] = MixStyle(Invert, Invert)
 	}
 
 	// Offset percentage.
@@ -866,19 +817,20 @@ func (a *app) drawStatusLine() {
 	statusRight := fmt.Sprintf("fwd:%d bck:%d ", len(a.fwd), len(a.bck)) + lineWrapMode + " " + pctStr + " "
 	statusLeft := " " + a.filename + " " + currentRegexpStr
 
-	buf := a.screenBuffer[statusRow*a.cols : (statusRow+1)*a.cols]
+	buf := state.Chars[statusRow*a.cols : (statusRow+1)*a.cols]
 	copy(buf[max(0, len(buf)-len(statusRight)):], statusRight)
 	copy(buf[:], statusLeft)
 }
 
-func buildLoadingScreen(buf []byte, cols int) {
+func buildLoadingScreen(state ScreenState) {
+	state.Init() // Clear anything previously set.
 	const loading = "Loading..."
-	row := len(buf) / cols / 2
-	startCol := (cols - len(loading)) / 2
-	copy(buf[row*cols+startCol:], loading)
+	row := state.Rows() / 2
+	startCol := (state.Cols - len(loading)) / 2
+	copy(state.Chars[row*state.Cols+startCol:], loading)
 }
 
-func (a *app) overlaySwatch() {
+func overlaySwatch(state ScreenState) {
 
 	const sideBorder = 2
 	const topBorder = 1
@@ -886,18 +838,18 @@ func (a *app) overlaySwatch() {
 	const swatchWidth = len(styles)*colourWidth + sideBorder*2
 	const swatchHeight = len(styles) + topBorder*2
 
-	startCol := (a.cols - swatchWidth) / 2
-	startRow := (a.rows - swatchHeight) / 2
+	startCol := (state.Cols - swatchWidth) / 2
+	startRow := (state.Rows() - swatchHeight) / 2
 	endCol := startCol + swatchWidth
 	endRow := startRow + swatchHeight
 
 	for row := startRow; row < endRow; row++ {
 		for col := startCol; col < endCol; col++ {
-			idx := a.rowColIdx(row, col)
+			idx := state.RowColIdx(row, col)
 			if col-startCol < 2 || endCol-col <= 2 || row-startRow < 1 || endRow-row <= 1 {
-				a.stylesBuffer[idx] = mixStyle(Invert, Invert)
+				state.Styles[idx] = MixStyle(Invert, Invert)
 			}
-			a.screenBuffer[idx] = ' '
+			state.Chars[idx] = ' '
 		}
 	}
 
@@ -905,18 +857,14 @@ func (a *app) overlaySwatch() {
 		for bg := 0; bg < len(styles); bg++ {
 			start := startCol + sideBorder + bg*colourWidth
 			row := startRow + topBorder + fg
-			a.screenBuffer[a.rowColIdx(row, start+1)] = byte(fg) + '0'
-			a.screenBuffer[a.rowColIdx(row, start+2)] = byte(bg) + '0'
-			style := mixStyle(styles[fg], styles[bg])
+			state.Chars[state.RowColIdx(row, start+1)] = byte(fg) + '0'
+			state.Chars[state.RowColIdx(row, start+2)] = byte(bg) + '0'
+			style := MixStyle(styles[fg], styles[bg])
 			for i := 0; i < 4; i++ {
-				a.stylesBuffer[a.rowColIdx(row, start+i)] = style
+				state.Styles[state.RowColIdx(row, start+i)] = style
 			}
 		}
 	}
-}
-
-func (a *app) rowColIdx(row, col int) int {
-	return row*a.cols + col
 }
 
 func (a *app) currentRE() *regexp.Regexp {
