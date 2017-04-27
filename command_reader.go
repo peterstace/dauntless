@@ -39,6 +39,10 @@ func (c *commandReader) KeyPress(k Key, h CommandHandler) {
 			c.pos = min(c.pos+1, len(c.text))
 		} else if k == DeleteKey && c.pos < len(c.text) {
 			c.text = c.text[:c.pos] + c.text[c.pos+1:]
+		} else if k == HomeKey {
+			c.pos = 0
+		} else if k == EndKey {
+			c.pos = len(c.text)
 		}
 	}
 }
