@@ -13,74 +13,97 @@ type Screen interface {
 
 func NewTermScreen(w io.Writer, r Reactor, log Logger) Screen {
 	return &termScreen{
-		currentWrite: new(bytes.Buffer),
-		nextWrite:    new(bytes.Buffer),
-		writer:       w,
-		reactor:      r,
-		log:          log,
+		writer:  w,
+		reactor: r,
+		log:     log,
 	}
 }
 
 type termScreen struct {
-	writeInProgress bool
-	pendingWrite    bool
-	currentWrite    *bytes.Buffer
-	nextWrite       *bytes.Buffer
-
-	last ScreenState
-
-	writer io.Writer
-
-	reactor Reactor
-	log     Logger
+	writeInProgress  bool
+	hasPending       bool
+	pendingState     ScreenState
+	lastWrittenState ScreenState
+	writer           io.Writer
+	reactor          Reactor
+	log              Logger
 }
 
 func (t *termScreen) Write(state ScreenState) {
 
 	t.log.Info("Preparing screen write contents.")
 
-	if t.last.Equal(state) {
-		t.log.Info("No change to screen, aborting write.")
-		return
-	}
-	state.CloneInto(&t.last)
-
-	// Calculate byte sequence to send to terminal.
-	// TODO: Diff algorithm.
-	t.nextWrite.Reset()
-	t.nextWrite.WriteString("\x1b[H")
-	currentStyle := state.Styles[0]
-	for i := range state.Chars {
-		if i == 0 || state.Styles[i] != currentStyle {
-			currentStyle = state.Styles[i]
-			t.nextWrite.WriteString(currentStyle.escapeCode())
-		}
-		assert(state.Chars[i] >= 32 && state.Chars[i] <= 126) // Char must be visible.
-		t.nextWrite.WriteByte(state.Chars[i])
-	}
-	fmt.Fprintf(t.nextWrite, "\x1b[%d;%dH", len(state.Chars)/state.Cols+1, state.ColPos+1)
+	t.hasPending = true
+	state.CloneInto(&t.pendingState)
 
 	if t.writeInProgress {
 		t.log.Info("Write already in progress, will write after completion.")
-		t.pendingWrite = true
 		return
 	}
 
-	t.outputToScreen()
+	t.outputPending()
 }
 
-func (t *termScreen) outputToScreen() {
+func ScreenDiff(from, to ScreenState) *bytes.Buffer {
 
+	renderAll := len(from.Chars) != len(to.Chars) || from.Cols != to.Cols
+
+	buf := new(bytes.Buffer)
+
+	writtenStyle := false
+	var currentStyle Style
+
+	for row := 0; row < to.Rows(); row++ {
+		firstMismatchCol := -1
+		if renderAll {
+			firstMismatchCol = to.Cols - 1
+		} else {
+			for col := to.Cols - 1; col >= 0; col-- {
+				idx := to.RowColIdx(row, col)
+				if to.Chars[idx] != from.Chars[idx] || to.Styles[idx] != from.Styles[idx] {
+					firstMismatchCol = col
+					break
+				}
+			}
+		}
+		if firstMismatchCol >= 0 {
+			fmt.Fprintf(buf, "\x1b[%d;H", row+1)
+			for col := 0; col <= firstMismatchCol; col++ {
+				idx := to.RowColIdx(row, col)
+				if !writtenStyle || currentStyle != to.Styles[idx] {
+					buf.WriteString(to.Styles[idx].escapeCode())
+					writtenStyle = true
+					currentStyle = to.Styles[idx]
+				}
+				buf.WriteByte(to.Chars[idx])
+			}
+		}
+	}
+
+	if buf.Len() > 0 || from.ColPos != to.ColPos {
+		fmt.Fprintf(buf, "\x1b[%d;%dH", to.Rows(), to.ColPos+1)
+	}
+	return buf
+}
+
+func (t *termScreen) outputPending() {
+
+	assert(t.hasPending)
 	assert(!t.writeInProgress)
-	assert(!t.pendingWrite)
+	t.hasPending = false
 
+	diff := ScreenDiff(t.lastWrittenState, t.pendingState)
+	if diff.Len() == 0 {
+		t.log.Info("Screen state is the same, aborting write.")
+		return
+	}
+
+	t.log.Info("Writing to screen: bytes=%d", diff.Len())
 	t.writeInProgress = true
-	t.nextWrite, t.currentWrite = t.currentWrite, t.nextWrite
-
-	t.log.Info("Writing to screen: bytes=%d", t.currentWrite.Len())
+	t.pendingState.CloneInto(&t.lastWrittenState)
 
 	go func() {
-		io.Copy(t.writer, t.currentWrite)
+		io.Copy(t.writer, diff)
 
 		// TODO: Tweak to stop "flashing" under constant scroll. Should
 		// probably be variable/parameter.
@@ -92,11 +115,10 @@ func (t *termScreen) outputToScreen() {
 
 func (t *termScreen) writeComplete() {
 
-	t.log.Info("Screen write complete: pendingWrite=%t", t.pendingWrite)
+	t.log.Info("Screen write complete: hasPending=%t", t.hasPending)
 
 	t.writeInProgress = false
-	if t.pendingWrite {
-		t.pendingWrite = false
-		t.outputToScreen()
+	if t.hasPending {
+		t.outputPending()
 	}
 }
