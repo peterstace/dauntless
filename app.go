@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"io"
-	"os"
 	"regexp"
 	"time"
 )
@@ -13,7 +12,7 @@ type App interface {
 	KeyPress(Key)
 	TermSize(rows, cols int, err error)
 	FileSize(int)
-	Signal(os.Signal)
+	Interrupt()
 }
 
 type CommandHandler interface {
@@ -95,8 +94,8 @@ func (a *app) Initialise() {
 	})
 }
 
-func (a *app) Signal(sig os.Signal) {
-	a.log.Info("Caught signal: %v", sig)
+func (a *app) Interrupt() {
+	a.log.Info("Caught interrupt.")
 	if a.commandReader.Enabled() {
 		a.commandReader.Clear()
 	} else {
