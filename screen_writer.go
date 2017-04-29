@@ -8,7 +8,7 @@ import (
 )
 
 type Screen interface {
-	Write(ScreenState)
+	Write(state ScreenState, force bool)
 }
 
 func NewTermScreen(w io.Writer, r Reactor, log Logger) Screen {
@@ -29,12 +29,17 @@ type termScreen struct {
 	log              Logger
 }
 
-func (t *termScreen) Write(state ScreenState) {
+func (t *termScreen) Write(state ScreenState, force bool) {
 
 	t.log.Info("Preparing screen write contents.")
 
 	t.hasPending = true
 	state.CloneInto(&t.pendingState)
+	if force {
+		t.lastWrittenState.Cols = 0
+		t.lastWrittenState.Chars = nil
+		t.lastWrittenState.Styles = nil
+	}
 
 	if t.writeInProgress {
 		t.log.Info("Write already in progress, will write after completion.")

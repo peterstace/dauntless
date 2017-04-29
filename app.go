@@ -13,6 +13,7 @@ type App interface {
 	TermSize(rows, cols int)
 	FileSize(int)
 	Interrupt()
+	ForceRefresh()
 }
 
 type CommandHandler interface {
@@ -73,6 +74,8 @@ type app struct {
 
 	msg      string
 	msgSetAt time.Time
+
+	forceRefresh bool
 }
 
 func NewApp(reactor Reactor, filename string, logger Logger, screen Screen, config Config) App {
@@ -84,6 +87,10 @@ func NewApp(reactor Reactor, filename string, logger Logger, screen Screen, conf
 		screen:        screen,
 		commandReader: new(commandReader),
 	}
+}
+
+func (a *app) ForceRefresh() {
+	a.forceRefresh = true
 }
 
 func (a *app) Initialise() {
@@ -751,7 +758,8 @@ func (a *app) renderScreen() {
 		overlaySwatch(state)
 	}
 
-	a.screen.Write(state)
+	a.screen.Write(state, a.forceRefresh)
+	a.forceRefresh = false
 }
 
 func (a *app) renderLine(data string) []byte {
