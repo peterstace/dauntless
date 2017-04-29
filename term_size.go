@@ -14,12 +14,18 @@ func collectTermSize(r Reactor, a App) {
 			cmd := exec.Command("stty", "size")
 			cmd.Stdin = os.Stdin
 			dim, err := cmd.Output()
+			if err != nil {
+				r.Stop(err)
+				return
+			}
 
 			var rows, cols int
-			if err == nil {
-				_, err = fmt.Sscanf(string(dim), "%d %d", &rows, &cols)
+			_, err = fmt.Sscanf(string(dim), "%d %d", &rows, &cols)
+			if err != nil {
+				r.Stop(err)
+				return
 			}
-			r.Enque(func() { a.TermSize(rows, cols, err) })
+			r.Enque(func() { a.TermSize(rows, cols) })
 
 			time.Sleep(time.Second)
 		}

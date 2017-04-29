@@ -10,7 +10,7 @@ import (
 type App interface {
 	Initialise()
 	KeyPress(Key)
-	TermSize(rows, cols int, err error)
+	TermSize(rows, cols int)
 	FileSize(int)
 	Interrupt()
 }
@@ -624,7 +624,7 @@ func (a *app) loadBackward(amount int) {
 	}()
 }
 
-func (a *app) TermSize(rows, cols int, err error) {
+func (a *app) TermSize(rows, cols int) {
 	if a.rows != rows || a.cols != cols {
 		a.rows = rows
 		a.cols = cols
