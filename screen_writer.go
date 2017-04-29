@@ -112,7 +112,7 @@ func (t *termScreen) outputPending() {
 
 		// TODO: Tweak to stop "flashing" under constant scroll. Should
 		// probably be variable/parameter.
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(10 * time.Millisecond)
 
 		t.reactor.Enque(t.writeComplete)
 	}()
