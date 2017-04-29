@@ -61,7 +61,7 @@ func main() {
 
 	reactor.Enque(app.Initialise)
 	CollectFileSize(reactor, app, filename)
-	collectSignal(reactor, os.Interrupt, app.Interrupt)
+	collectInterrupt(reactor, app)
 	collectInput(reactor, app)
 	collectTermSize(reactor, app)
 	err = reactor.Run()

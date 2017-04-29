@@ -5,12 +5,12 @@ import (
 	"os/signal"
 )
 
-func collectSignal(r Reactor, sig os.Signal, fn func()) {
+func collectInterrupt(r Reactor, a App) {
 	go func() {
 		ch := make(chan os.Signal, 1)
-		signal.Notify(ch, sig)
+		signal.Notify(ch, os.Interrupt)
 		for _ = range ch {
-			r.Enque(fn)
+			r.Enque(a.Interrupt)
 		}
 	}()
 }
