@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"io"
-	"os"
 	"regexp"
 	"time"
 )
@@ -11,9 +10,10 @@ import (
 type App interface {
 	Initialise()
 	KeyPress(Key)
-	TermSize(rows, cols int, err error)
+	TermSize(rows, cols int)
 	FileSize(int)
-	Signal(os.Signal)
+	Interrupt()
+	ForceRefresh()
 }
 
 type CommandHandler interface {
@@ -74,6 +74,8 @@ type app struct {
 
 	msg      string
 	msgSetAt time.Time
+
+	forceRefresh bool
 }
 
 func NewApp(reactor Reactor, filename string, logger Logger, screen Screen, config Config) App {
@@ -87,6 +89,10 @@ func NewApp(reactor Reactor, filename string, logger Logger, screen Screen, conf
 	}
 }
 
+func (a *app) ForceRefresh() {
+	a.forceRefresh = true
+}
+
 func (a *app) Initialise() {
 	a.log.Info("***************** Initialising log viewer ******************")
 	a.reactor.SetPostHook(func() {
@@ -95,8 +101,8 @@ func (a *app) Initialise() {
 	})
 }
 
-func (a *app) Signal(sig os.Signal) {
-	a.log.Info("Caught signal: %v", sig)
+func (a *app) Interrupt() {
+	a.log.Info("Caught interrupt.")
 	if a.commandReader.Enabled() {
 		a.commandReader.Clear()
 	} else {
@@ -625,7 +631,7 @@ func (a *app) loadBackward(amount int) {
 	}()
 }
 
-func (a *app) TermSize(rows, cols int, err error) {
+func (a *app) TermSize(rows, cols int) {
 	if a.rows != rows || a.cols != cols {
 		a.rows = rows
 		a.cols = cols
@@ -752,7 +758,8 @@ func (a *app) renderScreen() {
 		overlaySwatch(state)
 	}
 
-	a.screen.Write(state)
+	a.screen.Write(state, a.forceRefresh)
+	a.forceRefresh = false
 }
 
 func (a *app) renderLine(data string) []byte {

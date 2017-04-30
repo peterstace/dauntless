@@ -41,20 +41,3 @@ func (s ScreenState) CloneInto(into *ScreenState) {
 	copy(into.Chars, s.Chars)
 	copy(into.Styles, s.Styles)
 }
-
-func (s ScreenState) Equal(rhs ScreenState) bool {
-	if s.Cols != rhs.Cols || s.ColPos != rhs.ColPos {
-		return false
-	}
-	for i := range s.Chars {
-		if s.Chars[i] != rhs.Chars[i] {
-			return false
-		}
-	}
-	for i := range s.Styles {
-		if s.Styles[i] != rhs.Styles[i] {
-			return false
-		}
-	}
-	return true
-}
