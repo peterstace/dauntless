@@ -65,3 +65,7 @@ something long.
 * Add assertions back in for main data structure.
 
 ### Known Bugs
+
+* If the last line in a non-empty file doesn't end in a newline, using "G" (and
+  possibly other things) will cause the loading screen to be displayed forever
+(and the reactor spins in a tight loop).
