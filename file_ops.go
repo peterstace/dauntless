@@ -163,3 +163,18 @@ func lineAt(f *os.File, offset int) ([]byte, int, error) {
 	bckBytes, err := bckReader.ReadLine()
 	return bckBytes, offset + len(fwdBytes) - len(bckBytes), err
 }
+
+func FindReloadOffset(filename string, offset int) (int, error) {
+
+	f, err := os.Open(filename)
+	if err != nil {
+		return 0, err
+	}
+	defer f.Close()
+
+	_, n, err := lineAt(f, offset)
+	if err == io.EOF {
+		return FindJumpToBottomOffset(filename)
+	}
+	return n, err
+}
