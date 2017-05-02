@@ -23,6 +23,9 @@ func LoadFwd(filename string, offset int, count int) ([]string, error) {
 	r := bufio.NewReader(f)
 	for i := 0; i < count; i++ {
 		line, err := r.ReadString('\n')
+		if len(line) > 0 {
+			lines = append(lines, line)
+		}
 		if err != nil {
 			if err == io.EOF {
 				return lines, nil
@@ -30,7 +33,6 @@ func LoadFwd(filename string, offset int, count int) ([]string, error) {
 				return nil, err
 			}
 		}
-		lines = append(lines, line)
 	}
 
 	return lines, nil

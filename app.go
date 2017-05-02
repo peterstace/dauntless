@@ -644,6 +644,12 @@ func (a *app) FileSize(size int) {
 	if size != oldSize {
 		a.fileSize = size
 		a.log.Info("File size changed: old=%d new=%d", oldSize, size)
+		if len(a.fwd) > 0 {
+			lastLine := a.fwd[len(a.fwd)-1].data
+			if lastLine[len(lastLine)-1] != '\n' {
+				a.fwd = a.fwd[:len(a.fwd)-1]
+			}
+		}
 	}
 }
 
@@ -688,8 +694,9 @@ func (a *app) renderScreen() {
 			if len(lineBuf) == 0 {
 				assert(len(styleBuf) == 0)
 				data := a.fwd[fwdIdx].data
-				assert(data[len(data)-1] == '\n')
-				data = data[:len(data)-1]
+				if data[len(data)-1] == '\n' {
+					data = data[:len(data)-1]
+				}
 				lineBuf = a.renderLine(data)
 				styleBuf = a.renderStyle(data)
 				fwdIdx++
