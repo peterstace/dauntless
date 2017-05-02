@@ -66,6 +66,6 @@ something long.
 
 ### Known Bugs
 
-* If the last line in a non-empty file doesn't end in a newline, using "G" (and
-  possibly other things) will cause the loading screen to be displayed forever
-(and the reactor spins in a tight loop).
+* If "r" (reload) is used, it doesn't recalculate the current offset to the
+  start of the nearest line. This can cause problems when the whole file has
+changed.
