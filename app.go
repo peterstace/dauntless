@@ -178,6 +178,18 @@ func (a *app) discardBufferedInputAndRepaint() {
 	a.log.Info("Discarding buffered input and repainting screen.")
 	a.fwd = nil
 	a.bck = nil
+
+	go func() {
+		offset, err := FindReloadOffset(a.filename, a.offset)
+		a.reactor.Enque(func() {
+			if err != nil {
+				a.log.Warn("Could not find reload offset: %v", err)
+				a.reactor.Stop(err)
+				return
+			}
+			a.moveToOffset(offset)
+		})
+	}()
 }
 
 func (a *app) moveDown() {
