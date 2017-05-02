@@ -66,6 +66,3 @@ something long.
 
 ### Known Bugs
 
-* If "r" (reload) is used, it doesn't recalculate the current offset to the
-  start of the nearest line. This can cause problems when the whole file has
-changed.
