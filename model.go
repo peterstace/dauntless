@@ -6,6 +6,8 @@ import (
 )
 
 type Model struct {
+	config Config
+
 	filename string
 
 	rows, cols int
@@ -30,4 +32,12 @@ type Model struct {
 
 	msg      string
 	msgSetAt time.Time
+
+	// TODO: Too much behaviour in here, should just be model state.
+	commandReader CommandReader
+}
+
+type regex struct {
+	style Style
+	re    *regexp.Regexp
 }

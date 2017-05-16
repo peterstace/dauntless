@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"io"
 	"regexp"
 	"time"
@@ -34,19 +33,11 @@ func (l line) nextOffset() int {
 	return l.offset + len(l.data)
 }
 
-type regex struct {
-	style Style
-	re    *regexp.Regexp
-}
-
 type app struct {
 	reactor Reactor
 	log     Logger
-	config  Config
 
 	screen Screen
-
-	commandReader CommandReader
 
 	fillingScreenBuffer bool
 
@@ -57,12 +48,10 @@ type app struct {
 
 func NewApp(reactor Reactor, filename string, logger Logger, screen Screen, config Config) App {
 	return &app{
-		reactor:       reactor,
-		log:           logger,
-		config:        config,
-		screen:        screen,
-		commandReader: new(commandReader),
-		model:         Model{filename: filename},
+		reactor: reactor,
+		log:     logger,
+		screen:  screen,
+		model:   Model{config: config, filename: filename, commandReader: new(commandReader)},
 	}
 }
 
@@ -80,8 +69,8 @@ func (a *app) Initialise() {
 
 func (a *app) Interrupt() {
 	a.log.Info("Caught interrupt.")
-	if a.commandReader.Enabled() {
-		a.commandReader.Clear()
+	if a.model.commandReader.Enabled() {
+		a.model.commandReader.Clear()
 	} else {
 		a.startQuitCommand()
 	}
@@ -91,8 +80,8 @@ func (a *app) KeyPress(k Key) {
 
 	a.log.Info("Key press: %s", k)
 
-	if a.commandReader.Enabled() {
-		a.commandReader.KeyPress(k, a)
+	if a.model.commandReader.Enabled() {
+		a.model.commandReader.KeyPress(k, a)
 		return
 	}
 
@@ -287,7 +276,7 @@ func (a *app) CommandFailed(err error) {
 }
 
 func (a *app) startSearchCommand() {
-	a.commandReader.SetMode(search{})
+	a.model.commandReader.SetMode(search{})
 	a.model.msg = ""
 	a.log.Info("Accepting search command.")
 }
@@ -303,7 +292,7 @@ func (a *app) startColourCommand() {
 		a.setMessage(msg)
 		return
 	}
-	a.commandReader.SetMode(colour{})
+	a.model.commandReader.SetMode(colour{})
 	a.model.msg = ""
 	a.log.Info("Accepting colour command.")
 }
@@ -321,7 +310,7 @@ func (a *app) ColourCommandEntered(style Style) {
 }
 
 func (a *app) startSeekCommand() {
-	a.commandReader.SetMode(seek{})
+	a.model.commandReader.SetMode(seek{})
 	a.model.msg = ""
 	a.log.Info("Accepting seek command.")
 }
@@ -341,7 +330,7 @@ func (a *app) SeekCommandEntered(pct float64) {
 }
 
 func (a *app) startBisectCommand() {
-	a.commandReader.SetMode(bisect{})
+	a.model.commandReader.SetMode(bisect{})
 	a.model.msg = ""
 	a.log.Info("Accepting bisect command.")
 }
@@ -349,7 +338,7 @@ func (a *app) startBisectCommand() {
 func (a *app) BisectCommandEntered(target string) {
 	a.log.Info("Bisect command entered: %q", target)
 	go func() {
-		offset, err := Bisect(a.model.filename, target, a.config.BisectMask)
+		offset, err := Bisect(a.model.filename, target, a.model.config.BisectMask)
 		a.reactor.Enque(func() {
 			if err != nil {
 				a.log.Warn("Could not find bisect target: %v", err)
@@ -362,7 +351,7 @@ func (a *app) BisectCommandEntered(target string) {
 }
 
 func (a *app) startQuitCommand() {
-	a.commandReader.SetMode(quit{})
+	a.model.commandReader.SetMode(quit{})
 	a.model.msg = ""
 	a.log.Info("Accepting quit command.")
 }
@@ -666,207 +655,20 @@ func displayByte(b byte) byte {
 const loadingScreenGrace = 200 * time.Millisecond
 
 func (a *app) renderScreen() {
-
-	a.log.Info("Rendering screen.")
-
-	state := NewScreenState(a.model.rows, a.model.cols)
-	state.Init()
-
-	assert(len(a.model.fwd) == 0 || a.model.fwd[0].offset == a.model.offset)
-	var lineBuf []byte
-	var styleBuf []Style
-	var fwdIdx int
-	lineRows := a.model.rows - 2 // 2 rows reserved for status line and command line.
-	for row := 0; row < lineRows; row++ {
-		if fwdIdx < len(a.model.fwd) {
-			usePrefix := len(lineBuf) != 0
-			if len(lineBuf) == 0 {
-				assert(len(styleBuf) == 0)
-				data := a.model.fwd[fwdIdx].data
-				if data[len(data)-1] == '\n' {
-					data = data[:len(data)-1]
-				}
-				lineBuf = a.renderLine(data)
-				styleBuf = a.renderStyle(data)
-				fwdIdx++
-			}
-			if !a.model.lineWrapMode {
-				if a.model.xPosition < len(lineBuf) {
-					copy(state.Chars[row*a.model.cols:(row+1)*a.model.cols], lineBuf[a.model.xPosition:])
-					copy(state.Styles[row*a.model.cols:(row+1)*a.model.cols], styleBuf[a.model.xPosition:])
-				}
-				lineBuf = nil
-				styleBuf = nil
-			} else {
-				var prefix string
-				if usePrefix && len(a.config.WrapPrefix)+1 < a.model.cols {
-					prefix = a.config.WrapPrefix
-				}
-				copy(state.Chars[row*a.model.cols:(row+1)*a.model.cols], prefix)
-				copiedA := copy(state.Chars[row*a.model.cols+len(prefix):(row+1)*a.model.cols], lineBuf)
-				copiedB := copy(state.Styles[row*a.model.cols+len(prefix):(row+1)*a.model.cols], styleBuf)
-				assert(copiedA == copiedB)
-				lineBuf = lineBuf[copiedA:]
-				styleBuf = styleBuf[copiedB:]
-			}
-			a.model.dataMissing = false
-		} else if a.model.fileSize == 0 || len(a.model.fwd) != 0 && a.model.fwd[len(a.model.fwd)-1].nextOffset() >= a.model.fileSize {
-			// Reached end of file. `a.model.fileSize` may be slightly out of date,
-			// however next time it's updated the additional lines will be
-			// displayed.
-			state.Chars[state.RowColIdx(row, 0)] = '~'
-			a.model.dataMissing = false
-		} else if a.model.dataMissing && time.Now().Sub(a.model.dataMissingFrom) > loadingScreenGrace {
-			// Haven't been able to display any data for at least the grace
-			// period, so display the loading screen instead.
-			buildLoadingScreen(state)
-			break
-		} else {
-			// Cannot display the data, but within the grace period. Abort the
-			// display procedure, trying again after the grace period.
-			a.model.dataMissing = true
-			a.model.dataMissingFrom = time.Now()
-			go func() {
-				time.Sleep(loadingScreenGrace)
-				a.reactor.Enque(func() {})
-			}()
-			return
-		}
-	}
-
-	a.drawStatusLine(state)
-
-	state.ColPos = a.model.cols - 1
-	commandLineText := ""
-	if a.commandReader.Enabled() {
-		commandLineText = a.commandReader.GetText()
-		state.ColPos = min(state.ColPos, a.commandReader.GetCursorPos())
+	state, err := CreateView(&a.model)
+	if err == nil {
+		a.screen.Write(state, a.forceRefresh)
+		a.forceRefresh = false
 	} else {
-		if time.Now().Sub(a.model.msgSetAt) < msgLingerDuration {
-			commandLineText = a.model.msg
-		}
-	}
-
-	commandRow := a.model.rows - 1
-	copy(state.Chars[commandRow*a.model.cols:(commandRow+1)*a.model.cols], commandLineText)
-
-	if a.commandReader.OverlaySwatch() {
-		overlaySwatch(state)
-	}
-
-	a.screen.Write(state, a.forceRefresh)
-	a.forceRefresh = false
-}
-
-func (a *app) renderLine(data string) []byte {
-	buf := make([]byte, len(data))
-	for i := range data {
-		buf[i] = displayByte(data[i])
-	}
-	return buf
-}
-
-func (a *app) renderStyle(data string) []Style {
-
-	regexes := a.model.regexes
-	if a.model.tmpRegex != nil {
-		regexes = append(regexes, regex{MixStyle(Invert, Invert), a.model.tmpRegex})
-	}
-	buf := make([]Style, len(data))
-	for _, regex := range regexes {
-		for _, match := range regex.re.FindAllStringIndex(data, -1) {
-			for i := match[0]; i < match[1]; i++ {
-				buf[i] = regex.style
-			}
-		}
-	}
-	return buf
-}
-
-func (a *app) drawStatusLine(state ScreenState) {
-
-	statusRow := a.model.rows - 2
-	for col := 0; col < state.Cols; col++ {
-		state.Styles[statusRow*a.model.cols+col] = MixStyle(Invert, Invert)
-	}
-
-	// Offset percentage.
-	pct := float64(a.model.offset) / float64(a.model.fileSize) * 100
-	var pctStr string
-	switch {
-	case pct < 10:
-		// 9.99%
-		pctStr = fmt.Sprintf("%3.2f%%", pct)
-	default:
-		// 99.9%
-		pctStr = fmt.Sprintf("%3.1f%%", pct)
-	}
-
-	// Line wrap mode.
-	var lineWrapMode string
-	if a.model.lineWrapMode {
-		lineWrapMode = "line-wrap-mode:on "
-	} else {
-		lineWrapMode = "line-wrap-mode:off"
-	}
-
-	currentRegexpStr := "re:<none>"
-	if a.model.tmpRegex != nil {
-		currentRegexpStr = "re(tmp):" + a.model.tmpRegex.String()
-	} else if len(a.model.regexes) > 0 {
-		currentRegexpStr = fmt.Sprintf("re(%d):%s", len(a.model.regexes), a.model.regexes[0].re.String())
-	}
-
-	statusRight := fmt.Sprintf("fwd:%d bck:%d ", len(a.model.fwd), len(a.model.bck)) + lineWrapMode + " " + pctStr + " "
-	statusLeft := " " + a.model.filename + " " + currentRegexpStr
-
-	buf := state.Chars[statusRow*a.model.cols : (statusRow+1)*a.model.cols]
-	copy(buf[max(0, len(buf)-len(statusRight)):], statusRight)
-	copy(buf[:], statusLeft)
-}
-
-func buildLoadingScreen(state ScreenState) {
-	state.Init() // Clear anything previously set.
-	const loading = "Loading..."
-	row := state.Rows() / 2
-	startCol := (state.Cols - len(loading)) / 2
-	copy(state.Chars[row*state.Cols+startCol:], loading)
-}
-
-func overlaySwatch(state ScreenState) {
-
-	const sideBorder = 2
-	const topBorder = 1
-	const colourWidth = 4
-	const swatchWidth = len(styles)*colourWidth + sideBorder*2
-	const swatchHeight = len(styles) + topBorder*2
-
-	startCol := (state.Cols - swatchWidth) / 2
-	startRow := (state.Rows() - swatchHeight) / 2
-	endCol := startCol + swatchWidth
-	endRow := startRow + swatchHeight
-
-	for row := startRow; row < endRow; row++ {
-		for col := startCol; col < endCol; col++ {
-			idx := state.RowColIdx(row, col)
-			if col-startCol < 2 || endCol-col <= 2 || row-startRow < 1 || endRow-row <= 1 {
-				state.Styles[idx] = MixStyle(Invert, Invert)
-			}
-			state.Chars[idx] = ' '
-		}
-	}
-
-	for fg := 0; fg < len(styles); fg++ {
-		for bg := 0; bg < len(styles); bg++ {
-			start := startCol + sideBorder + bg*colourWidth
-			row := startRow + topBorder + fg
-			state.Chars[state.RowColIdx(row, start+1)] = byte(fg) + '0'
-			state.Chars[state.RowColIdx(row, start+2)] = byte(bg) + '0'
-			style := MixStyle(styles[fg], styles[bg])
-			for i := 0; i < 4; i++ {
-				state.Styles[state.RowColIdx(row, start+i)] = style
-			}
-		}
+		// There is only 1 kind of error. It indicates that we cannot display
+		// the data but are within the grace period.  Skip the display
+		// procedure, trying again after the grace period.
+		a.model.dataMissing = true
+		a.model.dataMissingFrom = time.Now()
+		go func() {
+			time.Sleep(loadingScreenGrace)
+			a.reactor.Enque(func() {})
+		}()
 	}
 }
 
