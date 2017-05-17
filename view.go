@@ -1,12 +1,11 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"time"
 )
 
-func CreateView(m *Model) (ScreenState, error) {
+func CreateView(m *Model) ScreenState {
 
 	state := NewScreenState(m.rows, m.cols)
 	state.Init()
@@ -65,12 +64,8 @@ func CreateView(m *Model) (ScreenState, error) {
 			buildLoadingScreen(state)
 			break
 		} else {
-			// Cannot display the data, but within the grace period. Abort the
-			// display procedure, trying again after the grace period.
-			//
-			// TODO: Should check the data *before* calling this function. This
-			// function should not return an error.
-			return ScreenState{}, errors.New("cannot display data")
+			assert(false) // Checked before call.
+			return ScreenState{}
 		}
 	}
 
@@ -94,7 +89,7 @@ func CreateView(m *Model) (ScreenState, error) {
 		overlaySwatch(state)
 	}
 
-	return state, nil
+	return state
 }
 
 func renderLine(data string) []byte {
@@ -202,5 +197,17 @@ func overlaySwatch(state ScreenState) {
 				state.Styles[state.RowColIdx(row, start+i)] = style
 			}
 		}
+	}
+}
+
+func displayByte(b byte) byte {
+	assert(b != '\n')
+	switch {
+	case b >= 32 && b < 126:
+		return b
+	case b == '\t':
+		return ' '
+	default:
+		return '?'
 	}
 }
