@@ -500,7 +500,7 @@ func (a *app) fillScreenBuffer() {
 
 	a.log.Info("Filling screen buffer, has initial state: fwd=%d bck=%d", len(a.model.fwd), len(a.model.bck))
 
-	if lines := a.needsLoadingForward(forwardLoadFactor); lines != 0 {
+	if lines := a.needsLoadingForward(); lines != 0 {
 		a.loadForward(lines)
 	} else if lines := a.needsLoadingBackward(); lines != 0 {
 		a.loadBackward(lines)
@@ -515,11 +515,11 @@ func (a *app) fillScreenBuffer() {
 	a.model.bck = a.model.bck[:neededBck]
 }
 
-func (a *app) needsLoadingForward(factor int) int {
+func (a *app) needsLoadingForward() int {
 	if a.model.fileSize == 0 {
 		return 0
 	}
-	if len(a.model.fwd) >= a.model.rows*factor {
+	if len(a.model.fwd) >= a.model.rows*forwardLoadFactor {
 		return 0
 	}
 	if len(a.model.fwd) > 0 {
@@ -528,7 +528,7 @@ func (a *app) needsLoadingForward(factor int) int {
 			return 0
 		}
 	}
-	return a.model.rows*factor - len(a.model.fwd)
+	return a.model.rows*forwardLoadFactor - len(a.model.fwd)
 }
 
 func (a *app) needsLoadingBackward() int {
@@ -640,28 +640,10 @@ func (a *app) refresh() {
 	a.renderScreen()
 }
 
-const loadingScreenGrace = 200 * time.Millisecond
-
 func (a *app) renderScreen() {
-
-	// TODO: Check whether we have all of the data available.
-	if a.needsLoadingForward(1) > 0 {
-		a.model.dataMissing = true
-		a.model.dataMissingFrom = time.Now()
-		go func() {
-			time.Sleep(loadingScreenGrace)
-			a.reactor.Enque(func() {})
-		}()
-		return
-	}
-
 	state := CreateView(&a.model)
 	a.screen.Write(state, a.forceRefresh)
 	a.forceRefresh = false
-}
-
-func (a *app) enoughDataLoadedToRenderScreen(m *Model) bool {
-	return a.needsLoadingForward(1) > 0
 }
 
 func (a *app) currentRE() *regexp.Regexp {

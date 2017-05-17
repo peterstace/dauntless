@@ -21,9 +21,6 @@ type Model struct {
 
 	fileSize int
 
-	dataMissing     bool
-	dataMissingFrom time.Time
-
 	tmpRegex *regexp.Regexp
 	regexes  []regex
 

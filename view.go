@@ -51,21 +51,8 @@ func CreateView(m *Model) ScreenState {
 				lineBuf = lineBuf[copiedA:]
 				styleBuf = styleBuf[copiedB:]
 			}
-			m.dataMissing = false
-		} else if m.fileSize == 0 || len(m.fwd) != 0 && m.fwd[len(m.fwd)-1].nextOffset() >= m.fileSize {
-			// Reached end of file. `m.fileSize` may be slightly out of date,
-			// however next time it's updated the additional lines will be
-			// displayed.
-			state.Chars[state.RowColIdx(row, 0)] = '~'
-			m.dataMissing = false
-		} else if m.dataMissing && time.Now().Sub(m.dataMissingFrom) > loadingScreenGrace {
-			// Haven't been able to display any data for at least the grace
-			// period, so display the loading screen instead.
-			buildLoadingScreen(state)
-			break
 		} else {
-			assert(false) // Checked before call.
-			return ScreenState{}
+			state.Chars[state.RowColIdx(row, 0)] = '~'
 		}
 	}
 
@@ -153,14 +140,6 @@ func drawStatusLine(m *Model, state ScreenState) {
 	buf := state.Chars[statusRow*m.cols : (statusRow+1)*m.cols]
 	copy(buf[max(0, len(buf)-len(statusRight)):], statusRight)
 	copy(buf[:], statusLeft)
-}
-
-func buildLoadingScreen(state ScreenState) {
-	state.Init() // Clear anything previously set.
-	const loading = "Loading..."
-	row := state.Rows() / 2
-	startCol := (state.Cols - len(loading)) / 2
-	copy(state.Chars[row*state.Cols+startCol:], loading)
 }
 
 func overlaySwatch(state ScreenState) {
