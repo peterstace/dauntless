@@ -38,3 +38,12 @@ type regex struct {
 	style Style
 	re    *regexp.Regexp
 }
+
+type line struct {
+	offset int
+	data   string
+}
+
+func (l line) nextOffset() int {
+	return l.offset + len(l.data)
+}

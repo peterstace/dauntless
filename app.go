@@ -24,15 +24,6 @@ type CommandHandler interface {
 	QuitCommandEntered(bool)
 }
 
-type line struct {
-	offset int
-	data   string
-}
-
-func (l line) nextOffset() int {
-	return l.offset + len(l.data)
-}
-
 type app struct {
 	reactor Reactor
 	log     Logger
