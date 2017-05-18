@@ -8,7 +8,6 @@ import (
 
 type CommandMode interface {
 	Entered(string, CommandHandler)
-	Prompt() string
 }
 
 type search struct{}
@@ -20,10 +19,6 @@ func (search) Entered(cmd string, h CommandHandler) {
 		return
 	}
 	h.SearchCommandEntered(re)
-}
-
-func (search) Prompt() string {
-	return "Enter search regexp (interrupt to cancel): "
 }
 
 type colour struct{}
@@ -47,10 +42,6 @@ func (colour) Entered(cmd string, h CommandHandler) {
 	h.ColourCommandEntered(MixStyle(styles[fg-'0'], styles[bg-'0']))
 }
 
-func (colour) Prompt() string {
-	return "Enter colour code (interrupt to cancel): "
-}
-
 type seek struct{}
 
 func (seek) Entered(cmd string, h CommandHandler) {
@@ -66,18 +57,10 @@ func (seek) Entered(cmd string, h CommandHandler) {
 	h.SeekCommandEntered(seekPct)
 }
 
-func (seek) Prompt() string {
-	return "Enter seek percentage (interrupt to cancel): "
-}
-
 type bisect struct{}
 
 func (bisect) Entered(cmd string, h CommandHandler) {
 	h.BisectCommandEntered(cmd)
-}
-
-func (bisect) Prompt() string {
-	return "Enter bisect target (interrupt to cancel): "
 }
 
 type quit struct{}
@@ -91,8 +74,4 @@ func (quit) Entered(cmd string, h CommandHandler) {
 	default:
 		h.CommandFailed(fmt.Errorf("invalid quit response (should be y/n): %v", cmd))
 	}
-}
-
-func (quit) Prompt() string {
-	return "Do you really want to quit? (y/n): "
 }

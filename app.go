@@ -60,8 +60,9 @@ func (a *app) Initialise() {
 
 func (a *app) Interrupt() {
 	a.log.Info("Caught interrupt.")
-	if a.model.commandReader.Enabled() {
+	if a.model.cmd != NoCommand {
 		a.model.commandReader.Clear()
+		a.model.cmd = NoCommand
 	} else {
 		a.startQuitCommand()
 	}
@@ -71,7 +72,7 @@ func (a *app) KeyPress(k Key) {
 
 	a.log.Info("Key press: %s", k)
 
-	if a.model.commandReader.Enabled() {
+	if a.model.cmd != NoCommand {
 		a.model.commandReader.KeyPress(k, a)
 		return
 	}
@@ -268,11 +269,13 @@ func (a *app) CommandFailed(err error) {
 
 func (a *app) startSearchCommand() {
 	a.model.commandReader.SetMode(search{})
+	a.model.cmd = SearchCommand
 	a.model.msg = ""
 	a.log.Info("Accepting search command.")
 }
 
 func (a *app) SearchCommandEntered(re *regexp.Regexp) {
+	a.model.cmd = NoCommand
 	a.model.tmpRegex = re
 }
 
@@ -284,11 +287,13 @@ func (a *app) startColourCommand() {
 		return
 	}
 	a.model.commandReader.SetMode(colour{})
+	a.model.cmd = ColourCommand
 	a.model.msg = ""
 	a.log.Info("Accepting colour command.")
 }
 
 func (a *app) ColourCommandEntered(style Style) {
+	a.model.cmd = NoCommand
 	if a.model.tmpRegex != nil {
 		a.model.regexes = append([]regex{{style, a.model.tmpRegex}}, a.model.regexes...)
 		a.model.tmpRegex = nil
@@ -302,11 +307,13 @@ func (a *app) ColourCommandEntered(style Style) {
 
 func (a *app) startSeekCommand() {
 	a.model.commandReader.SetMode(seek{})
+	a.model.cmd = SeekCommand
 	a.model.msg = ""
 	a.log.Info("Accepting seek command.")
 }
 
 func (a *app) SeekCommandEntered(pct float64) {
+	a.model.cmd = NoCommand
 	go func() {
 		offset, err := FindSeekOffset(a.model.filename, pct)
 		a.reactor.Enque(func() {
@@ -322,11 +329,13 @@ func (a *app) SeekCommandEntered(pct float64) {
 
 func (a *app) startBisectCommand() {
 	a.model.commandReader.SetMode(bisect{})
+	a.model.cmd = BisectCommand
 	a.model.msg = ""
 	a.log.Info("Accepting bisect command.")
 }
 
 func (a *app) BisectCommandEntered(target string) {
+	a.model.cmd = NoCommand
 	a.log.Info("Bisect command entered: %q", target)
 	go func() {
 		offset, err := Bisect(a.model.filename, target, a.model.config.BisectMask)
@@ -343,11 +352,14 @@ func (a *app) BisectCommandEntered(target string) {
 
 func (a *app) startQuitCommand() {
 	a.model.commandReader.SetMode(quit{})
+	a.model.cmd = QuitCommand
+	a.model.cmd = QuitCommand
 	a.model.msg = ""
 	a.log.Info("Accepting quit command.")
 }
 
 func (a *app) QuitCommandEntered(quit bool) {
+	a.model.cmd = NoCommand
 	if quit {
 		a.reactor.Stop(nil)
 	}

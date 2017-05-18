@@ -3,11 +3,10 @@ package main
 type CommandReader interface {
 	KeyPress(Key, CommandHandler)
 	SetMode(CommandMode)
-	Enabled() bool
 	Clear()
-	GetText() string
-	GetCursorPos() int
-	OverlaySwatch() bool
+
+	EnteredText() string
+	Pos() int
 }
 
 type commandReader struct {
@@ -51,24 +50,16 @@ func (c *commandReader) SetMode(mode CommandMode) {
 	c.mode = mode
 }
 
-func (c *commandReader) Enabled() bool {
-	return c.mode != nil
-}
-
 func (c *commandReader) Clear() {
 	c.mode = nil
 	c.text = ""
 	c.pos = 0
 }
 
-func (c *commandReader) GetText() string {
-	return c.mode.Prompt() + c.text
+func (c *commandReader) EnteredText() string {
+	return c.text
 }
 
-func (c *commandReader) GetCursorPos() int {
-	return len(c.mode.Prompt()) + c.pos
-}
-
-func (c *commandReader) OverlaySwatch() bool {
-	return c.mode == colour{}
+func (c *commandReader) Pos() int {
+	return c.pos
 }

@@ -32,7 +32,28 @@ type Model struct {
 
 	// TODO: Too much behaviour in here, should just be model state.
 	commandReader CommandReader
+
+	cmd Command
 }
+
+// TODO: Rename to Command.
+type CommandData struct {
+	Mode Command
+	//Text string
+	//Pos  int
+}
+
+// TODO: Rename to CommandMode.
+type Command int
+
+const (
+	NoCommand Command = iota
+	SearchCommand
+	ColourCommand
+	SeekCommand
+	BisectCommand
+	QuitCommand
+)
 
 type regex struct {
 	style Style

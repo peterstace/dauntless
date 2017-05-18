@@ -60,9 +60,9 @@ func CreateView(m *Model) ScreenState {
 
 	state.ColPos = m.cols - 1
 	commandLineText := ""
-	if m.commandReader.Enabled() {
-		commandLineText = m.commandReader.GetText()
-		state.ColPos = min(state.ColPos, m.commandReader.GetCursorPos())
+	if m.cmd != NoCommand {
+		commandLineText = prompt(m.cmd) + m.commandReader.EnteredText()
+		state.ColPos = min(state.ColPos, len(prompt(m.cmd))+m.commandReader.Pos())
 	} else {
 		if time.Now().Sub(m.msgSetAt) < msgLingerDuration {
 			commandLineText = m.msg
@@ -72,7 +72,7 @@ func CreateView(m *Model) ScreenState {
 	commandRow := m.rows - 1
 	copy(state.Chars[commandRow*m.cols:(commandRow+1)*m.cols], commandLineText)
 
-	if m.commandReader.OverlaySwatch() {
+	if m.cmd == ColourCommand {
 		overlaySwatch(state)
 	}
 
@@ -189,4 +189,21 @@ func displayByte(b byte) byte {
 	default:
 		return '?'
 	}
+}
+
+func prompt(cmd Command) string {
+	switch cmd {
+	case SearchCommand:
+		return "Enter search regexp (interrupt to cancel): "
+	case ColourCommand:
+		return "Enter colour code (interrupt to cancel): "
+	case SeekCommand:
+		return "Enter seek percentage (interrupt to cancel): "
+	case BisectCommand:
+		return "Enter bisect target (interrupt to cancel): "
+	case QuitCommand:
+		return "Do you really want to quit? (y/n): "
+	}
+	assert(false)
+	return ""
 }
