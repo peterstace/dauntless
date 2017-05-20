@@ -27,8 +27,6 @@ crashes, then it may not exit `cbreak` mode before exiting. To manually leave
 
 * Offset history.
 
-* Shift-tab cycles through regexp backwards.
-
 * Debug screen. Lines loaded forwards, backwards, GC stats, memory usage, cycle
   number etc. Put on a toggle, and overlay the info.
 

@@ -101,16 +101,17 @@ func (a *app) normalModeKeyPress(k Key) {
 
 		"w": a.toggleLineWrapMode,
 
-		"c":  a.startColourCommand,
-		"\t": a.cycleRegexp,
-		"x":  a.deleteRegexp,
+		"c":      a.startColourCommand,
+		"\t":     func() { a.cycleRegexp(true) },
+		ShiftTab: func() { a.cycleRegexp(false) },
+		"x":      a.deleteRegexp,
 
 		"s": a.startSeekCommand,
 		"b": a.startBisectCommand,
 	}[k]
 
 	if !ok {
-		a.log.Info("Key press was unhandled.")
+		a.log.Info("Key press was unhandled: %v", k)
 		return
 	}
 
@@ -510,7 +511,7 @@ func (a *app) toggleLineWrapMode() {
 	a.model.xPosition = 0
 }
 
-func (a *app) cycleRegexp() {
+func (a *app) cycleRegexp(forward bool) {
 
 	if len(a.model.regexes) == 0 {
 		msg := "no regexes to cycle between"
@@ -520,7 +521,14 @@ func (a *app) cycleRegexp() {
 	}
 
 	a.model.tmpRegex = nil // Any temp re gets discarded.
-	a.model.regexes = append(a.model.regexes[1:], a.model.regexes[0])
+	if forward {
+		a.model.regexes = append(a.model.regexes[1:], a.model.regexes[0])
+	} else {
+		a.model.regexes = append(
+			[]regex{a.model.regexes[len(a.model.regexes)-1]},
+			a.model.regexes[:len(a.model.regexes)-1]...,
+		)
+	}
 }
 
 func (a *app) deleteRegexp() {
