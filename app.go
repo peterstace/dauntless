@@ -17,15 +17,6 @@ type App interface {
 	ForceRefresh()
 }
 
-type CommandHandler interface {
-	CommandFailed(error)
-	SearchCommandEntered(*regexp.Regexp)
-	ColourCommandEntered(Style)
-	SeekCommandEntered(pct float64)
-	BisectCommandEntered(target string)
-	QuitCommandEntered(bool)
-}
-
 type app struct {
 	reactor Reactor
 	log     Logger
@@ -178,7 +169,7 @@ func (a *app) searchEntered(cmd string) {
 		a.CommandFailed(err)
 		return
 	}
-	a.SearchCommandEntered(re)
+	a.model.tmpRegex = re
 }
 
 var styles = [...]Style{Default, Black, Red, Green, Yellow, Blue, Magenta, Cyan, White}
@@ -196,7 +187,16 @@ func (a *app) colourEntered(cmd string) {
 		return
 	}
 
-	a.ColourCommandEntered(MixStyle(styles[fg-'0'], styles[bg-'0']))
+	style := MixStyle(styles[fg-'0'], styles[bg-'0'])
+	if a.model.tmpRegex != nil {
+		a.model.regexes = append([]regex{{style, a.model.tmpRegex}}, a.model.regexes...)
+		a.model.tmpRegex = nil
+	} else if len(a.model.regexes) > 0 {
+		a.model.regexes[0].style = style
+	} else {
+		// Should not have been allowed to start the colour command.
+		assert(false)
+	}
 }
 func (a *app) seekEntered(cmd string) {
 	seekPct, err := strconv.ParseFloat(cmd, 64)
@@ -208,17 +208,38 @@ func (a *app) seekEntered(cmd string) {
 		a.CommandFailed(fmt.Errorf("seek percentage out of range [0, 100]: %v", seekPct))
 		return
 	}
-	a.SeekCommandEntered(seekPct)
+
+	go func() {
+		offset, err := FindSeekOffset(a.model.filename, seekPct)
+		a.reactor.Enque(func() {
+			if err != nil {
+				a.log.Warn("Could to find start of line at offset: %v", err)
+				a.reactor.Stop(err)
+				return
+			}
+			a.moveToOffset(offset)
+		})
+	}()
 }
 func (a *app) bisectEntered(cmd string) {
-	a.BisectCommandEntered(cmd)
+	go func() {
+		offset, err := Bisect(a.model.filename, cmd, a.model.config.BisectMask)
+		a.reactor.Enque(func() {
+			if err != nil {
+				a.log.Warn("Could not find bisect target: %v", err)
+				a.reactor.Stop(err)
+				return
+			}
+			a.moveToOffset(offset)
+		})
+	}()
 }
 func (a *app) quitEntered(cmd string) {
 	switch cmd {
 	case "y":
-		a.QuitCommandEntered(true)
+		a.reactor.Stop(nil)
 	case "n":
-		a.QuitCommandEntered(false)
+		return
 	default:
 		a.CommandFailed(fmt.Errorf("invalid quit response (should be y/n): %v", cmd))
 	}
@@ -377,11 +398,6 @@ func (a *app) startSearchCommand() {
 	a.log.Info("Accepting search command.")
 }
 
-func (a *app) SearchCommandEntered(re *regexp.Regexp) {
-	a.model.cmd.Mode = NoCommand
-	a.model.tmpRegex = re
-}
-
 func (a *app) startColourCommand() {
 	if a.currentRE() == nil {
 		msg := "cannot select regex color: no active regex"
@@ -394,38 +410,10 @@ func (a *app) startColourCommand() {
 	a.log.Info("Accepting colour command.")
 }
 
-func (a *app) ColourCommandEntered(style Style) {
-	a.model.cmd.Mode = NoCommand
-	if a.model.tmpRegex != nil {
-		a.model.regexes = append([]regex{{style, a.model.tmpRegex}}, a.model.regexes...)
-		a.model.tmpRegex = nil
-	} else if len(a.model.regexes) > 0 {
-		a.model.regexes[0].style = style
-	} else {
-		// Should not have been allowed to start the colour command.
-		assert(false)
-	}
-}
-
 func (a *app) startSeekCommand() {
 	a.model.cmd.Mode = SeekCommand
 	a.model.msg = ""
 	a.log.Info("Accepting seek command.")
-}
-
-func (a *app) SeekCommandEntered(pct float64) {
-	a.model.cmd.Mode = NoCommand
-	go func() {
-		offset, err := FindSeekOffset(a.model.filename, pct)
-		a.reactor.Enque(func() {
-			if err != nil {
-				a.log.Warn("Could to find start of line at offset: %v", err)
-				a.reactor.Stop(err)
-				return
-			}
-			a.moveToOffset(offset)
-		})
-	}()
 }
 
 func (a *app) startBisectCommand() {
@@ -434,33 +422,10 @@ func (a *app) startBisectCommand() {
 	a.log.Info("Accepting bisect command.")
 }
 
-func (a *app) BisectCommandEntered(target string) {
-	a.model.cmd.Mode = NoCommand
-	a.log.Info("Bisect command entered: %q", target)
-	go func() {
-		offset, err := Bisect(a.model.filename, target, a.model.config.BisectMask)
-		a.reactor.Enque(func() {
-			if err != nil {
-				a.log.Warn("Could not find bisect target: %v", err)
-				a.reactor.Stop(err)
-				return
-			}
-			a.moveToOffset(offset)
-		})
-	}()
-}
-
 func (a *app) startQuitCommand() {
 	a.model.cmd.Mode = QuitCommand
 	a.model.msg = ""
 	a.log.Info("Accepting quit command.")
-}
-
-func (a *app) QuitCommandEntered(quit bool) {
-	a.model.cmd.Mode = NoCommand
-	if quit {
-		a.reactor.Stop(nil)
-	}
 }
 
 func (a *app) jumpToNextMatch() {
