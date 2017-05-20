@@ -1,8 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"regexp"
+	"strconv"
 	"time"
 )
 
@@ -42,7 +44,7 @@ func NewApp(reactor Reactor, filename string, logger Logger, screen Screen, conf
 		reactor: reactor,
 		log:     logger,
 		screen:  screen,
-		model:   Model{config: config, filename: filename, commandReader: new(commandReader)},
+		model:   Model{config: config, filename: filename},
 	}
 }
 
@@ -60,22 +62,26 @@ func (a *app) Initialise() {
 
 func (a *app) Interrupt() {
 	a.log.Info("Caught interrupt.")
-	if a.model.cmd != NoCommand {
-		a.model.commandReader.Clear()
-		a.model.cmd = NoCommand
+	if a.model.cmd.Mode != NoCommand {
+		a.model.cmd.Mode = NoCommand
+		a.model.cmd.Text = ""
+		a.model.cmd.Pos = 0
 	} else {
 		a.startQuitCommand()
 	}
 }
 
 func (a *app) KeyPress(k Key) {
-
-	a.log.Info("Key press: %s", k)
-
-	if a.model.cmd != NoCommand {
-		a.model.commandReader.KeyPress(k, a)
-		return
+	if a.model.cmd.Mode == NoCommand {
+		a.normalModeKeyPress(k)
+	} else {
+		a.commandModeKeyPress(k)
 	}
+}
+
+func (a *app) normalModeKeyPress(k Key) {
+
+	assert(a.model.cmd.Mode == NoCommand)
 
 	fn, ok := map[Key]func(){
 		"q": a.startQuitCommand,
@@ -118,6 +124,104 @@ func (a *app) KeyPress(k Key) {
 	}
 
 	fn()
+}
+
+func (a *app) commandModeKeyPress(k Key) {
+
+	assert(a.model.cmd.Mode != NoCommand)
+
+	if len(k) == 1 {
+		b := k[0]
+		if b >= ' ' && b <= '~' {
+			a.model.cmd.Text = a.model.cmd.Text[:a.model.cmd.Pos] + string([]byte{b}) + a.model.cmd.Text[a.model.cmd.Pos:]
+			a.model.cmd.Pos++
+		} else if b == 127 && len(a.model.cmd.Text) >= 1 {
+			a.model.cmd.Text = a.model.cmd.Text[:a.model.cmd.Pos-1] + a.model.cmd.Text[a.model.cmd.Pos:]
+			a.model.cmd.Pos--
+		} else if b == '\n' {
+			switch a.model.cmd.Mode {
+			case SearchCommand:
+				a.searchEntered(a.model.cmd.Text)
+			case ColourCommand:
+				a.colourEntered(a.model.cmd.Text)
+			case SeekCommand:
+				a.seekEntered(a.model.cmd.Text)
+			case BisectCommand:
+				a.bisectEntered(a.model.cmd.Text)
+			case QuitCommand:
+				a.quitEntered(a.model.cmd.Text)
+			default:
+				assert(false)
+			}
+			a.model.cmd.Mode = NoCommand
+			a.model.cmd.Text = ""
+			a.model.cmd.Pos = 0
+		}
+	} else {
+		if k == LeftArrowKey {
+			a.model.cmd.Pos = max(0, a.model.cmd.Pos-1)
+		} else if k == RightArrowKey {
+			a.model.cmd.Pos = min(a.model.cmd.Pos+1, len(a.model.cmd.Text))
+		} else if k == DeleteKey && a.model.cmd.Pos < len(a.model.cmd.Text) {
+			a.model.cmd.Text = a.model.cmd.Text[:a.model.cmd.Pos] + a.model.cmd.Text[a.model.cmd.Pos+1:]
+		} else if k == HomeKey {
+			a.model.cmd.Pos = 0
+		} else if k == EndKey {
+			a.model.cmd.Pos = len(a.model.cmd.Text)
+		}
+	}
+}
+
+func (a *app) searchEntered(cmd string) {
+	re, err := regexp.Compile(cmd)
+	if err != nil {
+		a.CommandFailed(err)
+		return
+	}
+	a.SearchCommandEntered(re)
+}
+
+var styles = [...]Style{Default, Black, Red, Green, Yellow, Blue, Magenta, Cyan, White}
+
+func (a *app) colourEntered(cmd string) {
+	err := fmt.Errorf("colour code must be in format [0-8][0-8]: %v", cmd)
+	if len(cmd) != 2 {
+		a.CommandFailed(err)
+		return
+	}
+	fg := cmd[0]
+	bg := cmd[1]
+	if fg < '0' || fg > '8' || bg < '0' || bg > '8' {
+		a.CommandFailed(err)
+		return
+	}
+
+	a.ColourCommandEntered(MixStyle(styles[fg-'0'], styles[bg-'0']))
+}
+func (a *app) seekEntered(cmd string) {
+	seekPct, err := strconv.ParseFloat(cmd, 64)
+	if err != nil {
+		a.CommandFailed(err)
+		return
+	}
+	if seekPct < 0 || seekPct > 100 {
+		a.CommandFailed(fmt.Errorf("seek percentage out of range [0, 100]: %v", seekPct))
+		return
+	}
+	a.SeekCommandEntered(seekPct)
+}
+func (a *app) bisectEntered(cmd string) {
+	a.BisectCommandEntered(cmd)
+}
+func (a *app) quitEntered(cmd string) {
+	switch cmd {
+	case "y":
+		a.QuitCommandEntered(true)
+	case "n":
+		a.QuitCommandEntered(false)
+	default:
+		a.CommandFailed(fmt.Errorf("invalid quit response (should be y/n): %v", cmd))
+	}
 }
 
 func (a *app) moveDownByHalfScreen() {
@@ -268,14 +372,13 @@ func (a *app) CommandFailed(err error) {
 }
 
 func (a *app) startSearchCommand() {
-	a.model.commandReader.SetMode(search{})
-	a.model.cmd = SearchCommand
+	a.model.cmd.Mode = SearchCommand
 	a.model.msg = ""
 	a.log.Info("Accepting search command.")
 }
 
 func (a *app) SearchCommandEntered(re *regexp.Regexp) {
-	a.model.cmd = NoCommand
+	a.model.cmd.Mode = NoCommand
 	a.model.tmpRegex = re
 }
 
@@ -286,14 +389,13 @@ func (a *app) startColourCommand() {
 		a.setMessage(msg)
 		return
 	}
-	a.model.commandReader.SetMode(colour{})
-	a.model.cmd = ColourCommand
+	a.model.cmd.Mode = ColourCommand
 	a.model.msg = ""
 	a.log.Info("Accepting colour command.")
 }
 
 func (a *app) ColourCommandEntered(style Style) {
-	a.model.cmd = NoCommand
+	a.model.cmd.Mode = NoCommand
 	if a.model.tmpRegex != nil {
 		a.model.regexes = append([]regex{{style, a.model.tmpRegex}}, a.model.regexes...)
 		a.model.tmpRegex = nil
@@ -306,14 +408,13 @@ func (a *app) ColourCommandEntered(style Style) {
 }
 
 func (a *app) startSeekCommand() {
-	a.model.commandReader.SetMode(seek{})
-	a.model.cmd = SeekCommand
+	a.model.cmd.Mode = SeekCommand
 	a.model.msg = ""
 	a.log.Info("Accepting seek command.")
 }
 
 func (a *app) SeekCommandEntered(pct float64) {
-	a.model.cmd = NoCommand
+	a.model.cmd.Mode = NoCommand
 	go func() {
 		offset, err := FindSeekOffset(a.model.filename, pct)
 		a.reactor.Enque(func() {
@@ -328,14 +429,13 @@ func (a *app) SeekCommandEntered(pct float64) {
 }
 
 func (a *app) startBisectCommand() {
-	a.model.commandReader.SetMode(bisect{})
-	a.model.cmd = BisectCommand
+	a.model.cmd.Mode = BisectCommand
 	a.model.msg = ""
 	a.log.Info("Accepting bisect command.")
 }
 
 func (a *app) BisectCommandEntered(target string) {
-	a.model.cmd = NoCommand
+	a.model.cmd.Mode = NoCommand
 	a.log.Info("Bisect command entered: %q", target)
 	go func() {
 		offset, err := Bisect(a.model.filename, target, a.model.config.BisectMask)
@@ -351,15 +451,13 @@ func (a *app) BisectCommandEntered(target string) {
 }
 
 func (a *app) startQuitCommand() {
-	a.model.commandReader.SetMode(quit{})
-	a.model.cmd = QuitCommand
-	a.model.cmd = QuitCommand
+	a.model.cmd.Mode = QuitCommand
 	a.model.msg = ""
 	a.log.Info("Accepting quit command.")
 }
 
 func (a *app) QuitCommandEntered(quit bool) {
-	a.model.cmd = NoCommand
+	a.model.cmd.Mode = NoCommand
 	if quit {
 		a.reactor.Stop(nil)
 	}

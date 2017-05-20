@@ -60,9 +60,9 @@ func CreateView(m *Model) ScreenState {
 
 	state.ColPos = m.cols - 1
 	commandLineText := ""
-	if m.cmd != NoCommand {
-		commandLineText = prompt(m.cmd) + m.commandReader.EnteredText()
-		state.ColPos = min(state.ColPos, len(prompt(m.cmd))+m.commandReader.Pos())
+	if m.cmd.Mode != NoCommand {
+		commandLineText = prompt(m.cmd.Mode) + m.cmd.Text
+		state.ColPos = min(state.ColPos, len(prompt(m.cmd.Mode))+m.cmd.Pos)
 	} else {
 		if time.Now().Sub(m.msgSetAt) < msgLingerDuration {
 			commandLineText = m.msg
@@ -72,7 +72,7 @@ func CreateView(m *Model) ScreenState {
 	commandRow := m.rows - 1
 	copy(state.Chars[commandRow*m.cols:(commandRow+1)*m.cols], commandLineText)
 
-	if m.cmd == ColourCommand {
+	if m.cmd.Mode == ColourCommand {
 		overlaySwatch(state)
 	}
 

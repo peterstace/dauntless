@@ -30,17 +30,14 @@ type Model struct {
 	msg      string
 	msgSetAt time.Time
 
-	// TODO: Too much behaviour in here, should just be model state.
-	commandReader CommandReader
-
-	cmd Command
+	cmd CommandData
 }
 
 // TODO: Rename to Command.
 type CommandData struct {
 	Mode Command
-	//Text string
-	//Pos  int
+	Text string
+	Pos  int
 }
 
 // TODO: Rename to CommandMode.
