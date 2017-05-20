@@ -11,6 +11,16 @@ func CreateView(m *Model) ScreenState {
 	state := NewScreenState(m.rows, m.cols)
 	state.Init()
 
+	regexes := m.regexes
+	if m.tmpRegex != nil {
+		regexes = append(regexes, regex{MixStyle(Invert, Invert), m.tmpRegex})
+	}
+	if m.cmd.Mode == SearchCommand {
+		if re, err := regexp.Compile(m.cmd.Text); err == nil {
+			regexes = append(regexes, regex{MixStyle(Invert, Invert), re})
+		}
+	}
+
 	assert(len(m.fwd) == 0 || m.fwd[0].offset == m.offset)
 	var lineBuf []byte
 	var styleBuf []Style
@@ -26,10 +36,6 @@ func CreateView(m *Model) ScreenState {
 					data = data[:len(data)-1]
 				}
 				lineBuf = renderLine(data)
-				regexes := m.regexes
-				if m.tmpRegex != nil {
-					regexes = append(regexes, regex{MixStyle(Invert, Invert), m.tmpRegex})
-				}
 				styleBuf = renderStyle(data, regexes)
 				fwdIdx++
 			}
