@@ -22,8 +22,6 @@ crashes, then it may not exit `cbreak` mode before exiting. To manually leave
 
 * Up/Down keys in command mode to use history. Should be per command.
 
-* Show regex in red if it doesn't compile.
-
 * Show regex highlighting as it's being typed in.
 
 * Only allow one search at a time. Show progress. Allow search to be cancelled.

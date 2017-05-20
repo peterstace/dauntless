@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"regexp"
 	"time"
 )
 
@@ -71,6 +72,15 @@ func CreateView(m *Model) ScreenState {
 
 	commandRow := m.rows - 1
 	copy(state.Chars[commandRow*m.cols:(commandRow+1)*m.cols], commandLineText)
+	if m.cmd.Mode == SearchCommand {
+		if _, err := regexp.Compile(m.cmd.Text); err != nil {
+			start := len(prompt(m.cmd.Mode))
+			end := start + len(m.cmd.Text)
+			for i := start; i < end; i++ {
+				state.Styles[state.RowColIdx(commandRow, i)] = MixStyle(Red, Default)
+			}
+		}
+	}
 
 	if m.cmd.Mode == ColourCommand {
 		overlaySwatch(state)
