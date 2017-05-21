@@ -15,6 +15,7 @@ const (
 	EndKey        Key = "\x1b[4~"
 	PageUpKey     Key = "\x1b[5~"
 	PageDownKey   Key = "\x1b[6~"
+	ShiftTab      Key = "\x1b[Z"
 )
 
 func (k Key) String() string {

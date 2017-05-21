@@ -22,14 +22,13 @@ crashes, then it may not exit `cbreak` mode before exiting. To manually leave
 
 * Up/Down keys in command mode to use history. Should be per command.
 
-* Show regex in red if it doesn't compile.
-
-* Show regex highlighting as it's being typed in.
-
 * Only allow one search at a time. Show progress. Allow search to be cancelled.
   Modal search?
 
 * Offset history.
+
+* Debug screen. Lines loaded forwards, backwards, GC stats, memory usage, cycle
+  number etc. Put on a toggle, and overlay the info.
 
 ### Important
 
@@ -40,6 +39,13 @@ crashes, then it may not exit `cbreak` mode before exiting. To manually leave
 
 * Predefined (config file) and pre-loaded regexes. E.g. to highlight errors
   that would always appear the same way.
+
+* Don't fatal on any errors. Instead, just show them in the info bar.
+
+* Copy/paste friendly mode. Toggle indent away, show all lines, no spaces at
+  end of lines.
+
+* Highlight regex in status bar with its own style.
 
 ### Least Important
 
@@ -66,3 +72,5 @@ something long.
 
 ### Known Bugs
 
+* Bisect past EOF is fatal. Noticed that the last line in the file was partial,
+  so that may have something to do with it.
