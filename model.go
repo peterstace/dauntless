@@ -30,21 +30,19 @@ type Model struct {
 	msg      string
 	msgSetAt time.Time
 
-	cmd CommandData
+	cmd Command
 }
 
-// TODO: Rename to Command.
-type CommandData struct {
-	Mode Command
+type Command struct {
+	Mode CommandMode
 	Text string
 	Pos  int
 }
 
-// TODO: Rename to CommandMode.
-type Command int
+type CommandMode int
 
 const (
-	NoCommand Command = iota
+	NoCommand CommandMode = iota
 	SearchCommand
 	ColourCommand
 	SeekCommand

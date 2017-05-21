@@ -207,7 +207,7 @@ func displayByte(b byte) byte {
 	}
 }
 
-func prompt(cmd Command) string {
+func prompt(cmd CommandMode) string {
 	switch cmd {
 	case SearchCommand:
 		return "Enter search regexp (interrupt to cancel): "
