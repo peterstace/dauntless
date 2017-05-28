@@ -240,7 +240,6 @@ func overlayDebug(m *Model, state ScreenState) {
 		fmt.Sprintf("gomaxprocs: %d", runtime.GOMAXPROCS(0)),
 		fmt.Sprintf("goroutines: %d", runtime.NumGoroutine()),
 		fmt.Sprintf("numgc: %d", mem.NumGC),
-		fmt.Sprintf("reactorcycle: %d", m.cycle),
 	}
 
 	var longestLength int
