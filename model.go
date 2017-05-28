@@ -31,6 +31,8 @@ type Model struct {
 	msgSetAt time.Time
 
 	cmd Command
+
+	debug bool
 }
 
 type Command struct {
