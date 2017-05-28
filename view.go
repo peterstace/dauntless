@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"regexp"
+	"runtime"
 	"time"
 )
 
@@ -229,10 +230,17 @@ func prompt(cmd CommandMode) string {
 
 func overlayDebug(m *Model, state ScreenState) {
 
+	var mem runtime.MemStats
+	runtime.ReadMemStats(&mem)
+
 	lines := []string{
 		fmt.Sprintf("off: 0x%016x", m.offset),
 		fmt.Sprintf("fwd: %d", len(m.fwd)),
 		fmt.Sprintf("bck: %d", len(m.bck)),
+		fmt.Sprintf("gomaxprocs: %d", runtime.GOMAXPROCS(0)),
+		fmt.Sprintf("goroutines: %d", runtime.NumGoroutine()),
+		fmt.Sprintf("numgc: %d", mem.NumGC),
+		fmt.Sprintf("reactorcycle: %d", m.cycle),
 	}
 
 	var longestLength int

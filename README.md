@@ -27,9 +27,6 @@ crashes, then it may not exit `cbreak` mode before exiting. To manually leave
 
 * Offset history.
 
-* Debug screen. Lines loaded forwards, backwards, GC stats, memory usage, cycle
-  number etc. Put on a toggle, and overlay the info.
-
 ### Important
 
 * Help screen. Application name, author, copyright notice. Then a list of key
