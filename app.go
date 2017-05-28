@@ -108,6 +108,8 @@ func (a *app) normalModeKeyPress(k Key) {
 
 		"s": a.startSeekCommand,
 		"b": a.startBisectCommand,
+
+		"`": func() { a.model.debug = !a.model.debug },
 	}[k]
 
 	if !ok {

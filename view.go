@@ -91,6 +91,9 @@ func CreateView(m *Model) ScreenState {
 	if m.cmd.Mode == ColourCommand {
 		overlaySwatch(state)
 	}
+	if m.debug {
+		overlayDebug(m, state)
+	}
 
 	return state
 }
@@ -150,7 +153,7 @@ func drawStatusLine(m *Model, state ScreenState) {
 		currentRegexpStr = fmt.Sprintf("re(%d):%s", len(m.regexes), m.regexes[0].re.String())
 	}
 
-	statusRight := fmt.Sprintf("fwd:%d bck:%d ", len(m.fwd), len(m.bck)) + lineWrapMode + " " + pctStr + " "
+	statusRight := lineWrapMode + " " + pctStr + " "
 	statusLeft := " " + m.filename + " " + currentRegexpStr
 
 	buf := state.Chars[statusRow*m.cols : (statusRow+1)*m.cols]
@@ -222,4 +225,35 @@ func prompt(cmd CommandMode) string {
 	}
 	assert(false)
 	return ""
+}
+
+func overlayDebug(m *Model, state ScreenState) {
+
+	lines := []string{
+		fmt.Sprintf("off: 0x%016x", m.offset),
+		fmt.Sprintf("fwd: %d", len(m.fwd)),
+		fmt.Sprintf("bck: %d", len(m.bck)),
+	}
+
+	var longestLength int
+	for _, line := range lines {
+		longestLength = max(longestLength, len(line))
+	}
+
+	startCol := state.Cols - longestLength - 4
+	startRow := 1
+	endCol := state.Cols - 2
+	endRow := startRow + len(lines)
+
+	for row := startRow; row < endRow; row++ {
+		for col := startCol; col < endCol; col++ {
+			idx := state.RowColIdx(row, col)
+			state.Styles[idx] = MixStyle(Invert, Invert)
+			state.Chars[idx] = ' '
+		}
+	}
+
+	for i, line := range lines {
+		copy(state.Chars[state.RowColIdx(i+startRow, startCol+1):], line)
+	}
 }
