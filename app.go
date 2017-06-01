@@ -447,25 +447,40 @@ func (a *app) jumpToNextMatch() {
 	}
 	startOffset := a.model.fwd[0].nextOffset()
 
+	a.model.longFileOpInProgress = true
+
 	a.log.Info("Searching for next regexp match: regexp=%q", re)
 
 	go func() {
-		offset, err := FindNextMatch(a.model.filename, startOffset, re)
-		a.reactor.Enque(func() {
-			if err == io.EOF {
-				msg := "regex search complete: no match found"
-				a.log.Info(msg)
-				a.setMessage(msg)
+		completeCh, progressCh, errCh := FindNextMatch(a.model.filename, startOffset, re)
+		for {
+			select {
+			case offset := <-completeCh:
+				a.reactor.Enque(func() {
+					a.log.Info("Regexp search completed with match.")
+					a.moveToOffset(offset)
+					a.model.longFileOpInProgress = false
+				})
+				return
+			case progressPct := <-progressCh:
+				a.reactor.Enque(func() {
+					a.log.Info("Progress: %f", progressPct)
+				})
+			case err := <-errCh:
+				a.reactor.Enque(func() {
+					if err == io.EOF {
+						msg := "regex search complete: no match found"
+						a.log.Info(msg)
+						a.setMessage(msg)
+					} else {
+						a.log.Warn("Regexp search completed with error: %v", err)
+						a.reactor.Stop(err)
+					}
+					a.model.longFileOpInProgress = false
+				})
 				return
 			}
-			if err != nil {
-				a.log.Warn("Regexp search completed with error: %v", err)
-				a.reactor.Stop(err)
-				return
-			}
-			a.log.Info("Regexp search completed with match.")
-			a.moveToOffset(offset)
-		})
+		}
 	}()
 }
 

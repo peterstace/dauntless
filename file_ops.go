@@ -54,29 +54,58 @@ func FindJumpToBottomOffset(filename string) (int, error) {
 	return size - len(line), err
 }
 
-func FindNextMatch(filename string, start int, re *regexp.Regexp) (int, error) {
+func FindNextMatch(
+	filename string,
+	start int,
+	re *regexp.Regexp,
+) (
+	completeCh chan int,
+	progressCh chan float64,
+	errCh chan error,
+) {
+	completeCh = make(chan int)
+	progressCh = make(chan float64)
+	errCh = make(chan error)
+	go func() {
 
-	f, err := os.Open(filename)
-	if err != nil {
-		return 0, err
-	}
-	defer f.Close()
-
-	if _, err := f.Seek(int64(start), 0); err != nil {
-		return 0, err
-	}
-
-	reader := bufio.NewReader(f)
-	for {
-		line, err := reader.ReadBytes('\n')
+		f, err := os.Open(filename)
 		if err != nil {
-			return 0, err
+			errCh <- err
+			return
 		}
-		if re.Match(line) {
-			return start, nil
+		defer f.Close()
+
+		fileInfo, err := f.Stat()
+		if err != nil {
+			errCh <- err
+			return
 		}
-		start += len(line)
-	}
+		size := int(fileInfo.Size())
+
+		if _, err := f.Seek(int64(start), 0); err != nil {
+			errCh <- err
+			return
+		}
+
+		reader := bufio.NewReader(f)
+		current := start
+		for {
+			line, err := reader.ReadBytes('\n')
+			if err != nil {
+				errCh <- err
+				return
+			}
+			if re.Match(line) {
+				completeCh <- current
+				return
+			}
+			current += len(line)
+			// TODO: Don't send progress so often.
+			progressCh <- float64(current-start) / float64(size-start)
+		}
+
+	}()
+	return
 }
 
 func FindPrevMatch(filename string, endOffset int, re *regexp.Regexp) (int, error) {
