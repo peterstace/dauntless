@@ -5,7 +5,6 @@ import (
 	"io"
 	"regexp"
 	"strconv"
-	"time"
 )
 
 type App interface {
@@ -390,7 +389,7 @@ func (a *app) moveDownToOffset(offset int) {
 
 func (a *app) CommandFailed(err error) {
 	log.Warn("Command failed: %v", err)
-	a.setMessage(err.Error())
+	setMessage(&a.model, err.Error())
 }
 
 func (a *app) startSearchCommand() {
@@ -403,7 +402,7 @@ func (a *app) startColourCommand() {
 	if a.currentRE() == nil {
 		msg := "cannot select regex color: no active regex"
 		log.Warn(msg)
-		a.setMessage(msg)
+		setMessage(&a.model, msg)
 		return
 	}
 	a.model.cmd.Mode = ColourCommand
@@ -435,7 +434,7 @@ func (a *app) jumpToNextMatch() {
 	if re == nil {
 		msg := "no regex to jump to"
 		log.Info(msg)
-		a.setMessage(msg)
+		setMessage(&a.model, msg)
 		return
 	}
 
@@ -453,7 +452,7 @@ func (a *app) jumpToNextMatch() {
 			if err == io.EOF {
 				msg := "regex search complete: no match found"
 				log.Info(msg)
-				a.setMessage(msg)
+				setMessage(&a.model, msg)
 				return
 			}
 			if err != nil {
@@ -473,7 +472,7 @@ func (a *app) jumpToPrevMatch() {
 	if re == nil {
 		msg := "no regex to jump to"
 		log.Info(msg)
-		a.setMessage(msg)
+		setMessage(&a.model, msg)
 		return
 	}
 
@@ -492,7 +491,7 @@ func (a *app) jumpToPrevMatch() {
 			if err == io.EOF {
 				msg := "regex search complete: no match found"
 				log.Info(msg)
-				a.setMessage(msg)
+				setMessage(&a.model, msg)
 				return
 			}
 			log.Info("Regexp search completed with match.")
@@ -516,7 +515,7 @@ func (a *app) cycleRegexp(forward bool) {
 	if len(a.model.regexes) == 0 {
 		msg := "no regexes to cycle between"
 		log.Warn(msg)
-		a.setMessage(msg)
+		setMessage(&a.model, msg)
 		return
 	}
 
@@ -539,7 +538,7 @@ func (a *app) deleteRegexp() {
 	} else {
 		msg := "no regexes to delete"
 		log.Warn(msg)
-		a.setMessage(msg)
+		setMessage(&a.model, msg)
 	}
 }
 
@@ -726,15 +725,4 @@ func (a *app) currentRE() *regexp.Regexp {
 		re = a.model.regexes[0].re
 	}
 	return re
-}
-
-const msgLingerDuration = 5 * time.Second
-
-func (a *app) setMessage(msg string) {
-	log.Info("Setting message: %q", msg)
-	a.model.msg = msg
-	a.model.msgSetAt = time.Now()
-	go func() {
-		time.Sleep(msgLingerDuration)
-	}()
 }
