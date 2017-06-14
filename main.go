@@ -9,6 +9,8 @@ import (
 
 const version = "Dauntless 0.7.1"
 
+var log Logger
+
 func main() {
 
 	var logfile string
@@ -36,12 +38,11 @@ func main() {
 
 	config := Config{*wrapPrefix, mask}
 
-	var logger Logger
 	if logfile == "" {
-		logger = NullLogger{}
+		log = NullLogger{}
 	} else {
 		var err error
-		logger, err = FileLogger(logfile)
+		log, err = FileLogger(logfile)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Could not open debug logfile %q: %s\n", logfile, err)
 			os.Exit(1)
@@ -51,13 +52,13 @@ func main() {
 	enterAlt()
 	ttyState := enterRaw()
 
-	reactor := NewReactor(logger)
+	reactor := NewReactor()
 
 	filename := flag.Args()[0]
 
-	screen := NewTermScreen(os.Stdout, reactor, logger)
+	screen := NewTermScreen(os.Stdout, reactor)
 
-	app := NewApp(reactor, filename, logger, screen, config)
+	app := NewApp(reactor, filename, screen, config)
 
 	reactor.Enque(app.Initialise)
 	CollectFileSize(reactor, app, filename)
