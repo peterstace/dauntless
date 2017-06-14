@@ -7,11 +7,10 @@ type Reactor interface {
 	SetPostHook(func())
 }
 
-func NewReactor(log Logger) Reactor {
+func NewReactor() Reactor {
 	return &reactor{
 		make(chan func(), 1024),
 		make(chan error, 1),
-		log,
 		0,
 		nil,
 	}
@@ -22,7 +21,6 @@ func NewReactor(log Logger) Reactor {
 type reactor struct {
 	queue    chan func()
 	stop     chan error
-	log      Logger
 	cycle    int
 	postHook func()
 }
@@ -34,7 +32,7 @@ func (r *reactor) Enque(fn func()) {
 func (r *reactor) Run() error {
 	for {
 		r.cycle++
-		r.log.SetCycle(r.cycle)
+		log.SetCycle(r.cycle)
 
 		// Check stopping condition first, since it has the highest priority.
 		select {
@@ -50,12 +48,12 @@ func (r *reactor) Run() error {
 			if r.postHook != nil {
 				r.postHook()
 			}
-			err := r.log.Flush() // TODO: Flush in own goroutine.
+			err := log.Flush() // TODO: Flush in own goroutine.
 			if err != nil {
 				r.Stop(err)
 			}
 		case err := <-r.stop:
-			r.log.Flush()
+			log.Flush()
 			return err
 		}
 	}
