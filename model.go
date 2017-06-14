@@ -33,6 +33,9 @@ type Model struct {
 	cmd Command
 
 	debug bool
+
+	longFileOpInProgress bool
+	cancelLongFileOp     Cancellable
 }
 
 type Command struct {

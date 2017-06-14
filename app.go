@@ -57,6 +57,9 @@ func (a *app) Interrupt() {
 		a.model.cmd.Mode = NoCommand
 		a.model.cmd.Text = ""
 		a.model.cmd.Pos = 0
+	} else if a.model.longFileOpInProgress {
+		a.model.cancelLongFileOp.Cancel()
+		a.model.longFileOpInProgress = false
 	} else {
 		a.startQuitCommand()
 	}
@@ -447,11 +450,15 @@ func (a *app) jumpToNextMatch() {
 	}
 	startOffset := a.model.fwd[0].nextOffset()
 
+	a.model.longFileOpInProgress = true
+	a.model.cancelLongFileOp.Reset()
+
 	a.log.Info("Searching for next regexp match: regexp=%q", re)
 
 	go func() {
-		offset, err := FindNextMatch(a.model.filename, startOffset, re)
+		offset, err := FindNextMatch(&a.model.cancelLongFileOp, a.model.filename, startOffset, re)
 		a.reactor.Enque(func() {
+			defer func() { a.model.longFileOpInProgress = false }()
 			if err == io.EOF {
 				msg := "regex search complete: no match found"
 				a.log.Info(msg)

@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"os"
 	"regexp"
+	"time"
 )
 
 func FindSeekOffset(filename string, seekPct float64) (int, error) {
@@ -54,7 +55,7 @@ func FindJumpToBottomOffset(filename string) (int, error) {
 	return size - len(line), err
 }
 
-func FindNextMatch(filename string, start int, re *regexp.Regexp) (int, error) {
+func FindNextMatch(cancel *Cancellable, filename string, start int, re *regexp.Regexp) (int, error) {
 
 	f, err := os.Open(filename)
 	if err != nil {
@@ -62,12 +63,18 @@ func FindNextMatch(filename string, start int, re *regexp.Regexp) (int, error) {
 	}
 	defer f.Close()
 
+	time.Sleep(500 * time.Millisecond)
+
 	if _, err := f.Seek(int64(start), 0); err != nil {
 		return 0, err
 	}
 
 	reader := bufio.NewReader(f)
 	for {
+		if cancel.Cancelled() {
+			return 0, errors.New("cancelled")
+		}
+
 		line, err := reader.ReadBytes('\n')
 		if err != nil {
 			return 0, err
