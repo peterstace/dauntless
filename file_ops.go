@@ -3,12 +3,10 @@ package main
 import (
 	"bufio"
 	"errors"
-	"fmt"
 	"io"
 	"math/rand"
 	"os"
 	"regexp"
-	"time"
 )
 
 func FindSeekOffset(filename string, seekPct float64) (int, error) {
@@ -54,98 +52,6 @@ func FindJumpToBottomOffset(filename string) (int, error) {
 		err = nil // Handles case where size is 0.
 	}
 	return size - len(line), err
-}
-
-func FindNextMatch(cancel *Cancellable, r Reactor, m *Model, start int, re *regexp.Regexp) {
-
-	f, err := os.Open(m.filename)
-	if err != nil {
-		r.Stop(fmt.Errorf("Could not open file: %v", err))
-		return
-	}
-	defer f.Close()
-
-	time.Sleep(500 * time.Millisecond)
-
-	if _, err := f.Seek(int64(start), 0); err != nil {
-		r.Stop(fmt.Errorf("Could not seek: offset=%d", start))
-		return
-	}
-
-	reader := bufio.NewReader(f)
-	offset := start
-	for {
-		if cancel.Cancelled() {
-			return
-		}
-
-		line, err := reader.ReadBytes('\n')
-		if err != nil {
-			if err != io.EOF {
-				r.Stop(fmt.Errorf("Could not read: error=%v", err))
-				return
-			} else {
-				r.Enque(func() {
-					msg := "regex search complete: no match found"
-					setMessage(m, msg)
-				})
-				return
-			}
-		}
-		if re.Match(line) {
-			break
-		}
-		offset += len(line)
-	}
-
-	r.Enque(func() {
-		m.longFileOpInProgress = false
-		log.Info("Regexp search completed with match.")
-		moveToOffset(m, offset)
-	})
-}
-
-func FindPrevMatch(cancel *Cancellable, r Reactor, m *Model, endOffset int, re *regexp.Regexp) {
-
-	f, err := os.Open(m.filename)
-	if err != nil {
-		r.Stop(fmt.Errorf("Could not open file: %v", err))
-		return
-	}
-	defer f.Close()
-
-	time.Sleep(500 * time.Millisecond)
-
-	lineReader := NewBackwardLineReader(f, endOffset)
-	offset := endOffset
-	for {
-		if cancel.Cancelled() {
-			return
-		}
-
-		line, err := lineReader.ReadLine()
-		if err != nil {
-			if err != io.EOF {
-				r.Stop(fmt.Errorf("Could not read: error=%v", err))
-				return
-			} else {
-				r.Enque(func() {
-					msg := "regex search complete: no match found"
-					setMessage(m, msg)
-				})
-				return
-			}
-		}
-		offset -= len(line)
-		if re.Match(line) {
-			break
-		}
-	}
-
-	r.Enque(func() {
-		log.Info("Regexp search completed with match.")
-		moveToOffset(m, offset)
-	})
 }
 
 func Bisect(filename string, target string, mask *regexp.Regexp) (int, error) {

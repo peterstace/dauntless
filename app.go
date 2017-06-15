@@ -95,8 +95,8 @@ func (a *app) normalModeKeyPress(k Key) {
 		"G": a.moveBottom,
 
 		"/": a.startSearchCommand,
-		"n": a.jumpToNextMatch,
-		"N": a.jumpToPrevMatch,
+		"n": func() { jumpToNextMatch(&a.model, a.reactor) },
+		"N": func() { jumpToPrevMatch(&a.model, a.reactor) },
 
 		"w": a.toggleLineWrapMode,
 
@@ -337,9 +337,8 @@ func (a *app) startSearchCommand() {
 }
 
 func (a *app) startColourCommand() {
-	if a.currentRE() == nil {
+	if currentRE(&a.model) == nil {
 		msg := "cannot select regex color: no active regex"
-		log.Warn(msg)
 		setMessage(&a.model, msg)
 		return
 	}
@@ -364,47 +363,6 @@ func (a *app) startQuitCommand() {
 	a.model.cmd.Mode = QuitCommand
 	a.model.msg = ""
 	log.Info("Accepting quit command.")
-}
-
-func (a *app) jumpToNextMatch() {
-
-	re := a.currentRE()
-	if re == nil {
-		msg := "no regex to jump to"
-		log.Info(msg)
-		setMessage(&a.model, msg)
-		return
-	}
-
-	if len(a.model.fwd) == 0 {
-		log.Warn("Cannot search for next match: current line is not loaded.")
-		return
-	}
-	startOffset := a.model.fwd[0].nextOffset()
-
-	a.model.longFileOpInProgress = true
-	a.model.cancelLongFileOp.Reset()
-
-	log.Info("Searching for next regexp match: regexp=%q", re)
-
-	go FindNextMatch(&a.model.cancelLongFileOp, a.reactor, &a.model, startOffset, re)
-}
-
-func (a *app) jumpToPrevMatch() {
-
-	re := a.currentRE()
-	if re == nil {
-		msg := "no regex to jump to"
-		log.Info(msg)
-		setMessage(&a.model, msg)
-		return
-	}
-
-	endOffset := a.model.offset
-
-	log.Info("Searching for previous regexp match: regexp=%q", re)
-
-	go FindPrevMatch(&a.model.cancelLongFileOp, a.reactor, &a.model, endOffset, re)
 }
 
 func (a *app) toggleLineWrapMode() {
@@ -624,12 +582,4 @@ func (a *app) renderScreen() {
 	state := CreateView(&a.model)
 	a.screen.Write(state, a.forceRefresh)
 	a.forceRefresh = false
-}
-
-func (a *app) currentRE() *regexp.Regexp {
-	re := a.model.tmpRegex
-	if re == nil && len(a.model.regexes) > 0 {
-		re = a.model.regexes[0].re
-	}
-	return re
 }
