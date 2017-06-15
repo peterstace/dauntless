@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"regexp"
 	"strconv"
 )
@@ -220,7 +219,7 @@ func (a *app) seekEntered(cmd string) {
 				a.reactor.Stop(err)
 				return
 			}
-			a.moveToOffset(offset)
+			moveToOffset(&a.model, offset)
 		})
 	}()
 }
@@ -233,7 +232,7 @@ func (a *app) bisectEntered(cmd string) {
 				a.reactor.Stop(err)
 				return
 			}
-			a.moveToOffset(offset)
+			moveToOffset(&a.model, offset)
 		})
 	}()
 }
@@ -273,7 +272,7 @@ func (a *app) discardBufferedInputAndRepaint() {
 				a.reactor.Stop(err)
 				return
 			}
-			a.moveToOffset(offset)
+			moveToOffset(&a.model, offset)
 		})
 	}()
 }
@@ -284,7 +283,7 @@ func (a *app) moveDown() {
 		log.Warn("Cannot move down: reason=\"not enough lines loaded\" linesLoaded=%d", len(a.model.fwd))
 		return
 	}
-	a.moveToOffset(a.model.fwd[1].offset)
+	moveToOffset(&a.model, a.model.fwd[1].offset)
 }
 
 func (a *app) moveUp() {
@@ -301,12 +300,12 @@ func (a *app) moveUp() {
 		return
 	}
 
-	a.moveToOffset(a.model.bck[0].offset)
+	moveToOffset(&a.model, a.model.bck[0].offset)
 }
 
 func (a *app) moveTop() {
 	log.Info("Jumping to start of file.")
-	a.moveToOffset(0)
+	moveToOffset(&a.model, 0)
 }
 
 func (a *app) moveBottom() {
@@ -321,73 +320,9 @@ func (a *app) moveBottom() {
 				a.reactor.Stop(err)
 				return
 			}
-			a.moveToOffset(offset)
+			moveToOffset(&a.model, offset)
 		})
 	}()
-}
-
-func (a *app) moveToOffset(offset int) {
-	log.Info("Moving to offset: currentOffset=%d newOffset=%d", a.model.offset, offset)
-
-	assert(offset >= 0)
-
-	if a.model.offset == offset {
-		log.Info("Already at target offset.")
-	} else if offset < a.model.offset {
-		a.moveUpToOffset(offset)
-	} else {
-		a.moveDownToOffset(offset)
-	}
-}
-
-func (a *app) moveUpToOffset(offset int) {
-
-	log.Info("Moving up to offset: currentOffset=%d newOffset=%d", a.model.offset, offset)
-
-	haveTargetLoaded := false
-	for _, ln := range a.model.bck {
-		if ln.offset == offset {
-			haveTargetLoaded = true
-			break
-		}
-	}
-	if haveTargetLoaded {
-		for a.model.offset != offset {
-			ln := a.model.bck[0]
-			a.model.fwd = append([]line{ln}, a.model.fwd...)
-			a.model.bck = a.model.bck[1:]
-			a.model.offset = ln.offset
-		}
-	} else {
-		a.model.fwd = nil
-		a.model.bck = nil
-		a.model.offset = offset
-	}
-}
-
-func (a *app) moveDownToOffset(offset int) {
-
-	log.Info("Moving down to offset: currentOffset=%d newOffset=%d", a.model.offset, offset)
-
-	haveTargetLoaded := false
-	for _, ln := range a.model.fwd {
-		if ln.offset == offset {
-			haveTargetLoaded = true
-			break
-		}
-	}
-	if haveTargetLoaded {
-		for a.model.offset != offset {
-			ln := a.model.fwd[0]
-			a.model.fwd = a.model.fwd[1:]
-			a.model.bck = append([]line{ln}, a.model.bck...)
-			a.model.offset = ln.offset + len(ln.data)
-		}
-	} else {
-		a.model.fwd = nil
-		a.model.bck = nil
-		a.model.offset = offset
-	}
 }
 
 func (a *app) CommandFailed(err error) {
@@ -452,25 +387,7 @@ func (a *app) jumpToNextMatch() {
 
 	log.Info("Searching for next regexp match: regexp=%q", re)
 
-	go func() {
-		offset, err := FindNextMatch(&a.model.cancelLongFileOp, a.model.filename, startOffset, re)
-		a.reactor.Enque(func() {
-			defer func() { a.model.longFileOpInProgress = false }()
-			if err == io.EOF {
-				msg := "regex search complete: no match found"
-				log.Info(msg)
-				setMessage(&a.model, msg)
-				return
-			}
-			if err != nil {
-				log.Warn("Regexp search completed with error: %v", err)
-				a.reactor.Stop(err)
-				return
-			}
-			log.Info("Regexp search completed with match.")
-			a.moveToOffset(offset)
-		})
-	}()
+	go FindNextMatch(&a.model.cancelLongFileOp, a.reactor, &a.model, startOffset, re)
 }
 
 func (a *app) jumpToPrevMatch() {
@@ -487,24 +404,7 @@ func (a *app) jumpToPrevMatch() {
 
 	log.Info("Searching for previous regexp match: regexp=%q", re)
 
-	go func() {
-		offset, err := FindPrevMatch(a.model.filename, endOffset, re)
-		a.reactor.Enque(func() {
-			if err != nil && err != io.EOF {
-				log.Warn("Regexp search completed with error: %v", err)
-				a.reactor.Stop(err)
-				return
-			}
-			if err == io.EOF {
-				msg := "regex search complete: no match found"
-				log.Info(msg)
-				setMessage(&a.model, msg)
-				return
-			}
-			log.Info("Regexp search completed with match.")
-			a.moveToOffset(offset)
-		})
-	}()
+	go FindPrevMatch(&a.model.cancelLongFileOp, a.reactor, &a.model, endOffset, re)
 }
 
 func (a *app) toggleLineWrapMode() {
