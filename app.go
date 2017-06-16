@@ -62,6 +62,9 @@ func (a *app) Interrupt() {
 }
 
 func (a *app) KeyPress(k Key) {
+	if a.model.longFileOpInProgress {
+		return
+	}
 	if a.model.cmd.Mode == NoCommand {
 		a.normalModeKeyPress(k)
 	} else {
