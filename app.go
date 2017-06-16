@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"regexp"
 	"strconv"
 )
@@ -54,12 +53,18 @@ func (a *app) Interrupt() {
 		a.model.cmd.Mode = NoCommand
 		a.model.cmd.Text = ""
 		a.model.cmd.Pos = 0
+	} else if a.model.longFileOpInProgress {
+		a.model.cancelLongFileOp.Cancel()
+		a.model.longFileOpInProgress = false
 	} else {
 		a.startQuitCommand()
 	}
 }
 
 func (a *app) KeyPress(k Key) {
+	if a.model.longFileOpInProgress {
+		return
+	}
 	if a.model.cmd.Mode == NoCommand {
 		a.normalModeKeyPress(k)
 	} else {
@@ -93,8 +98,8 @@ func (a *app) normalModeKeyPress(k Key) {
 		"G": a.moveBottom,
 
 		"/": a.startSearchCommand,
-		"n": a.jumpToNextMatch,
-		"N": a.jumpToPrevMatch,
+		"n": func() { jumpToNextMatch(&a.model, a.reactor) },
+		"N": func() { jumpToPrevMatch(&a.model, a.reactor) },
 
 		"w": a.toggleLineWrapMode,
 
@@ -217,7 +222,7 @@ func (a *app) seekEntered(cmd string) {
 				a.reactor.Stop(err)
 				return
 			}
-			a.moveToOffset(offset)
+			moveToOffset(&a.model, offset)
 		})
 	}()
 }
@@ -230,7 +235,7 @@ func (a *app) bisectEntered(cmd string) {
 				a.reactor.Stop(err)
 				return
 			}
-			a.moveToOffset(offset)
+			moveToOffset(&a.model, offset)
 		})
 	}()
 }
@@ -270,7 +275,7 @@ func (a *app) discardBufferedInputAndRepaint() {
 				a.reactor.Stop(err)
 				return
 			}
-			a.moveToOffset(offset)
+			moveToOffset(&a.model, offset)
 		})
 	}()
 }
@@ -281,7 +286,7 @@ func (a *app) moveDown() {
 		log.Warn("Cannot move down: reason=\"not enough lines loaded\" linesLoaded=%d", len(a.model.fwd))
 		return
 	}
-	a.moveToOffset(a.model.fwd[1].offset)
+	moveToOffset(&a.model, a.model.fwd[1].offset)
 }
 
 func (a *app) moveUp() {
@@ -298,12 +303,12 @@ func (a *app) moveUp() {
 		return
 	}
 
-	a.moveToOffset(a.model.bck[0].offset)
+	moveToOffset(&a.model, a.model.bck[0].offset)
 }
 
 func (a *app) moveTop() {
 	log.Info("Jumping to start of file.")
-	a.moveToOffset(0)
+	moveToOffset(&a.model, 0)
 }
 
 func (a *app) moveBottom() {
@@ -318,73 +323,9 @@ func (a *app) moveBottom() {
 				a.reactor.Stop(err)
 				return
 			}
-			a.moveToOffset(offset)
+			moveToOffset(&a.model, offset)
 		})
 	}()
-}
-
-func (a *app) moveToOffset(offset int) {
-	log.Info("Moving to offset: currentOffset=%d newOffset=%d", a.model.offset, offset)
-
-	assert(offset >= 0)
-
-	if a.model.offset == offset {
-		log.Info("Already at target offset.")
-	} else if offset < a.model.offset {
-		a.moveUpToOffset(offset)
-	} else {
-		a.moveDownToOffset(offset)
-	}
-}
-
-func (a *app) moveUpToOffset(offset int) {
-
-	log.Info("Moving up to offset: currentOffset=%d newOffset=%d", a.model.offset, offset)
-
-	haveTargetLoaded := false
-	for _, ln := range a.model.bck {
-		if ln.offset == offset {
-			haveTargetLoaded = true
-			break
-		}
-	}
-	if haveTargetLoaded {
-		for a.model.offset != offset {
-			ln := a.model.bck[0]
-			a.model.fwd = append([]line{ln}, a.model.fwd...)
-			a.model.bck = a.model.bck[1:]
-			a.model.offset = ln.offset
-		}
-	} else {
-		a.model.fwd = nil
-		a.model.bck = nil
-		a.model.offset = offset
-	}
-}
-
-func (a *app) moveDownToOffset(offset int) {
-
-	log.Info("Moving down to offset: currentOffset=%d newOffset=%d", a.model.offset, offset)
-
-	haveTargetLoaded := false
-	for _, ln := range a.model.fwd {
-		if ln.offset == offset {
-			haveTargetLoaded = true
-			break
-		}
-	}
-	if haveTargetLoaded {
-		for a.model.offset != offset {
-			ln := a.model.fwd[0]
-			a.model.fwd = a.model.fwd[1:]
-			a.model.bck = append([]line{ln}, a.model.bck...)
-			a.model.offset = ln.offset + len(ln.data)
-		}
-	} else {
-		a.model.fwd = nil
-		a.model.bck = nil
-		a.model.offset = offset
-	}
 }
 
 func (a *app) CommandFailed(err error) {
@@ -399,9 +340,8 @@ func (a *app) startSearchCommand() {
 }
 
 func (a *app) startColourCommand() {
-	if a.currentRE() == nil {
+	if currentRE(&a.model) == nil {
 		msg := "cannot select regex color: no active regex"
-		log.Warn(msg)
 		setMessage(&a.model, msg)
 		return
 	}
@@ -426,78 +366,6 @@ func (a *app) startQuitCommand() {
 	a.model.cmd.Mode = QuitCommand
 	a.model.msg = ""
 	log.Info("Accepting quit command.")
-}
-
-func (a *app) jumpToNextMatch() {
-
-	re := a.currentRE()
-	if re == nil {
-		msg := "no regex to jump to"
-		log.Info(msg)
-		setMessage(&a.model, msg)
-		return
-	}
-
-	if len(a.model.fwd) == 0 {
-		log.Warn("Cannot search for next match: current line is not loaded.")
-		return
-	}
-	startOffset := a.model.fwd[0].nextOffset()
-
-	log.Info("Searching for next regexp match: regexp=%q", re)
-
-	go func() {
-		offset, err := FindNextMatch(a.model.filename, startOffset, re)
-		a.reactor.Enque(func() {
-			if err == io.EOF {
-				msg := "regex search complete: no match found"
-				log.Info(msg)
-				setMessage(&a.model, msg)
-				return
-			}
-			if err != nil {
-				log.Warn("Regexp search completed with error: %v", err)
-				a.reactor.Stop(err)
-				return
-			}
-			log.Info("Regexp search completed with match.")
-			a.moveToOffset(offset)
-		})
-	}()
-}
-
-func (a *app) jumpToPrevMatch() {
-
-	re := a.currentRE()
-	if re == nil {
-		msg := "no regex to jump to"
-		log.Info(msg)
-		setMessage(&a.model, msg)
-		return
-	}
-
-	endOffset := a.model.offset
-
-	log.Info("Searching for previous regexp match: regexp=%q", re)
-
-	go func() {
-		offset, err := FindPrevMatch(a.model.filename, endOffset, re)
-		a.reactor.Enque(func() {
-			if err != nil && err != io.EOF {
-				log.Warn("Regexp search completed with error: %v", err)
-				a.reactor.Stop(err)
-				return
-			}
-			if err == io.EOF {
-				msg := "regex search complete: no match found"
-				log.Info(msg)
-				setMessage(&a.model, msg)
-				return
-			}
-			log.Info("Regexp search completed with match.")
-			a.moveToOffset(offset)
-		})
-	}()
 }
 
 func (a *app) toggleLineWrapMode() {
@@ -717,12 +585,4 @@ func (a *app) renderScreen() {
 	state := CreateView(&a.model)
 	a.screen.Write(state, a.forceRefresh)
 	a.forceRefresh = false
-}
-
-func (a *app) currentRE() *regexp.Regexp {
-	re := a.model.tmpRegex
-	if re == nil && len(a.model.regexes) > 0 {
-		re = a.model.regexes[0].re
-	}
-	return re
 }

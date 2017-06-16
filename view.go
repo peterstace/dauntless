@@ -71,6 +71,8 @@ func CreateView(m *Model) ScreenState {
 	if m.cmd.Mode != NoCommand {
 		commandLineText = prompt(m.cmd.Mode) + m.cmd.Text
 		state.ColPos = min(state.ColPos, len(prompt(m.cmd.Mode))+m.cmd.Pos)
+	} else if m.longFileOpInProgress {
+		commandLineText = "Long operation in progress (interrupt to cancel)"
 	} else {
 		if time.Now().Sub(m.msgSetAt) < msgLingerDuration {
 			commandLineText = m.msg

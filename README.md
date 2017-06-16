@@ -22,8 +22,7 @@ crashes, then it may not exit `cbreak` mode before exiting. To manually leave
 
 * Up/Down keys in command mode to use history. Should be per command.
 
-* Only allow one search at a time. Show progress. Allow search to be cancelled.
-  Modal search?
+* Show search progress.
 
 * Offset history.
 
