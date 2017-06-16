@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 	"regexp"
-	"time"
 )
 
 func jumpToNextMatch(m *Model, r Reactor) {
@@ -64,8 +63,6 @@ func FindNextMatch(cancel *Cancellable, r Reactor, m *Model, start int, re *rege
 	}
 	defer f.Close()
 
-	time.Sleep(500 * time.Millisecond)
-
 	if _, err := f.Seek(int64(start), 0); err != nil {
 		r.Stop(fmt.Errorf("Could not seek: offset=%d", start))
 		return
@@ -113,8 +110,6 @@ func FindPrevMatch(cancel *Cancellable, r Reactor, m *Model, endOffset int, re *
 		return
 	}
 	defer f.Close()
-
-	time.Sleep(500 * time.Millisecond)
 
 	lineReader := NewBackwardLineReader(f, endOffset)
 	offset := endOffset
