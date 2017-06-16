@@ -1,10 +1,37 @@
 package main
 
-import "io"
+import (
+	"bufio"
+	"io"
+	"os"
+)
 
-const lineReaderReadSize = 1 << 12
+type LineReader interface {
+	ReadLine() ([]byte, error)
+}
+
+func NewForwardLineReader(f *os.File, offset int) *ForwardLineReader {
+	return &ForwardLineReader{f, offset, nil}
+}
+
+type ForwardLineReader struct {
+	file   *os.File
+	start  int
+	reader *bufio.Reader
+}
+
+func (f *ForwardLineReader) ReadLine() ([]byte, error) {
+	if f.reader == nil {
+		if _, err := f.file.Seek(int64(f.start), 0); err != nil {
+			return nil, err
+		}
+		f.reader = bufio.NewReader(f.file)
+	}
+	return f.reader.ReadBytes('\n')
+}
 
 func NewBackwardLineReader(reader io.ReaderAt, offset int) *BackwardLineReader {
+	const lineReaderReadSize = 1 << 12
 	return &BackwardLineReader{reader, offset, make([]byte, lineReaderReadSize), nil}
 }
 

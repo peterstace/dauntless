@@ -98,8 +98,8 @@ func (a *app) normalModeKeyPress(k Key) {
 		"G": a.moveBottom,
 
 		"/": a.startSearchCommand,
-		"n": func() { jumpToNextMatch(&a.model, a.reactor) },
-		"N": func() { jumpToPrevMatch(&a.model, a.reactor) },
+		"n": func() { jumpToMatch(a.reactor, &a.model, false) },
+		"N": func() { jumpToMatch(a.reactor, &a.model, true) },
 
 		"w": a.toggleLineWrapMode,
 

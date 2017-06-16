@@ -1,14 +1,13 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"io"
 	"os"
 	"regexp"
 )
 
-func jumpToNextMatch(m *Model, r Reactor) {
+func jumpToMatch(r Reactor, m *Model, reverse bool) {
 
 	re := currentRE(m)
 	if re == nil {
@@ -22,37 +21,24 @@ func jumpToNextMatch(m *Model, r Reactor) {
 		log.Warn("Cannot search for next match: current line is not loaded.")
 		return
 	}
-	startOffset := m.fwd[0].nextOffset()
+
+	var start int
+	if reverse {
+		start = m.offset
+	} else {
+		start = m.fwd[0].nextOffset()
+	}
 
 	m.longFileOpInProgress = true
 	m.cancelLongFileOp.Reset()
+	m.msg = ""
 
 	log.Info("Searching for next regexp match: regexp=%q", re)
 
-	go FindNextMatch(&m.cancelLongFileOp, r, m, startOffset, re)
+	go FindMatch(r, m, start, re, reverse)
 }
 
-func jumpToPrevMatch(m *Model, r Reactor) {
-
-	re := currentRE(m)
-	if re == nil {
-		msg := "no regex to jump to"
-		log.Info(msg)
-		setMessage(m, msg)
-		return
-	}
-
-	endOffset := m.offset
-
-	m.longFileOpInProgress = true
-	m.cancelLongFileOp.Reset()
-
-	log.Info("Searching for previous regexp match: regexp=%q", re)
-
-	go FindPrevMatch(&m.cancelLongFileOp, r, m, endOffset, re)
-}
-
-func FindNextMatch(cancel *Cancellable, r Reactor, m *Model, start int, re *regexp.Regexp) {
+func FindMatch(r Reactor, m *Model, start int, re *regexp.Regexp, reverse bool) {
 
 	defer r.Enque(func() { m.longFileOpInProgress = false })
 
@@ -63,61 +49,18 @@ func FindNextMatch(cancel *Cancellable, r Reactor, m *Model, start int, re *rege
 	}
 	defer f.Close()
 
-	if _, err := f.Seek(int64(start), 0); err != nil {
-		r.Stop(fmt.Errorf("Could not seek: offset=%d", start))
-		return
+	var lineReader LineReader
+	if reverse {
+		lineReader = NewBackwardLineReader(f, start)
+	} else {
+		lineReader = NewForwardLineReader(f, start)
 	}
 
-	reader := bufio.NewReader(f)
 	offset := start
 	for {
-		if cancel.Cancelled() {
+		if m.cancelLongFileOp.Cancelled() {
 			return
 		}
-
-		line, err := reader.ReadBytes('\n')
-		if err != nil {
-			if err != io.EOF {
-				r.Stop(fmt.Errorf("Could not read: error=%v", err))
-				return
-			} else {
-				r.Enque(func() {
-					msg := "regex search complete: no match found"
-					setMessage(m, msg)
-				})
-				return
-			}
-		}
-		if re.Match(line) {
-			break
-		}
-		offset += len(line)
-	}
-
-	r.Enque(func() {
-		log.Info("Regexp search completed with match.")
-		moveToOffset(m, offset)
-	})
-}
-
-func FindPrevMatch(cancel *Cancellable, r Reactor, m *Model, endOffset int, re *regexp.Regexp) {
-
-	defer r.Enque(func() { m.longFileOpInProgress = false })
-
-	f, err := os.Open(m.filename)
-	if err != nil {
-		r.Stop(fmt.Errorf("Could not open file: %v", err))
-		return
-	}
-	defer f.Close()
-
-	lineReader := NewBackwardLineReader(f, endOffset)
-	offset := endOffset
-	for {
-		if cancel.Cancelled() {
-			return
-		}
-
 		line, err := lineReader.ReadLine()
 		if err != nil {
 			if err != io.EOF {
@@ -131,9 +74,14 @@ func FindPrevMatch(cancel *Cancellable, r Reactor, m *Model, endOffset int, re *
 				return
 			}
 		}
-		offset -= len(line)
+		if reverse {
+			offset -= len(line)
+		}
 		if re.Match(line) {
 			break
+		}
+		if !reverse {
+			offset += len(line)
 		}
 	}
 
