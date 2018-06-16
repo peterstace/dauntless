@@ -8,7 +8,6 @@ import (
 )
 
 func CreateView(m *Model) ScreenState {
-
 	state := NewScreenState(m.rows, m.cols)
 	state.Init()
 
@@ -123,7 +122,6 @@ func renderStyle(data string, regexes []regex) []Style {
 }
 
 func drawStatusLine(m *Model, state ScreenState) {
-
 	statusRow := m.rows - 2
 	for col := 0; col < state.Cols; col++ {
 		state.Styles[statusRow*m.cols+col] = MixStyle(Invert, Invert)
@@ -149,15 +147,26 @@ func drawStatusLine(m *Model, state ScreenState) {
 		lineWrapMode = "line-wrap-mode:off"
 	}
 
-	currentRegexpStr := "re:<none>"
+	var reStyle Style
+	reLabel := "re"
+	reStr := "<none>"
 	if m.tmpRegex != nil {
-		currentRegexpStr = "re(tmp):" + m.tmpRegex.String()
+		reLabel = "re(tmp)"
+		reStr = m.tmpRegex.String()
+		reStyle = MixStyle(Invert, Invert)
 	} else if len(m.regexes) > 0 {
-		currentRegexpStr = fmt.Sprintf("re(%d):%s", len(m.regexes), m.regexes[0].re.String())
+		reLabel = fmt.Sprintf("re(%d)", len(m.regexes))
+		reStr = m.regexes[0].re.String()
+		reStyle = m.regexes[0].style
 	}
 
 	statusRight := lineWrapMode + " " + pctStr + " "
-	statusLeft := " " + m.filename + " " + currentRegexpStr
+	statusLeft := " " + m.filename + " " + reLabel + ":" + reStr
+
+	for i := 0; i < len(reStr); i++ {
+		offset := len(statusLeft) - len(reStr)
+		state.Styles[statusRow*m.cols+offset+i] = reStyle
+	}
 
 	buf := state.Chars[statusRow*m.cols : (statusRow+1)*m.cols]
 	copy(buf[max(0, len(buf)-len(statusRight)):], statusRight)

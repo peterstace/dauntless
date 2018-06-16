@@ -10,7 +10,6 @@ import (
 type ttyState string
 
 func enterRaw() ttyState {
-
 	cmd := exec.Command("stty", "-g")
 	cmd.Stdin = os.Stdin
 	oldState, err := cmd.Output()
@@ -31,7 +30,6 @@ func enterRaw() ttyState {
 }
 
 func (s ttyState) leaveRaw() {
-
 	cmd := exec.Command("stty", string(s))
 	cmd.Stdin = os.Stdin
 	out, err := cmd.CombinedOutput()

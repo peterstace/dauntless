@@ -41,8 +41,6 @@ crashes, then it may not exit `cbreak` mode before exiting. To manually leave
 * Copy/paste friendly mode. Toggle indent away, show all lines, no spaces at
   end of lines.
 
-* Highlight regex in status bar with its own style.
-
 ### Least Important
 
 * Bookmarks.

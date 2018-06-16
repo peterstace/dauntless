@@ -7,12 +7,11 @@ import (
 	"regexp"
 )
 
-const version = "Dauntless 0.8.0"
+const version = "Dauntless 0.8.1"
 
 var log Logger
 
 func main() {
-
 	var logfile string
 	flag.StringVar(&logfile, "debug-logfile", "", "debug logfile")
 	vFlag := flag.Bool("version", false, "version")

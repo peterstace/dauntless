@@ -379,7 +379,6 @@ func (a *app) toggleLineWrapMode() {
 }
 
 func (a *app) cycleRegexp(forward bool) {
-
 	if len(a.model.regexes) == 0 {
 		msg := "no regexes to cycle between"
 		log.Warn(msg)
