@@ -1,37 +1,49 @@
 package main
 
 import (
-	"bufio"
 	"io"
-	"os"
 )
+
+const lineReaderReadSize = 1 << 12
 
 type LineReader interface {
 	ReadLine() ([]byte, error)
 }
 
-func NewForwardLineReader(f *os.File, offset int) *ForwardLineReader {
-	return &ForwardLineReader{f, offset, nil}
+func NewForwardLineReader(reader io.ReaderAt, offset int) *ForwardLineReader {
+	return &ForwardLineReader{reader, offset, make([]byte, lineReaderReadSize), nil}
 }
 
 type ForwardLineReader struct {
-	file   *os.File
-	start  int
-	reader *bufio.Reader
+	reader  io.ReaderAt
+	offset  int
+	readBuf []byte
+	unused  []byte
 }
 
 func (f *ForwardLineReader) ReadLine() ([]byte, error) {
-	if f.reader == nil {
-		if _, err := f.file.Seek(int64(f.start), 0); err != nil {
-			return nil, err
+	// Check if the new newline is in the unused buffer.
+	for i, b := range f.unused {
+		if b == '\n' {
+			line := f.unused[:i+1]
+			f.unused = f.unused[i+1:]
+			f.offset += i + 1
+			return line, nil
 		}
-		f.reader = bufio.NewReader(f.file)
 	}
-	return f.reader.ReadBytes('\n')
+
+	// Copy a new set of bytes into unused.
+	n, err := f.reader.ReadAt(f.readBuf, int64(f.offset))
+
+	if err != nil && (err != io.EOF || n == 0) {
+		return nil, err
+	}
+	f.offset += n
+	f.unused = append(f.unused, f.readBuf[:n]...)
+	return f.ReadLine()
 }
 
 func NewBackwardLineReader(reader io.ReaderAt, offset int) *BackwardLineReader {
-	const lineReaderReadSize = 1 << 12
 	return &BackwardLineReader{reader, offset, make([]byte, lineReaderReadSize), nil}
 }
 
@@ -43,7 +55,6 @@ type BackwardLineReader struct {
 }
 
 func (b *BackwardLineReader) ReadLine() ([]byte, error) {
-
 	if len(b.unused) == 0 && b.offset == 0 {
 		return nil, io.EOF
 	}
