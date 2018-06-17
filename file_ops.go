@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"errors"
 	"io"
 	"math/rand"
@@ -55,7 +54,6 @@ func FindJumpToBottomOffset(filename string) (int, error) {
 }
 
 func Bisect(filename string, target string, mask *regexp.Regexp) (int, error) {
-
 	f, err := os.Open(filename)
 	if err != nil {
 		return 0, err
@@ -99,17 +97,9 @@ func Bisect(filename string, target string, mask *regexp.Regexp) (int, error) {
 
 // Gets the line containing the offset.
 func lineAt(f *os.File, offset int) ([]byte, int, error) {
-
-	if _, err := f.Seek(int64(offset), 0); err != nil {
-		return nil, 0, err
-	}
-	fwdReader := bufio.NewReader(f)
-	fwdBytes, err := fwdReader.ReadBytes('\n')
+	fwdReader := NewForwardLineReader(f, offset)
+	fwdBytes, err := fwdReader.ReadLine()
 	if err != nil {
-		return nil, 0, err
-	}
-
-	if _, err := f.Seek(int64(offset+len(fwdBytes)), 0); err != nil {
 		return nil, 0, err
 	}
 	bckReader := NewBackwardLineReader(f, offset+len(fwdBytes))
@@ -118,7 +108,6 @@ func lineAt(f *os.File, offset int) ([]byte, int, error) {
 }
 
 func FindReloadOffset(filename string, offset int) (int, error) {
-
 	f, err := os.Open(filename)
 	if err != nil {
 		return 0, err
