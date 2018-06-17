@@ -41,7 +41,7 @@ func collectTermSize(r Reactor, a App) {
 
 func getTermSize() (rows int, cols int, err error) {
 	cmd := exec.Command("stty", "size")
-	cmd.Stdin = os.Stdin
+	cmd.Stdin = tty
 	var dim []byte
 	dim, err = cmd.Output()
 	if err == nil {

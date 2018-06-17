@@ -66,6 +66,8 @@ something long.
 
 * Add assertions back in for main data structure.
 
+* Stdin reading routing in collect.go could use a lot of improvement.
+
 ### Known Bugs
 
 * Bisect past EOF is fatal. Noticed that the last line in the file was partial,

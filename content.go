@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"sync"
+	"time"
 )
 
 type Content interface {
@@ -68,12 +69,18 @@ func (s *BufferContent) CollectFrom(r io.Reader, reac Reactor) {
 		buf := make([]byte, 32) // TODO: increase size
 		for {
 			n, err := r.Read(buf)
-			if err != nil {
+			if err != nil && err != io.EOF {
 				reac.Stop(err)
 			}
 			s.mu.Lock()
 			s.buf.Write(buf[:n])
 			s.mu.Unlock()
+
+			// TODO: Need a much smarter way to prevent a hard loop here. Idea:
+			// back off from zero delay, all the way up to 100ms delay using
+			// expotential decay, reseting to zero delay whenever new data is
+			// received.
+			time.Sleep(time.Millisecond)
 		}
 	}()
 }

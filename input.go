@@ -4,10 +4,15 @@ import "os"
 
 func collectInput(r Reactor, a App) {
 	go func() {
+		tty, err := os.Open("/dev/tty")
+		if err != nil {
+			r.Stop(err)
+			return
+		}
 		var buf []byte
 		for {
 			var readIn [8]byte
-			n, err := os.Stdin.Read(readIn[:])
+			n, err := tty.Read(readIn[:])
 			if err != nil {
 				r.Stop(err)
 				return
