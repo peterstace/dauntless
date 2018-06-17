@@ -7,7 +7,7 @@ import (
 	"regexp"
 )
 
-const version = "Dauntless 0.8.1"
+const version = "Dauntless 0.9.0"
 
 var log Logger
 
@@ -24,7 +24,25 @@ func main() {
 		return
 	}
 
-	if len(flag.Args()) != 1 {
+	reactor := NewReactor()
+	var filename string
+	var content Content
+
+	switch len(flag.Args()) {
+	case 0:
+		filename = "stdin"
+		buffContent := NewBufferContent()
+		buffContent.CollectFrom(os.Stdin, reactor)
+		content = buffContent
+	case 1:
+		filename = flag.Args()[0]
+		var err error
+		content, err = NewFileContent(filename)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Could not open file %s: %s", filename, err)
+			os.Exit(1)
+		}
+	default:
 		fmt.Fprintf(os.Stderr, "Usage: %s <filename>\n", os.Args[0])
 		os.Exit(1)
 	}
@@ -50,17 +68,10 @@ func main() {
 
 	enterAlt()
 	ttyState := enterRaw()
-
-	reactor := NewReactor()
-
-	filename := flag.Args()[0]
-
 	screen := NewTermScreen(os.Stdout, reactor)
-
-	app := NewApp(reactor, filename, screen, config)
-
+	app := NewApp(reactor, content, filename, screen, config)
 	reactor.Enque(app.Initialise)
-	CollectFileSize(reactor, app, filename)
+	CollectFileSize(reactor, app, content)
 	collectInterrupt(reactor, app)
 	collectInput(reactor, app)
 	collectTermSize(reactor, app)

@@ -20,6 +20,8 @@ crashes, then it may not exit `cbreak` mode before exiting. To manually leave
 
 ### Most Important
 
+* Accept from standard in.
+
 * Up/Down keys in command mode to use history. Should be per command.
 
 * Show search progress.
@@ -63,6 +65,8 @@ something long.
 ### Technical Debt
 
 * Add assertions back in for main data structure.
+
+* Stdin reading routing in collect.go could use a lot of improvement.
 
 ### Known Bugs
 

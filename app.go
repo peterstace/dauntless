@@ -27,11 +27,15 @@ type app struct {
 	model Model
 }
 
-func NewApp(reactor Reactor, filename string, screen Screen, config Config) App {
+func NewApp(reactor Reactor, content Content, filename string, screen Screen, config Config) App {
 	return &app{
 		reactor: reactor,
 		screen:  screen,
-		model:   Model{config: config, filename: filename},
+		model: Model{
+			config:   config,
+			content:  content,
+			filename: filename,
+		},
 	}
 }
 
@@ -215,7 +219,7 @@ func (a *app) seekEntered(cmd string) {
 	}
 
 	go func() {
-		offset, err := FindSeekOffset(a.model.filename, seekPct)
+		offset, err := FindSeekOffset(a.model.content, seekPct)
 		a.reactor.Enque(func() {
 			if err != nil {
 				log.Warn("Could to find start of line at offset: %v", err)
@@ -228,7 +232,7 @@ func (a *app) seekEntered(cmd string) {
 }
 func (a *app) bisectEntered(cmd string) {
 	go func() {
-		offset, err := Bisect(a.model.filename, cmd, a.model.config.BisectMask)
+		offset, err := Bisect(a.model.content, cmd, a.model.config.BisectMask)
 		a.reactor.Enque(func() {
 			if err != nil {
 				log.Warn("Could not find bisect target: %v", err)
@@ -268,7 +272,7 @@ func (a *app) discardBufferedInputAndRepaint() {
 	a.model.bck = nil
 
 	go func() {
-		offset, err := FindReloadOffset(a.model.filename, a.model.offset)
+		offset, err := FindReloadOffset(a.model.content, a.model.offset)
 		a.reactor.Enque(func() {
 			if err != nil {
 				log.Warn("Could not find reload offset: %v", err)
@@ -316,7 +320,7 @@ func (a *app) moveBottom() {
 	log.Info("Jumping to bottom of file.")
 
 	go func() {
-		offset, err := FindJumpToBottomOffset(a.model.filename)
+		offset, err := FindJumpToBottomOffset(a.model.content)
 		a.reactor.Enque(func() {
 			if err != nil {
 				log.Warn("Could not find jump-to-bottom offset: %v", err)
@@ -497,7 +501,7 @@ func (a *app) loadForward(amount int) {
 
 	a.fillingScreenBuffer = true
 	go func() {
-		lines, err := LoadFwd(a.model.filename, offset, amount)
+		lines, err := LoadFwd(a.model.content, offset, amount)
 		a.reactor.Enque(func() {
 			if err != nil {
 				log.Warn("Error loading forward: %v", err)
@@ -528,7 +532,7 @@ func (a *app) loadBackward(amount int) {
 
 	a.fillingScreenBuffer = true
 	go func() {
-		lines, err := LoadBck(a.model.filename, offset, amount)
+		lines, err := LoadBck(a.model.content, offset, amount)
 		a.reactor.Enque(func() {
 			if err != nil {
 				log.Warn("Error loading backward: %v", err)
