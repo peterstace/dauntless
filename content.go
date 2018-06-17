@@ -6,24 +6,25 @@ import (
 )
 
 type Content interface {
+	Size() (int64, error)
 	io.ReaderAt
-	Size() int64
+	io.ReadSeeker
 }
 
-func NewFileContent(filename string) (*FileContent, error) {
+func NewFileContent(filename string) (Content, error) {
 	f, err := os.Open(filename)
 	if err != nil {
 		return nil, err
 	}
-	return &FileContent{f}, err
+	return FileContent{f}, nil
 }
 
 type FileContent struct {
-	f *os.File
+	*os.File
 }
 
-func (f *FileContent) Size() (int64, error) {
-	fi, err := f.f.Stat()
+func (f FileContent) Size() (int64, error) {
+	fi, err := f.File.Stat()
 	if err != nil {
 		return 0, err
 	}
