@@ -1,13 +1,11 @@
 package main
 
 import (
-	"bufio"
 	"io"
 	"os"
 )
 
 func LoadFwd(filename string, offset int, count int) ([]string, error) {
-
 	f, err := os.Open(filename)
 	if err != nil {
 		return nil, err
@@ -16,16 +14,9 @@ func LoadFwd(filename string, offset int, count int) ([]string, error) {
 
 	lines := make([]string, 0, count)
 
-	if _, err := f.Seek(int64(offset), 0); err != nil {
-		return nil, err
-	}
-
-	r := bufio.NewReader(f)
+	reader := NewForwardLineReader(f, offset)
 	for i := 0; i < count; i++ {
-		line, err := r.ReadString('\n')
-		if len(line) > 0 {
-			lines = append(lines, line)
-		}
+		line, err := reader.ReadLine()
 		if err != nil {
 			if err == io.EOF {
 				return lines, nil
@@ -33,8 +24,8 @@ func LoadFwd(filename string, offset int, count int) ([]string, error) {
 				return nil, err
 			}
 		}
+		lines = append(lines, string(line))
 	}
-
 	return lines, nil
 }
 
