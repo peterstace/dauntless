@@ -20,6 +20,8 @@ crashes, then it may not exit `cbreak` mode before exiting. To manually leave
 
 ### Most Important
 
+* Accept from standard in.
+
 * Up/Down keys in command mode to use history. Should be per command.
 
 * Show search progress.
