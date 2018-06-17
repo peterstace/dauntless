@@ -174,7 +174,6 @@ func drawStatusLine(m *Model, state ScreenState) {
 }
 
 func overlaySwatch(state ScreenState) {
-
 	const sideBorder = 2
 	const topBorder = 1
 	const colourWidth = 4

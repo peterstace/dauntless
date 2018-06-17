@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"io"
 	"os"
+	"sync"
 )
 
 type Content interface {
@@ -10,10 +12,10 @@ type Content interface {
 	io.ReaderAt
 }
 
-func NewFileContent(filename string) (Content, error) {
+func NewFileContent(filename string) (FileContent, error) {
 	f, err := os.Open(filename)
 	if err != nil {
-		return nil, err
+		return FileContent{}, err
 	}
 	return FileContent{f}, nil
 }
@@ -28,4 +30,50 @@ func (f FileContent) Size() (int64, error) {
 		return 0, err
 	}
 	return fi.Size(), nil
+}
+
+func NewBufferContent() *BufferContent {
+	return &BufferContent{}
+}
+
+type BufferContent struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (s *BufferContent) Size() (int64, error) {
+	s.mu.Lock()
+	sz := int64(len(s.buf.Bytes()))
+	s.mu.Unlock()
+	return sz, nil
+}
+
+func (s *BufferContent) ReadAt(p []byte, off int64) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	buf := s.buf.Bytes()
+	if off > int64(len(buf)) {
+		return 0, io.EOF
+	}
+	n := copy(p, buf[off:])
+	if n < len(p) {
+		return n, io.EOF
+	}
+	return n, nil
+}
+
+func (s *BufferContent) CollectFrom(r io.Reader, reac Reactor) {
+	go func() {
+		buf := make([]byte, 32) // TODO: increase size
+		for {
+			n, err := r.Read(buf)
+			if err != nil {
+				reac.Stop(err)
+			}
+			s.mu.Lock()
+			s.buf.Write(buf[:n])
+			s.mu.Unlock()
+		}
+	}()
 }
