@@ -8,7 +8,6 @@ import (
 type Content interface {
 	Size() (int64, error)
 	io.ReaderAt
-	io.ReadSeeker
 }
 
 func NewFileContent(filename string) (Content, error) {
