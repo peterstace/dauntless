@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"io"
-	"os"
 	"regexp"
 )
 
@@ -42,18 +41,11 @@ func FindMatch(r Reactor, m *Model, start int, re *regexp.Regexp, reverse bool) 
 
 	defer r.Enque(func() { m.longFileOpInProgress = false })
 
-	f, err := os.Open(m.filename)
-	if err != nil {
-		r.Stop(fmt.Errorf("Could not open file: %v", err))
-		return
-	}
-	defer f.Close()
-
 	var lineReader LineReader
 	if reverse {
-		lineReader = NewBackwardLineReader(f, start)
+		lineReader = NewBackwardLineReader(m.content, start)
 	} else {
-		lineReader = NewForwardLineReader(f, start)
+		lineReader = NewForwardLineReader(m.content, start)
 	}
 
 	offset := start

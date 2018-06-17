@@ -48,17 +48,18 @@ func main() {
 		}
 	}
 
+	filename := flag.Args()[0]
+	content, err := NewFileContent(filename)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Could not open file %s: %s", filename, err)
+		os.Exit(1)
+	}
+
 	enterAlt()
 	ttyState := enterRaw()
-
 	reactor := NewReactor()
-
-	filename := flag.Args()[0]
-
 	screen := NewTermScreen(os.Stdout, reactor)
-
-	app := NewApp(reactor, filename, screen, config)
-
+	app := NewApp(reactor, content, filename, screen, config)
 	reactor.Enque(app.Initialise)
 	CollectFileSize(reactor, app, filename)
 	collectInterrupt(reactor, app)

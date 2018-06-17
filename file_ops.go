@@ -4,26 +4,16 @@ import (
 	"errors"
 	"io"
 	"math/rand"
-	"os"
 	"regexp"
 )
 
-func FindSeekOffset(filename string, seekPct float64) (int, error) {
-
-	f, err := os.Open(filename)
+func FindSeekOffset(c Content, seekPct float64) (int, error) {
+	sz, err := c.Size()
 	if err != nil {
 		return 0, err
 	}
-	defer f.Close()
-
-	fileInfo, err := f.Stat()
-	if err != nil {
-		return 0, err
-	}
-
-	offset := max(1, int(float64(fileInfo.Size())/100.0*seekPct))
-
-	reader := NewBackwardLineReader(f, offset)
+	offset := max(1, int(float64(sz)/100.0*seekPct))
+	reader := NewBackwardLineReader(c, offset)
 	line, err := reader.ReadLine()
 	if err != nil {
 		return 0, err
@@ -31,42 +21,27 @@ func FindSeekOffset(filename string, seekPct float64) (int, error) {
 	return offset - len(line), nil
 }
 
-func FindJumpToBottomOffset(filename string) (int, error) {
-
-	f, err := os.Open(filename)
+func FindJumpToBottomOffset(content Content) (int, error) {
+	size, err := content.Size()
 	if err != nil {
 		return 0, err
 	}
-	defer f.Close()
-
-	info, err := f.Stat()
-	if err != nil {
-		return 0, err
-	}
-	size := int(info.Size())
-
-	reader := NewBackwardLineReader(f, size)
+	reader := NewBackwardLineReader(content, int(size))
 	line, err := reader.ReadLine()
 	if err == io.EOF {
 		err = nil // Handles case where size is 0.
 	}
-	return size - len(line), err
+	return int(size) - len(line), err
 }
 
-func Bisect(filename string, target string, mask *regexp.Regexp) (int, error) {
-	f, err := os.Open(filename)
-	if err != nil {
-		return 0, err
-	}
-	defer f.Close()
-
-	fileInfo, err := f.Stat()
+func Bisect(content Content, target string, mask *regexp.Regexp) (int, error) {
+	sz, err := content.Size()
 	if err != nil {
 		return 0, err
 	}
 
 	var start int
-	end := int(fileInfo.Size() - 1)
+	end := int(sz - 1)
 
 	var i int
 	for {
@@ -76,7 +51,7 @@ func Bisect(filename string, target string, mask *regexp.Regexp) (int, error) {
 		}
 
 		offset := start + rand.Intn(end-start+1)
-		line, offset, err := lineAt(f, offset)
+		line, offset, err := lineAt(content, offset)
 		if err != nil {
 			return 0, err
 		}
@@ -96,27 +71,21 @@ func Bisect(filename string, target string, mask *regexp.Regexp) (int, error) {
 }
 
 // Gets the line containing the offset.
-func lineAt(f *os.File, offset int) ([]byte, int, error) {
-	fwdReader := NewForwardLineReader(f, offset)
+func lineAt(c Content, offset int) ([]byte, int, error) {
+	fwdReader := NewForwardLineReader(c, offset)
 	fwdBytes, err := fwdReader.ReadLine()
 	if err != nil {
 		return nil, 0, err
 	}
-	bckReader := NewBackwardLineReader(f, offset+len(fwdBytes))
+	bckReader := NewBackwardLineReader(c, offset+len(fwdBytes))
 	bckBytes, err := bckReader.ReadLine()
 	return bckBytes, offset + len(fwdBytes) - len(bckBytes), err
 }
 
-func FindReloadOffset(filename string, offset int) (int, error) {
-	f, err := os.Open(filename)
-	if err != nil {
-		return 0, err
-	}
-	defer f.Close()
-
-	_, n, err := lineAt(f, offset)
+func FindReloadOffset(content Content, offset int) (int, error) {
+	_, n, err := lineAt(content, offset)
 	if err == io.EOF {
-		return FindJumpToBottomOffset(filename)
+		return FindJumpToBottomOffset(content)
 	}
 	return n, err
 }

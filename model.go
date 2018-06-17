@@ -8,6 +8,7 @@ import (
 type Model struct {
 	config Config
 
+	content  Content
 	filename string
 
 	rows, cols int

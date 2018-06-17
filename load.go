@@ -2,19 +2,11 @@ package main
 
 import (
 	"io"
-	"os"
 )
 
-func LoadFwd(filename string, offset int, count int) ([]string, error) {
-	f, err := os.Open(filename)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
+func LoadFwd(content Content, offset int, count int) ([]string, error) {
 	lines := make([]string, 0, count)
-
-	reader := NewForwardLineReader(f, offset)
+	reader := NewForwardLineReader(content, offset)
 	for i := 0; i < count; i++ {
 		line, err := reader.ReadLine()
 		if err != nil {
@@ -29,17 +21,9 @@ func LoadFwd(filename string, offset int, count int) ([]string, error) {
 	return lines, nil
 }
 
-func LoadBck(filename string, offset int, count int) ([]string, error) {
-
-	f, err := os.Open(filename)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
+func LoadBck(content Content, offset int, count int) ([]string, error) {
 	lines := make([]string, 0, count)
-
-	r := NewBackwardLineReader(f, offset)
+	r := NewBackwardLineReader(content, offset)
 	for i := 0; i < count; i++ {
 		line, err := r.ReadLine()
 		if err != nil {
