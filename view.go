@@ -147,7 +147,7 @@ func drawStatusLine(m *Model, state ScreenState) {
 		lineWrapMode = "line-wrap-mode:off"
 	}
 
-	var reStyle Style
+	reStyle := MixStyle(Invert, Invert)
 	reLabel := "re"
 	reStr := "<none>"
 	if m.tmpRegex != nil {

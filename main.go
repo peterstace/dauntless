@@ -7,7 +7,7 @@ import (
 	"regexp"
 )
 
-const version = "Dauntless 0.9.0"
+const version = "Dauntless 0.9.1"
 
 var log Logger
 
