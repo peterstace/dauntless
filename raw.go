@@ -64,7 +64,7 @@ func leaveAlt() {
 	cmd := exec.Command("tput", "rmcup")
 	out, err := cmd.Output()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Could not enter alt buffer.")
+		fmt.Fprintf(os.Stderr, "Could not leave alt buffer.")
 		os.Exit(1)
 	}
 	fmt.Fprintf(os.Stdout, string(out))

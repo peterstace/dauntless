@@ -66,21 +66,29 @@ func (s *BufferContent) ReadAt(p []byte, off int64) (int, error) {
 
 func (s *BufferContent) CollectFrom(r io.Reader, reac Reactor) {
 	go func() {
-		buf := make([]byte, 32) // TODO: increase size
+		buf := make([]byte, 16<<10)
+		var sleepFor time.Duration
 		for {
 			n, err := r.Read(buf)
 			if err != nil && err != io.EOF {
 				reac.Stop(err)
+				return
 			}
+
 			s.mu.Lock()
 			s.buf.Write(buf[:n])
 			s.mu.Unlock()
 
-			// TODO: Need a much smarter way to prevent a hard loop here. Idea:
-			// back off from zero delay, all the way up to 100ms delay using
-			// expotential decay, reseting to zero delay whenever new data is
-			// received.
-			time.Sleep(time.Millisecond)
+			if n == 0 {
+				sleepFor = 2 * (sleepFor + time.Millisecond)
+				const maxSleep = 500 * time.Millisecond
+				if sleepFor > maxSleep {
+					sleepFor = maxSleep
+				}
+			} else {
+				sleepFor = 0
+			}
+			time.Sleep(sleepFor)
 		}
 	}()
 }
