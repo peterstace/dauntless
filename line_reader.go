@@ -27,14 +27,12 @@ func (f *ForwardLineReader) ReadLine() ([]byte, error) {
 		if b == '\n' {
 			line := f.unused[:i+1]
 			f.unused = f.unused[i+1:]
-			f.offset += i + 1
 			return line, nil
 		}
 	}
 
 	// Copy a new set of bytes into unused.
 	n, err := f.reader.ReadAt(f.readBuf, int64(f.offset))
-
 	if err != nil && (err != io.EOF || n == 0) {
 		return nil, err
 	}

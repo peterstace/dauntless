@@ -7,7 +7,6 @@ import (
 )
 
 func jumpToMatch(r Reactor, m *Model, reverse bool) {
-
 	re := currentRE(m)
 	if re == nil {
 		msg := "no regex to jump to"
@@ -38,7 +37,6 @@ func jumpToMatch(r Reactor, m *Model, reverse bool) {
 }
 
 func FindMatch(r Reactor, m *Model, start int, re *regexp.Regexp, reverse bool) {
-
 	defer r.Enque(func() { m.longFileOpInProgress = false })
 
 	var lineReader LineReader
