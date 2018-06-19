@@ -75,15 +75,16 @@ func (s *BufferContent) CollectFrom(r io.Reader, reac Reactor) {
 				return
 			}
 
-			s.mu.Lock()
-			s.buf.Write(buf[:n])
-			s.mu.Unlock()
+			if n > 0 {
+				s.mu.Lock()
+				s.buf.Write(buf[:n])
+				s.mu.Unlock()
+			}
 
 			if n == 0 {
 				sleepFor = 2 * (sleepFor + time.Millisecond)
-				const maxSleep = 500 * time.Millisecond
-				if sleepFor > maxSleep {
-					sleepFor = maxSleep
+				if sleepFor > time.Second {
+					sleepFor = time.Second
 				}
 			} else {
 				sleepFor = 0

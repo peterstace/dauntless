@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"syscall"
+
+	"golang.org/x/crypto/ssh/terminal"
 )
 
-const version = "Dauntless 0.9.2"
+const version = "Dauntless 0.9.3"
 
 var log Logger
 
@@ -24,12 +27,27 @@ func main() {
 		return
 	}
 
+	if logfile == "" {
+		log = NullLogger{}
+	} else {
+		var err error
+		log, err = FileLogger(logfile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Could not open debug logfile %q: %s\n", logfile, err)
+			os.Exit(1)
+		}
+	}
+
 	reactor := NewReactor()
 	var filename string
 	var content Content
 
 	switch len(flag.Args()) {
 	case 0:
+		if terminal.IsTerminal(syscall.Stdin) {
+			fmt.Fprintf(os.Stderr, "Missing filename (use \"dauntless --help\" for usage)\n")
+			os.Exit(1)
+		}
 		filename = "stdin"
 		buffContent := NewBufferContent()
 		buffContent.CollectFrom(os.Stdin, reactor)
@@ -43,7 +61,7 @@ func main() {
 			os.Exit(1)
 		}
 	default:
-		fmt.Fprintf(os.Stderr, "Usage: %s <filename>\n", os.Args[0])
+		flag.Usage()
 		os.Exit(1)
 	}
 
@@ -54,17 +72,6 @@ func main() {
 	}
 
 	config := Config{*wrapPrefix, mask}
-
-	if logfile == "" {
-		log = NullLogger{}
-	} else {
-		var err error
-		log, err = FileLogger(logfile)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Could not open debug logfile %q: %s\n", logfile, err)
-			os.Exit(1)
-		}
-	}
 
 	enterAlt()
 	ttyState := enterRaw()
