@@ -1,29 +1,19 @@
 package main
 
-import (
-	"io"
-)
+import "io"
 
 func LoadFwd(content Content, offset int, count int) ([]string, error) {
-	lines := make([]string, 0, count)
-	reader := NewForwardLineReader(content, offset)
-	for i := 0; i < count; i++ {
-		line, err := reader.ReadLine()
-		if err != nil {
-			if err == io.EOF {
-				return lines, nil
-			} else {
-				return nil, err
-			}
-		}
-		lines = append(lines, string(line))
-	}
-	return lines, nil
+	r := NewForwardLineReader(content, offset)
+	return load(count, r)
 }
 
 func LoadBck(content Content, offset int, count int) ([]string, error) {
-	lines := make([]string, 0, count)
 	r := NewBackwardLineReader(content, offset)
+	return load(count, r)
+}
+
+func load(count int, r LineReader) ([]string, error) {
+	lines := make([]string, 0, count)
 	for i := 0; i < count; i++ {
 		line, err := r.ReadLine()
 		if err != nil {
@@ -35,6 +25,5 @@ func LoadBck(content Content, offset int, count int) ([]string, error) {
 		}
 		lines = append(lines, string(line))
 	}
-
 	return lines, nil
 }
