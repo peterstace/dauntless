@@ -8,6 +8,7 @@ import (
 type Model struct {
 	config Config
 
+	content  Content
 	filename string
 
 	rows, cols int
@@ -33,6 +34,9 @@ type Model struct {
 	cmd Command
 
 	debug bool
+
+	longFileOpInProgress bool
+	cancelLongFileOp     Cancellable
 }
 
 type Command struct {

@@ -11,11 +11,10 @@ type Screen interface {
 	Write(state ScreenState, force bool)
 }
 
-func NewTermScreen(w io.Writer, r Reactor, log Logger) Screen {
+func NewTermScreen(w io.Writer, r Reactor) Screen {
 	return &termScreen{
 		writer:  w,
 		reactor: r,
-		log:     log,
 	}
 }
 
@@ -26,12 +25,11 @@ type termScreen struct {
 	lastWrittenState ScreenState
 	writer           io.Writer
 	reactor          Reactor
-	log              Logger
 }
 
 func (t *termScreen) Write(state ScreenState, force bool) {
 
-	t.log.Info("Preparing screen write contents.")
+	log.Info("Preparing screen write contents.")
 
 	t.hasPending = true
 	state.CloneInto(&t.pendingState)
@@ -42,7 +40,7 @@ func (t *termScreen) Write(state ScreenState, force bool) {
 	}
 
 	if t.writeInProgress {
-		t.log.Info("Write already in progress, will write after completion.")
+		log.Info("Write already in progress, will write after completion.")
 		return
 	}
 
@@ -99,11 +97,11 @@ func (t *termScreen) outputPending() {
 
 	diff := ScreenDiff(t.lastWrittenState, t.pendingState)
 	if diff.Len() == 0 {
-		t.log.Info("Screen state is the same, aborting write.")
+		log.Info("Screen state is the same, aborting write.")
 		return
 	}
 
-	t.log.Info("Writing to screen: bytes=%d", diff.Len())
+	log.Info("Writing to screen: bytes=%d", diff.Len())
 	t.writeInProgress = true
 	t.pendingState.CloneInto(&t.lastWrittenState)
 
@@ -120,7 +118,7 @@ func (t *termScreen) outputPending() {
 
 func (t *termScreen) writeComplete() {
 
-	t.log.Info("Screen write complete: hasPending=%t", t.hasPending)
+	log.Info("Screen write complete: hasPending=%t", t.hasPending)
 
 	t.writeInProgress = false
 	if t.hasPending {

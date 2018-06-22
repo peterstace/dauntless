@@ -1,54 +1,19 @@
 package main
 
-import (
-	"bufio"
-	"io"
-	"os"
-)
+import "io"
 
-func LoadFwd(filename string, offset int, count int) ([]string, error) {
-
-	f, err := os.Open(filename)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	lines := make([]string, 0, count)
-
-	if _, err := f.Seek(int64(offset), 0); err != nil {
-		return nil, err
-	}
-
-	r := bufio.NewReader(f)
-	for i := 0; i < count; i++ {
-		line, err := r.ReadString('\n')
-		if len(line) > 0 {
-			lines = append(lines, line)
-		}
-		if err != nil {
-			if err == io.EOF {
-				return lines, nil
-			} else {
-				return nil, err
-			}
-		}
-	}
-
-	return lines, nil
+func LoadFwd(content Content, offset int, count int) ([]string, error) {
+	r := NewForwardLineReader(content, offset)
+	return load(count, r)
 }
 
-func LoadBck(filename string, offset int, count int) ([]string, error) {
+func LoadBck(content Content, offset int, count int) ([]string, error) {
+	r := NewBackwardLineReader(content, offset)
+	return load(count, r)
+}
 
-	f, err := os.Open(filename)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
+func load(count int, r LineReader) ([]string, error) {
 	lines := make([]string, 0, count)
-
-	r := NewBackwardLineReader(f, offset)
 	for i := 0; i < count; i++ {
 		line, err := r.ReadLine()
 		if err != nil {
@@ -60,6 +25,5 @@ func LoadBck(filename string, offset int, count int) ([]string, error) {
 		}
 		lines = append(lines, string(line))
 	}
-
 	return lines, nil
 }

@@ -5,12 +5,16 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"syscall"
+
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 const version = "Dauntless <unversioned>"
 
-func main() {
+var log Logger
 
+func main() {
 	var logfile string
 	flag.StringVar(&logfile, "debug-logfile", "", "debug logfile")
 	vFlag := flag.Bool("version", false, "version")
@@ -23,8 +27,41 @@ func main() {
 		return
 	}
 
-	if len(flag.Args()) != 1 {
-		fmt.Fprintf(os.Stderr, "Usage: %s <filename>\n", os.Args[0])
+	if logfile == "" {
+		log = NullLogger{}
+	} else {
+		var err error
+		log, err = FileLogger(logfile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Could not open debug logfile %q: %s\n", logfile, err)
+			os.Exit(1)
+		}
+	}
+
+	reactor := NewReactor()
+	var filename string
+	var content Content
+
+	switch len(flag.Args()) {
+	case 0:
+		if terminal.IsTerminal(syscall.Stdin) {
+			fmt.Fprintf(os.Stderr, "Missing filename (use \"dauntless --help\" for usage)\n")
+			os.Exit(1)
+		}
+		filename = "stdin"
+		buffContent := NewBufferContent()
+		buffContent.CollectFrom(os.Stdin, reactor)
+		content = buffContent
+	case 1:
+		filename = flag.Args()[0]
+		var err error
+		content, err = NewFileContent(filename)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Could not open file %s: %s", filename, err)
+			os.Exit(1)
+		}
+	default:
+		flag.Usage()
 		os.Exit(1)
 	}
 
@@ -36,31 +73,12 @@ func main() {
 
 	config := Config{*wrapPrefix, mask}
 
-	var logger Logger
-	if logfile == "" {
-		logger = NullLogger{}
-	} else {
-		var err error
-		logger, err = FileLogger(logfile)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Could not open debug logfile %q: %s\n", logfile, err)
-			os.Exit(1)
-		}
-	}
-
 	enterAlt()
 	ttyState := enterRaw()
-
-	reactor := NewReactor(logger)
-
-	filename := flag.Args()[0]
-
-	screen := NewTermScreen(os.Stdout, reactor, logger)
-
-	app := NewApp(reactor, filename, logger, screen, config)
-
+	screen := NewTermScreen(os.Stdout, reactor)
+	app := NewApp(reactor, content, filename, screen, config)
 	reactor.Enque(app.Initialise)
-	CollectFileSize(reactor, app, filename)
+	CollectFileSize(reactor, app, content)
 	collectInterrupt(reactor, app)
 	collectInput(reactor, app)
 	collectTermSize(reactor, app)

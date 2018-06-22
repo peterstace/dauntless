@@ -81,7 +81,7 @@ func (f *fileLogger) Warn(format string, args ...interface{}) {
 
 func (f *fileLogger) log(lvl level, format string, args ...interface{}) {
 	format = fmt.Sprintf(
-		"%s [%5s] [%d] %s\n",
+		"%s [%-5s] [%d] %s\n",
 		time.Now().Format("15:04:05.000000"),
 		lvl,
 		f.cycle,

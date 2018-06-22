@@ -1,8 +1,45 @@
 package main
 
-import "io"
+import (
+	"io"
+)
 
 const lineReaderReadSize = 1 << 12
+
+type LineReader interface {
+	ReadLine() ([]byte, error)
+}
+
+func NewForwardLineReader(reader io.ReaderAt, offset int) *ForwardLineReader {
+	return &ForwardLineReader{reader, offset, make([]byte, lineReaderReadSize), nil}
+}
+
+type ForwardLineReader struct {
+	reader  io.ReaderAt
+	offset  int
+	readBuf []byte
+	unused  []byte
+}
+
+func (f *ForwardLineReader) ReadLine() ([]byte, error) {
+	// Check if the new newline is in the unused buffer.
+	for i, b := range f.unused {
+		if b == '\n' {
+			line := f.unused[:i+1]
+			f.unused = f.unused[i+1:]
+			return line, nil
+		}
+	}
+
+	// Copy a new set of bytes into unused.
+	n, err := f.reader.ReadAt(f.readBuf, int64(f.offset))
+	if err != nil && (err != io.EOF || n == 0) {
+		return nil, err
+	}
+	f.offset += n
+	f.unused = append(f.unused, f.readBuf[:n]...)
+	return f.ReadLine()
+}
 
 func NewBackwardLineReader(reader io.ReaderAt, offset int) *BackwardLineReader {
 	return &BackwardLineReader{reader, offset, make([]byte, lineReaderReadSize), nil}
@@ -16,7 +53,6 @@ type BackwardLineReader struct {
 }
 
 func (b *BackwardLineReader) ReadLine() ([]byte, error) {
-
 	if len(b.unused) == 0 && b.offset == 0 {
 		return nil, io.EOF
 	}

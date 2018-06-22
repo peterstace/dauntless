@@ -22,8 +22,7 @@ crashes, then it may not exit `cbreak` mode before exiting. To manually leave
 
 * Up/Down keys in command mode to use history. Should be per command.
 
-* Only allow one search at a time. Show progress. Allow search to be cancelled.
-  Modal search?
+* Show search progress.
 
 * Offset history.
 
@@ -41,8 +40,6 @@ crashes, then it may not exit `cbreak` mode before exiting. To manually leave
 
 * Copy/paste friendly mode. Toggle indent away, show all lines, no spaces at
   end of lines.
-
-* Highlight regex in status bar with its own style.
 
 ### Least Important
 
@@ -66,6 +63,8 @@ something long.
 ### Technical Debt
 
 * Add assertions back in for main data structure.
+
+* Stdin reading routing in collect.go could use a lot of improvement.
 
 ### Known Bugs
 

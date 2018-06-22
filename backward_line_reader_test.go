@@ -7,8 +7,40 @@ import (
 	"testing"
 )
 
-func TestBackwardLineReaderSuccess(t *testing.T) {
+func TestForwardLineReader(t *testing.T) {
+	for _, test := range []struct {
+		input string
+		lines []string
+	}{
+		{"", nil},
+		{"hello\n", []string{"hello\n"}},
+		{"hello\nworld", []string{"hello\n"}},
+		{"hello\nworld\n", []string{"hello\n", "world\n"}},
+	} {
+		reader := NewForwardLineReader(strings.NewReader(test.input), 0)
+		reader.readBuf = make([]byte, 4) // Allow smaller test chunks.
+		var got []string
+		var err error
+		for {
+			var str []byte
+			str, err = reader.ReadLine()
+			if err == nil {
+				got = append(got, string(str))
+				continue
+			}
+			break
+		}
+		if err == io.EOF {
+			if !reflect.DeepEqual(got, test.lines) {
+				t.Errorf("Got=%v Want=%v", got, test.lines)
+			}
+		} else {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+	}
+}
 
+func TestBackwardLineReaderSuccess(t *testing.T) {
 	for _, test := range []struct {
 		input string
 		lines []string
@@ -23,6 +55,7 @@ func TestBackwardLineReaderSuccess(t *testing.T) {
 		{"01234567890\n", []string{"01234567890\n"}},
 	} {
 		reader := NewBackwardLineReader(strings.NewReader(test.input), len(test.input))
+		reader.readBuf = make([]byte, 4) // Allow smaller test chunks.
 		var got []string
 		var err error
 		for {

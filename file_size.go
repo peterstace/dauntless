@@ -1,35 +1,34 @@
 package main
 
 import (
-	"os"
 	"time"
 )
 
-func LoadFileSize(filename string) (int, error) {
-
-	f, err := os.Open(filename)
-	if err != nil {
-		return 0, err
-	}
-	defer f.Close()
-
-	fileInfo, err := f.Stat()
-	if err != nil {
-		return 0, err
-	}
-	return int(fileInfo.Size()), nil
-}
-
-func CollectFileSize(r Reactor, a App, filename string) {
+func CollectFileSize(r Reactor, a App, c Content) {
 	go func() {
+		var lastSize int64
+		var sleepFor time.Duration
 		for {
-			size, err := LoadFileSize(filename)
+			size, err := c.Size()
 			if err != nil {
 				r.Stop(err)
 				return
 			}
-			r.Enque(func() { a.FileSize(size) })
-			time.Sleep(time.Second)
+			resized := size != lastSize
+			lastSize = size
+
+			r.Enque(func() { a.FileSize(int(size)) })
+
+			if resized {
+				sleepFor = 0
+			} else {
+				sleepFor = 2 * (sleepFor + time.Millisecond)
+				const maxSleep = time.Second
+				if sleepFor > maxSleep {
+					sleepFor = maxSleep
+				}
+			}
+			time.Sleep(sleepFor)
 		}
 	}()
 }

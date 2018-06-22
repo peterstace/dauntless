@@ -9,10 +9,20 @@ import (
 
 type ttyState string
 
-func enterRaw() ttyState {
+var tty *os.File
 
+func init() {
+	var err error
+	tty, err = os.Open("/dev/tty")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Could not open /dev/tty: %v", err)
+		os.Exit(1)
+	}
+}
+
+func enterRaw() ttyState {
 	cmd := exec.Command("stty", "-g")
-	cmd.Stdin = os.Stdin
+	cmd.Stdin = tty
 	oldState, err := cmd.Output()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Could not get TTY state")
@@ -20,7 +30,7 @@ func enterRaw() ttyState {
 	}
 
 	cmd = exec.Command("stty", "cbreak", "-echo")
-	cmd.Stdin = os.Stdin
+	cmd.Stdin = tty
 	combinedOut, err := cmd.CombinedOutput()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Could not enter raw mode: %s", string(combinedOut))
@@ -31,9 +41,8 @@ func enterRaw() ttyState {
 }
 
 func (s ttyState) leaveRaw() {
-
 	cmd := exec.Command("stty", string(s))
-	cmd.Stdin = os.Stdin
+	cmd.Stdin = tty
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Could not restore terminal state: %s", string(out))
@@ -55,7 +64,7 @@ func leaveAlt() {
 	cmd := exec.Command("tput", "rmcup")
 	out, err := cmd.Output()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Could not enter alt buffer.")
+		fmt.Fprintf(os.Stderr, "Could not leave alt buffer.")
 		os.Exit(1)
 	}
 	fmt.Fprintf(os.Stdout, string(out))
