@@ -8,7 +8,6 @@ import (
 	"syscall"
 
 	"github.com/peterstace/dauntless"
-	"github.com/peterstace/dauntless/term"
 	"golang.org/x/crypto/ssh/terminal"
 )
 
@@ -71,8 +70,8 @@ func main() {
 
 	config := dauntless.Config{*wrapPrefix, mask}
 
-	term.EnterAlt()
-	ttyState := term.EnterRaw()
+	dauntless.EnterAlt()
+	ttyState := dauntless.EnterRaw()
 	screen := dauntless.NewTermScreen(os.Stdout, reactor)
 	app := dauntless.NewApp(reactor, content, filename, screen, config)
 	reactor.Enque(app.Initialise)
@@ -83,7 +82,7 @@ func main() {
 	err = reactor.Run()
 
 	ttyState.LeaveRaw()
-	term.LeaveAlt()
+	dauntless.LeaveAlt()
 
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
