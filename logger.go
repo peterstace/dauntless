@@ -1,4 +1,4 @@
-package main
+package dauntless
 
 import (
 	"bytes"
@@ -7,6 +7,12 @@ import (
 	"os"
 	"time"
 )
+
+var log Logger = NullLogger{}
+
+func SetLogger(lg Logger) {
+	log = lg
+}
 
 type Logger interface {
 	Info(format string, args ...interface{})
