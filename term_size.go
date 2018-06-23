@@ -1,12 +1,12 @@
 package dauntless
 
 import (
+	"fmt"
 	"os"
+	"os/exec"
 	"os/signal"
 	"syscall"
 	"time"
-
-	"github.com/peterstace/dauntless/term"
 )
 
 func CollectTermSize(r Reactor, a App) {
@@ -22,7 +22,7 @@ func CollectTermSize(r Reactor, a App) {
 				forceRefresh = true
 			}
 
-			rows, cols, err := term.GetTermSize()
+			rows, cols, err := getTermSize()
 			if err != nil {
 				r.Stop(err)
 				return
@@ -33,4 +33,15 @@ func CollectTermSize(r Reactor, a App) {
 			})
 		}
 	}()
+}
+
+func getTermSize() (rows int, cols int, err error) {
+	cmd := exec.Command("stty", "size")
+	cmd.Stdin = tty
+	var dim []byte
+	dim, err = cmd.Output()
+	if err == nil {
+		_, err = fmt.Sscanf(string(dim), "%d %d", &rows, &cols)
+	}
+	return
 }
