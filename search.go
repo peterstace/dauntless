@@ -37,7 +37,7 @@ func jumpToMatch(r Reactor, m *Model, reverse bool) {
 }
 
 func FindMatch(r Reactor, m *Model, start int, re *regexp.Regexp, reverse bool) {
-	defer r.Enque(func() { m.longFileOpInProgress = false })
+	defer r.Enque(func() { m.longFileOpInProgress = false }, "find match complete")
 
 	var lineReader LineReader
 	if reverse {
@@ -60,7 +60,7 @@ func FindMatch(r Reactor, m *Model, start int, re *regexp.Regexp, reverse bool) 
 				r.Enque(func() {
 					msg := "regex search complete: no match found"
 					setMessage(m, msg)
-				})
+				}, "no match found")
 				return
 			}
 		}
@@ -78,7 +78,7 @@ func FindMatch(r Reactor, m *Model, start int, re *regexp.Regexp, reverse bool) 
 	r.Enque(func() {
 		log.Info("Regexp search completed with match.")
 		moveToOffset(m, offset)
-	})
+	}, "match found")
 }
 
 func currentRE(m *Model) *regexp.Regexp {

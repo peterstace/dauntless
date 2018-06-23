@@ -1,30 +1,39 @@
 package main
 
 type Reactor interface {
-	Enque(func())
+	Enque(func(), string)
 	Run() error
 	Stop(error)
 	SetPostHook(func())
+	GetCycle() int
 }
 
 func NewReactor() Reactor {
 	return &reactor{
-		make(chan func(), 1024),
+		make(chan event, 1024),
 		make(chan error, 1),
 		0,
 		nil,
 	}
 }
 
+type event struct {
+	action func()
+	source string
+}
+
 type reactor struct {
-	queue    chan func()
+	queue    chan event
 	stop     chan error
 	cycle    int
 	postHook func()
 }
 
-func (r *reactor) Enque(fn func()) {
-	r.queue <- fn
+func (r *reactor) Enque(fn func(), src string) {
+	r.queue <- event{
+		action: fn,
+		source: src,
+	}
 }
 
 func (r *reactor) Run() error {
@@ -41,8 +50,9 @@ func (r *reactor) Run() error {
 
 		// Wait for the stopping condition, or the next event to process.
 		select {
-		case fn := <-r.queue:
-			fn()
+		case event := <-r.queue:
+			log.Info("Running event from: %s", event.source)
+			event.action()
 			if r.postHook != nil {
 				r.postHook()
 			}
@@ -66,4 +76,8 @@ func (r *reactor) Stop(err error) {
 
 func (r *reactor) SetPostHook(fn func()) {
 	r.postHook = fn
+}
+
+func (r *reactor) GetCycle() int {
+	return r.cycle
 }

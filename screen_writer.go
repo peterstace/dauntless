@@ -112,7 +112,7 @@ func (t *termScreen) outputPending() {
 		// probably be variable/parameter.
 		time.Sleep(10 * time.Millisecond)
 
-		t.reactor.Enque(t.writeComplete)
+		t.reactor.Enque(t.writeComplete, "write complete")
 	}()
 }
 

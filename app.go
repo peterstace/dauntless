@@ -41,6 +41,8 @@ func NewApp(reactor Reactor, content Content, filename string, screen Screen, co
 func (a *app) Initialise() {
 	log.Info("***************** Initialising log viewer ******************")
 	a.reactor.SetPostHook(func() {
+		// Round cycle to nearest 10 to prevent flapping.
+		a.model.cycle = a.reactor.GetCycle() / 10 * 10
 		a.fillScreenBuffer()
 		a.refresh()
 	})
@@ -222,7 +224,7 @@ func (a *app) seekEntered(cmd string) {
 				return
 			}
 			moveToOffset(&a.model, offset)
-		})
+		}, "seek entered")
 	}()
 }
 func (a *app) bisectEntered(cmd string) {
@@ -235,7 +237,7 @@ func (a *app) bisectEntered(cmd string) {
 				return
 			}
 			moveToOffset(&a.model, offset)
-		})
+		}, "bisect entered")
 	}()
 }
 func (a *app) quitEntered(cmd string) {
@@ -275,7 +277,7 @@ func (a *app) discardBufferedInputAndRepaint() {
 				return
 			}
 			moveToOffset(&a.model, offset)
-		})
+		}, "discard buffered input and repaint")
 	}()
 }
 
@@ -323,7 +325,7 @@ func (a *app) moveBottom() {
 				return
 			}
 			moveToOffset(&a.model, offset)
-		})
+		}, "move bottom")
 	}()
 }
 
@@ -513,7 +515,7 @@ func (a *app) loadForward(amount int) {
 			}
 			log.Debug("After adding to data structure: fwd=%d bck=%d", len(a.model.fwd), len(a.model.bck))
 			a.fillingScreenBuffer = false
-		})
+		}, "load forward")
 	}()
 }
 
@@ -544,7 +546,7 @@ func (a *app) loadBackward(amount int) {
 			}
 			log.Debug("After adding to data structure: fwd=%d bck=%d", len(a.model.fwd), len(a.model.bck))
 			a.fillingScreenBuffer = false
-		})
+		}, "load backward")
 	}()
 }
 

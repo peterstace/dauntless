@@ -34,6 +34,7 @@ type Model struct {
 	cmd Command
 
 	debug bool
+	cycle int
 
 	longFileOpInProgress bool
 	cancelLongFileOp     Cancellable

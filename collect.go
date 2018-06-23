@@ -13,7 +13,7 @@ func collectInterrupt(r Reactor, a App) {
 		ch := make(chan os.Signal, 1)
 		signal.Notify(ch, os.Interrupt)
 		for _ = range ch {
-			r.Enque(a.Interrupt)
+			r.Enque(a.Interrupt, "interrupt")
 		}
 	}()
 }
@@ -31,7 +31,9 @@ func CollectFileSize(r Reactor, a App, c Content) {
 			resized := size != lastSize
 			lastSize = size
 
-			r.Enque(func() { a.FileSize(int(size)) })
+			if resized {
+				r.Enque(func() { a.FileSize(int(size)) }, "content size")
+			}
 
 			if resized {
 				sleepFor = 0
@@ -52,6 +54,7 @@ func CollectTermSize(r Reactor, a App) {
 		sigCh := make(chan os.Signal, 1)
 		signal.Notify(sigCh, syscall.SIGWINCH)
 		sigCh <- nil // Prime so that we get a term size immediately.
+		var lastRows, lastCols int
 		for {
 			forceRefresh := false
 			select {
@@ -65,10 +68,12 @@ func CollectTermSize(r Reactor, a App) {
 				r.Stop(err)
 				return
 			}
+			if lastRows == rows && lastCols == cols {
+				continue
+			}
+			lastRows, lastCols = rows, cols
 
-			r.Enque(func() {
-				a.TermSize(rows, cols, forceRefresh)
-			})
+			r.Enque(func() { a.TermSize(rows, cols, forceRefresh) }, "term size")
 		}
 	}()
 }
@@ -100,7 +105,7 @@ func collectInput(r Reactor, a App) {
 						if (buf[i] >= 'A' && buf[i] <= 'Z') || buf[i] == '~' {
 							foundEnd = true
 							key := Key(buf[:i+1])
-							r.Enque(func() { a.KeyPress(key) })
+							r.Enque(func() { a.KeyPress(key) }, "input")
 							buf = buf[i+1:]
 						}
 					}
@@ -110,7 +115,7 @@ func collectInput(r Reactor, a App) {
 				} else {
 					// Process the chars normally.
 					key := Key(buf[0])
-					r.Enque(func() { a.KeyPress(key) })
+					r.Enque(func() { a.KeyPress(key) }, "input")
 					buf = buf[1:]
 				}
 			}
