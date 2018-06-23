@@ -1,4 +1,4 @@
-package dauntless
+package main
 
 import (
 	"fmt"
@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-func CollectTermSize(r Reactor, a App) {
+func collectTermSize(r Reactor, a App) {
 	go func() {
 		sigCh := make(chan os.Signal, 1)
 		signal.Notify(sigCh, syscall.SIGWINCH)

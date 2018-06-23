@@ -7,11 +7,12 @@ import (
 	"regexp"
 	"syscall"
 
-	"github.com/peterstace/dauntless"
 	"golang.org/x/crypto/ssh/terminal"
 )
 
 const version = "Dauntless <unversioned>"
+
+var log Logger
 
 func main() {
 	var logfile string
@@ -26,18 +27,20 @@ func main() {
 		return
 	}
 
-	if logfile != "" {
-		lg, err := dauntless.FileLogger(logfile)
+	if logfile == "" {
+		log = NullLogger{}
+	} else {
+		var err error
+		log, err = FileLogger(logfile)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Could not open debug logfile %q: %s\n", logfile, err)
 			os.Exit(1)
 		}
-		dauntless.SetLogger(lg)
 	}
 
-	reactor := dauntless.NewReactor()
+	reactor := NewReactor()
 	var filename string
-	var content dauntless.Content
+	var content Content
 
 	switch len(flag.Args()) {
 	case 0:
@@ -46,13 +49,13 @@ func main() {
 			os.Exit(1)
 		}
 		filename = "stdin"
-		buffContent := dauntless.NewBufferContent()
+		buffContent := NewBufferContent()
 		buffContent.CollectFrom(os.Stdin, reactor)
 		content = buffContent
 	case 1:
 		filename = flag.Args()[0]
 		var err error
-		content, err = dauntless.NewFileContent(filename)
+		content, err = NewFileContent(filename)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Could not open file %s: %s", filename, err)
 			os.Exit(1)
@@ -68,21 +71,21 @@ func main() {
 		os.Exit(1)
 	}
 
-	config := dauntless.Config{*wrapPrefix, mask}
+	config := Config{*wrapPrefix, mask}
 
-	dauntless.EnterAlt()
-	ttyState := dauntless.EnterRaw()
-	screen := dauntless.NewTermScreen(os.Stdout, reactor)
-	app := dauntless.NewApp(reactor, content, filename, screen, config)
+	enterAlt()
+	ttyState := enterRaw()
+	screen := NewTermScreen(os.Stdout, reactor)
+	app := NewApp(reactor, content, filename, screen, config)
 	reactor.Enque(app.Initialise)
-	dauntless.CollectFileSize(reactor, app, content)
-	dauntless.CollectInterrupt(reactor, app)
-	dauntless.CollectInput(reactor, app)
-	dauntless.CollectTermSize(reactor, app)
+	CollectFileSize(reactor, app, content)
+	collectInterrupt(reactor, app)
+	collectInput(reactor, app)
+	collectTermSize(reactor, app)
 	err = reactor.Run()
 
-	ttyState.LeaveRaw()
-	dauntless.LeaveAlt()
+	ttyState.leaveRaw()
+	leaveAlt()
 
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)

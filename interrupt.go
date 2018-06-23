@@ -1,11 +1,11 @@
-package dauntless
+package main
 
 import (
 	"os"
 	"os/signal"
 )
 
-func CollectInterrupt(r Reactor, a App) {
+func collectInterrupt(r Reactor, a App) {
 	go func() {
 		ch := make(chan os.Signal, 1)
 		signal.Notify(ch, os.Interrupt)

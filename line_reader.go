@@ -1,4 +1,4 @@
-package dauntless
+package main
 
 import (
 	"io"

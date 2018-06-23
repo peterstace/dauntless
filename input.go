@@ -1,8 +1,8 @@
-package dauntless
+package main
 
 import "os"
 
-func CollectInput(r Reactor, a App) {
+func collectInput(r Reactor, a App) {
 	go func() {
 		tty, err := os.Open("/dev/tty")
 		if err != nil {

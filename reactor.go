@@ -1,4 +1,4 @@
-package dauntless
+package main
 
 type Reactor interface {
 	Enque(func())
