@@ -60,12 +60,6 @@ goroutine. But if the panic occurs in another goroutine, we're out of luck.
   what they're entering past the end of the screen if they're entering
 something long.
 
-### Technical Debt
-
-* Add assertions back in for main data structure.
-
-* Stdin reading routing in collect.go could use a lot of improvement.
-
 ### Known Bugs
 
 * Bisect past EOF is fatal. Noticed that the last line in the file was partial,

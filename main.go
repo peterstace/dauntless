@@ -50,7 +50,7 @@ func main() {
 		}
 		filename = "stdin"
 		buffContent := NewBufferContent()
-		buffContent.CollectFrom(os.Stdin, reactor)
+		CollectContent(os.Stdin, reactor, buffContent)
 		content = buffContent
 	case 1:
 		filename = flag.Args()[0]
@@ -81,7 +81,7 @@ func main() {
 	CollectFileSize(reactor, app, content)
 	collectInterrupt(reactor, app)
 	collectInput(reactor, app)
-	collectTermSize(reactor, app)
+	CollectTermSize(reactor, app)
 	err = reactor.Run()
 
 	ttyState.leaveRaw()

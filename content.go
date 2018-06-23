@@ -5,12 +5,12 @@ import (
 	"io"
 	"os"
 	"sync"
-	"time"
 )
 
 type Content interface {
 	Size() (int64, error)
 	io.ReaderAt
+	Write([]byte)
 }
 
 func NewFileContent(filename string) (FileContent, error) {
@@ -31,6 +31,10 @@ func (f FileContent) Size() (int64, error) {
 		return 0, err
 	}
 	return fi.Size(), nil
+}
+
+func (f FileContent) Write([]byte) {
+	panic("should not be called")
 }
 
 func NewBufferContent() *BufferContent {
@@ -64,32 +68,8 @@ func (s *BufferContent) ReadAt(p []byte, off int64) (int, error) {
 	return n, nil
 }
 
-func (s *BufferContent) CollectFrom(r io.Reader, reac Reactor) {
-	go func() {
-		buf := make([]byte, 16<<10)
-		var sleepFor time.Duration
-		for {
-			n, err := r.Read(buf)
-			if err != nil && err != io.EOF {
-				reac.Stop(err)
-				return
-			}
-
-			if n > 0 {
-				s.mu.Lock()
-				s.buf.Write(buf[:n])
-				s.mu.Unlock()
-			}
-
-			if n == 0 {
-				sleepFor = 2 * (sleepFor + time.Millisecond)
-				if sleepFor > time.Second {
-					sleepFor = time.Second
-				}
-			} else {
-				sleepFor = 0
-			}
-			time.Sleep(sleepFor)
-		}
-	}()
+func (s *BufferContent) Write(p []byte) {
+	s.mu.Lock()
+	s.buf.Write(p)
+	s.mu.Unlock()
 }

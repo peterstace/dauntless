@@ -69,3 +69,14 @@ func leaveAlt() {
 	}
 	fmt.Fprintf(os.Stdout, string(out))
 }
+
+func getTermSize() (rows int, cols int, err error) {
+	cmd := exec.Command("stty", "size")
+	cmd.Stdin = tty
+	var dim []byte
+	dim, err = cmd.Output()
+	if err == nil {
+		_, err = fmt.Sscanf(string(dim), "%d %d", &rows, &cols)
+	}
+	return
+}
