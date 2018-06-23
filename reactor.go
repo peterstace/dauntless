@@ -16,8 +16,6 @@ func NewReactor() Reactor {
 	}
 }
 
-// TODO: Should not have a fixed queue size.
-
 type reactor struct {
 	queue    chan func()
 	stop     chan error
@@ -48,7 +46,7 @@ func (r *reactor) Run() error {
 			if r.postHook != nil {
 				r.postHook()
 			}
-			err := log.Flush() // TODO: Flush in own goroutine.
+			err := log.Flush()
 			if err != nil {
 				r.Stop(err)
 			}
