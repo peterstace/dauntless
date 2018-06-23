@@ -1,4 +1,4 @@
-package main
+package dauntless
 
 type ScreenState struct {
 	Chars  []byte

@@ -1,4 +1,4 @@
-package main
+package dauntless
 
 func assert(b bool) {
 	if !b {

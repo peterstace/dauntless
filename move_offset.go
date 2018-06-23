@@ -1,4 +1,4 @@
-package main
+package dauntless
 
 func moveToOffset(m *Model, offset int) {
 	log.Info("Moving to offset: currentOffset=%d newOffset=%d", m.offset, offset)

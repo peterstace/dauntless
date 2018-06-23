@@ -1,4 +1,4 @@
-package main
+package dauntless
 
 import (
 	"fmt"
@@ -20,7 +20,7 @@ func init() {
 	}
 }
 
-func enterRaw() ttyState {
+func EnterRaw() ttyState {
 	cmd := exec.Command("stty", "-g")
 	cmd.Stdin = tty
 	oldState, err := cmd.Output()
@@ -40,7 +40,7 @@ func enterRaw() ttyState {
 	return ttyState(strings.TrimSpace(string(oldState)))
 }
 
-func (s ttyState) leaveRaw() {
+func (s ttyState) LeaveRaw() {
 	cmd := exec.Command("stty", string(s))
 	cmd.Stdin = tty
 	out, err := cmd.CombinedOutput()
@@ -50,7 +50,7 @@ func (s ttyState) leaveRaw() {
 	}
 }
 
-func enterAlt() {
+func EnterAlt() {
 	cmd := exec.Command("tput", "smcup")
 	out, err := cmd.Output()
 	if err != nil {
@@ -60,7 +60,7 @@ func enterAlt() {
 	fmt.Fprintf(os.Stdout, string(out))
 }
 
-func leaveAlt() {
+func LeaveAlt() {
 	cmd := exec.Command("tput", "rmcup")
 	out, err := cmd.Output()
 	if err != nil {
