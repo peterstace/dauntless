@@ -6,60 +6,60 @@ import (
 	"regexp"
 )
 
-func jumpToMatch(r Reactor, m *Model, reverse bool) {
-	re := currentRE(m)
+func (a *app) jumpToMatch(reverse bool) {
+	re := currentRE(&a.model)
 	if re == nil {
 		msg := "no regex to jump to"
 		log.Info(msg)
-		setMessage(m, msg)
+		a.setMessage(msg)
 		return
 	}
 
-	if len(m.fwd) == 0 {
+	if len(a.model.fwd) == 0 {
 		log.Warn("Cannot search for next match: current line is not loaded.")
 		return
 	}
 
 	var start int
 	if reverse {
-		start = m.offset
+		start = a.model.offset
 	} else {
-		start = m.fwd[0].nextOffset()
+		start = a.model.fwd[0].nextOffset()
 	}
 
-	m.longFileOpInProgress = true
-	m.cancelLongFileOp.Reset()
-	m.msg = ""
+	a.model.longFileOpInProgress = true
+	a.model.cancelLongFileOp.Reset()
+	a.model.msg = ""
 
 	log.Info("Searching for next regexp match: regexp=%q", re)
 
-	go FindMatch(r, m, start, re, reverse)
+	go a.FindMatch(start, re, reverse)
 }
 
-func FindMatch(r Reactor, m *Model, start int, re *regexp.Regexp, reverse bool) {
-	defer r.Enque(func() { m.longFileOpInProgress = false }, "find match complete")
+func (a *app) FindMatch(start int, re *regexp.Regexp, reverse bool) {
+	defer a.reactor.Enque(func() { a.model.longFileOpInProgress = false }, "find match complete")
 
 	var lineReader LineReader
 	if reverse {
-		lineReader = NewBackwardLineReader(m.content, start)
+		lineReader = NewBackwardLineReader(a.model.content, start)
 	} else {
-		lineReader = NewForwardLineReader(m.content, start)
+		lineReader = NewForwardLineReader(a.model.content, start)
 	}
 
 	offset := start
 	for {
-		if m.cancelLongFileOp.Cancelled() {
+		if a.model.cancelLongFileOp.Cancelled() {
 			return
 		}
 		line, err := lineReader.ReadLine()
 		if err != nil {
 			if err != io.EOF {
-				r.Stop(fmt.Errorf("Could not read: error=%v", err))
+				a.reactor.Stop(fmt.Errorf("Could not read: error=%v", err))
 				return
 			} else {
-				r.Enque(func() {
+				a.reactor.Enque(func() {
 					msg := "regex search complete: no match found"
-					setMessage(m, msg)
+					a.setMessage(msg)
 				}, "no match found")
 				return
 			}
@@ -75,9 +75,9 @@ func FindMatch(r Reactor, m *Model, start int, re *regexp.Regexp, reverse bool) 
 		}
 	}
 
-	r.Enque(func() {
+	a.reactor.Enque(func() {
 		log.Info("Regexp search completed with match.")
-		moveToOffset(m, offset)
+		moveToOffset(&a.model, offset)
 	}, "match found")
 }
 

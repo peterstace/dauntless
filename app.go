@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+	"time"
 )
 
 type App interface {
@@ -99,8 +100,8 @@ func (a *app) normalModeKeyPress(k Key) {
 		"G": a.moveBottom,
 
 		"/": a.startSearchCommand,
-		"n": func() { jumpToMatch(a.reactor, &a.model, false) },
-		"N": func() { jumpToMatch(a.reactor, &a.model, true) },
+		"n": func() { a.jumpToMatch(false) },
+		"N": func() { a.jumpToMatch(true) },
 
 		"w": a.toggleLineWrapMode,
 
@@ -331,7 +332,7 @@ func (a *app) moveBottom() {
 
 func (a *app) CommandFailed(err error) {
 	log.Warn("Command failed: %v", err)
-	setMessage(&a.model, err.Error())
+	a.setMessage(err.Error())
 }
 
 func (a *app) startSearchCommand() {
@@ -343,7 +344,7 @@ func (a *app) startSearchCommand() {
 func (a *app) startColourCommand() {
 	if currentRE(&a.model) == nil {
 		msg := "cannot select regex color: no active regex"
-		setMessage(&a.model, msg)
+		a.setMessage(msg)
 		return
 	}
 	a.model.cmd.Mode = ColourCommand
@@ -383,7 +384,7 @@ func (a *app) cycleRegexp(forward bool) {
 	if len(a.model.regexes) == 0 {
 		msg := "no regexes to cycle between"
 		log.Warn(msg)
-		setMessage(&a.model, msg)
+		a.setMessage(msg)
 		return
 	}
 
@@ -406,7 +407,7 @@ func (a *app) deleteRegexp() {
 	} else {
 		msg := "no regexes to delete"
 		log.Warn(msg)
-		setMessage(&a.model, msg)
+		a.setMessage(msg)
 	}
 }
 
@@ -586,4 +587,18 @@ func (a *app) renderScreen() {
 	state := CreateView(&a.model)
 	a.screen.Write(state, a.forceRefresh)
 	a.forceRefresh = false
+}
+
+const msgLingerDuration = 5 * time.Second
+
+func (a *app) setMessage(msg string) {
+	log.Info("Setting message: %q", msg)
+	a.model.msg = msg
+	a.model.msgSetAt = time.Now()
+	go func() {
+		// Trigger an event after the linger duration to stop the message being
+		// drawn.
+		time.Sleep(msgLingerDuration)
+		a.reactor.Enque(func() {}, "linger complete")
+	}()
 }
