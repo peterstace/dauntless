@@ -15,12 +15,11 @@ func CollectTermSize(r Reactor, a App) {
 		signal.Notify(sigCh, syscall.SIGWINCH)
 		sigCh <- nil // Prime so that we get a term size immediately.
 		for {
-
-			force := false
+			forceRefresh := false
 			select {
 			case <-time.After(time.Second):
 			case <-sigCh:
-				force = true
+				forceRefresh = true
 			}
 
 			rows, cols, err := term.GetTermSize()
@@ -30,10 +29,7 @@ func CollectTermSize(r Reactor, a App) {
 			}
 
 			r.Enque(func() {
-				if force {
-					a.ForceRefresh()
-				}
-				a.TermSize(rows, cols)
+				a.TermSize(rows, cols, forceRefresh)
 			})
 		}
 	}()

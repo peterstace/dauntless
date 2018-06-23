@@ -9,10 +9,9 @@ import (
 type App interface {
 	Initialise()
 	KeyPress(Key)
-	TermSize(rows, cols int)
+	TermSize(rows, cols int, forceRefresh bool)
 	FileSize(int)
 	Interrupt()
-	ForceRefresh()
 }
 
 type app struct {
@@ -37,10 +36,6 @@ func NewApp(reactor Reactor, content Content, filename string, screen Screen, co
 			filename: filename,
 		},
 	}
-}
-
-func (a *app) ForceRefresh() {
-	a.forceRefresh = true
 }
 
 func (a *app) Initialise() {
@@ -553,7 +548,8 @@ func (a *app) loadBackward(amount int) {
 	}()
 }
 
-func (a *app) TermSize(rows, cols int) {
+func (a *app) TermSize(rows, cols int, forceRefresh bool) {
+	a.forceRefresh = forceRefresh
 	if a.model.rows != rows || a.model.cols != cols {
 		a.model.rows = rows
 		a.model.cols = cols
