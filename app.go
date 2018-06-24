@@ -17,15 +17,11 @@ type App interface {
 }
 
 type app struct {
-	reactor Reactor
-
-	screen Screen
-
+	reactor             Reactor
+	screen              Screen
 	fillingScreenBuffer bool
-
-	forceRefresh bool
-
-	model Model
+	forceRefresh        bool
+	model               Model
 }
 
 func NewApp(reactor Reactor, content Content, filename string, screen Screen, config Config) App {
