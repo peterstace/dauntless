@@ -7,7 +7,7 @@ import (
 const lineReaderReadSize = 1 << 12
 
 type LineReader interface {
-	ReadLine() ([]byte, error)
+	ReadLine() (string, error)
 }
 
 func NewForwardLineReader(reader io.ReaderAt, offset int) *ForwardLineReader {
@@ -21,20 +21,20 @@ type ForwardLineReader struct {
 	unused  []byte
 }
 
-func (f *ForwardLineReader) ReadLine() ([]byte, error) {
+func (f *ForwardLineReader) ReadLine() (string, error) {
 	// Check if the new newline is in the unused buffer.
 	for i, b := range f.unused {
 		if b == '\n' {
 			line := f.unused[:i+1]
 			f.unused = f.unused[i+1:]
-			return line, nil
+			return string(line), nil
 		}
 	}
 
 	// Copy a new set of bytes into unused.
 	n, err := f.reader.ReadAt(f.readBuf, int64(f.offset))
 	if err != nil && (err != io.EOF || n == 0) {
-		return nil, err
+		return "", err
 	}
 	f.offset += n
 	f.unused = append(f.unused, f.readBuf[:n]...)
@@ -52,19 +52,19 @@ type BackwardLineReader struct {
 	unused  []byte
 }
 
-func (b *BackwardLineReader) ReadLine() ([]byte, error) {
+func (b *BackwardLineReader) ReadLine() (string, error) {
 	if len(b.unused) == 0 && b.offset == 0 {
-		return nil, io.EOF
+		return "", io.EOF
 	}
 
 	for i := len(b.unused) - 1; i >= 0; i-- {
 		if b.offset == 0 && i == 0 {
-			line := b.unused
+			line := string(b.unused)
 			b.unused = nil
 			return line, nil
 		}
 		if b.unused[i] == '\n' && i != len(b.unused)-1 {
-			line := b.unused[i+1:]
+			line := string(b.unused[i+1:])
 			b.unused = b.unused[:i+1]
 			return line, nil
 		}
@@ -77,7 +77,7 @@ func (b *BackwardLineReader) ReadLine() ([]byte, error) {
 	}
 	n, err := b.reader.ReadAt(b.readBuf, int64(readFrom))
 	if err != nil && err != io.EOF {
-		return nil, err
+		return "", err
 	}
 	b.offset -= n
 	assert(b.offset >= 0)

@@ -2,29 +2,26 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"regexp"
 	"strconv"
+	"time"
 )
 
 type App interface {
 	Initialise()
 	KeyPress(Key)
-	TermSize(rows, cols int)
+	TermSize(rows, cols int, forceRefresh bool)
 	FileSize(int)
 	Interrupt()
-	ForceRefresh()
 }
 
 type app struct {
-	reactor Reactor
-
-	screen Screen
-
+	reactor             Reactor
+	screen              Screen
 	fillingScreenBuffer bool
-
-	forceRefresh bool
-
-	model Model
+	forceRefresh        bool
+	model               Model
 }
 
 func NewApp(reactor Reactor, content Content, filename string, screen Screen, config Config) App {
@@ -39,13 +36,11 @@ func NewApp(reactor Reactor, content Content, filename string, screen Screen, co
 	}
 }
 
-func (a *app) ForceRefresh() {
-	a.forceRefresh = true
-}
-
 func (a *app) Initialise() {
 	log.Info("***************** Initialising log viewer ******************")
 	a.reactor.SetPostHook(func() {
+		// Round cycle to nearest 10 to prevent flapping.
+		a.model.cycle = a.reactor.GetCycle() / 10 * 10
 		a.fillScreenBuffer()
 		a.refresh()
 	})
@@ -102,8 +97,8 @@ func (a *app) normalModeKeyPress(k Key) {
 		"G": a.moveBottom,
 
 		"/": a.startSearchCommand,
-		"n": func() { jumpToMatch(a.reactor, &a.model, false) },
-		"N": func() { jumpToMatch(a.reactor, &a.model, true) },
+		"n": func() { a.jumpToMatch(false) },
+		"N": func() { a.jumpToMatch(true) },
 
 		"w": a.toggleLineWrapMode,
 
@@ -172,13 +167,36 @@ func (a *app) commandModeKeyPress(k Key) {
 	}
 }
 
-func (a *app) searchEntered(cmd string) {
-	re, err := regexp.Compile(cmd)
-	if err != nil {
-		a.CommandFailed(err)
+func moveToOffset(m *Model, offset int) {
+	log.Info("Moving to offset: currentOffset=%d newOffset=%d", m.offset, offset)
+	assert(offset >= 0)
+	if m.offset == offset {
+		log.Info("Already at target offset.")
 		return
 	}
-	a.model.tmpRegex = re
+
+	ahead, aback := &m.fwd, &m.bck
+	if offset < m.offset {
+		ahead, aback = aback, ahead
+	}
+
+	for _, ln := range *ahead {
+		if ln.offset == offset {
+			for m.offset != offset {
+				l := (*ahead)[0]
+				*ahead = (*ahead)[1:]
+				*aback = append([]line{l}, *aback...)
+				m.offset = l.offset
+				if ahead == &m.fwd {
+					m.offset += len(l.data)
+				}
+			}
+			return
+		}
+	}
+	m.fwd = nil
+	m.bck = nil
+	m.offset = offset
 }
 
 var styles = [...]Style{Default, Black, Red, Green, Yellow, Blue, Magenta, Cyan, White}
@@ -227,7 +245,7 @@ func (a *app) seekEntered(cmd string) {
 				return
 			}
 			moveToOffset(&a.model, offset)
-		})
+		}, "seek entered")
 	}()
 }
 func (a *app) bisectEntered(cmd string) {
@@ -240,7 +258,7 @@ func (a *app) bisectEntered(cmd string) {
 				return
 			}
 			moveToOffset(&a.model, offset)
-		})
+		}, "bisect entered")
 	}()
 }
 func (a *app) quitEntered(cmd string) {
@@ -280,7 +298,7 @@ func (a *app) discardBufferedInputAndRepaint() {
 				return
 			}
 			moveToOffset(&a.model, offset)
-		})
+		}, "discard buffered input and repaint")
 	}()
 }
 
@@ -328,25 +346,27 @@ func (a *app) moveBottom() {
 				return
 			}
 			moveToOffset(&a.model, offset)
-		})
+		}, "move bottom")
 	}()
 }
 
 func (a *app) CommandFailed(err error) {
 	log.Warn("Command failed: %v", err)
-	setMessage(&a.model, err.Error())
+	a.setMessage(err.Error())
 }
 
-func (a *app) startSearchCommand() {
-	a.model.cmd.Mode = SearchCommand
-	a.model.msg = ""
-	log.Info("Accepting search command.")
+func currentRE(m *Model) *regexp.Regexp {
+	re := m.tmpRegex
+	if re == nil && len(m.regexes) > 0 {
+		re = m.regexes[0].re
+	}
+	return re
 }
 
 func (a *app) startColourCommand() {
 	if currentRE(&a.model) == nil {
 		msg := "cannot select regex color: no active regex"
-		setMessage(&a.model, msg)
+		a.setMessage(msg)
 		return
 	}
 	a.model.cmd.Mode = ColourCommand
@@ -386,7 +406,7 @@ func (a *app) cycleRegexp(forward bool) {
 	if len(a.model.regexes) == 0 {
 		msg := "no regexes to cycle between"
 		log.Warn(msg)
-		setMessage(&a.model, msg)
+		a.setMessage(msg)
 		return
 	}
 
@@ -409,7 +429,7 @@ func (a *app) deleteRegexp() {
 	} else {
 		msg := "no regexes to delete"
 		log.Warn(msg)
-		setMessage(&a.model, msg)
+		a.setMessage(msg)
 	}
 }
 
@@ -518,7 +538,7 @@ func (a *app) loadForward(amount int) {
 			}
 			log.Debug("After adding to data structure: fwd=%d bck=%d", len(a.model.fwd), len(a.model.bck))
 			a.fillingScreenBuffer = false
-		})
+		}, "load forward")
 	}()
 }
 
@@ -549,11 +569,12 @@ func (a *app) loadBackward(amount int) {
 			}
 			log.Debug("After adding to data structure: fwd=%d bck=%d", len(a.model.fwd), len(a.model.bck))
 			a.fillingScreenBuffer = false
-		})
+		}, "load backward")
 	}()
 }
 
-func (a *app) TermSize(rows, cols int) {
+func (a *app) TermSize(rows, cols int, forceRefresh bool) {
+	a.forceRefresh = forceRefresh
 	if a.model.rows != rows || a.model.cols != cols {
 		a.model.rows = rows
 		a.model.cols = cols
@@ -588,4 +609,108 @@ func (a *app) renderScreen() {
 	state := CreateView(&a.model)
 	a.screen.Write(state, a.forceRefresh)
 	a.forceRefresh = false
+}
+
+const msgLingerDuration = 5 * time.Second
+
+func (a *app) setMessage(msg string) {
+	log.Info("Setting message: %q", msg)
+	a.model.msg = msg
+	a.model.msgSetAt = time.Now()
+	go func() {
+		// Trigger an event after the linger duration to stop the message being
+		// drawn.
+		time.Sleep(msgLingerDuration)
+		a.reactor.Enque(func() {}, "linger complete")
+	}()
+}
+
+func (a *app) startSearchCommand() {
+	a.model.cmd.Mode = SearchCommand
+	a.model.msg = ""
+	log.Info("Accepting search command.")
+}
+
+func (a *app) searchEntered(cmd string) {
+	re, err := regexp.Compile(cmd)
+	if err != nil {
+		a.CommandFailed(err)
+		return
+	}
+	a.model.tmpRegex = re
+}
+
+func (a *app) jumpToMatch(reverse bool) {
+	re := currentRE(&a.model)
+	if re == nil {
+		msg := "no regex to jump to"
+		log.Info(msg)
+		a.setMessage(msg)
+		return
+	}
+
+	if len(a.model.fwd) == 0 {
+		log.Warn("Cannot search for next match: current line is not loaded.")
+		return
+	}
+
+	var start int
+	if reverse {
+		start = a.model.offset
+	} else {
+		start = a.model.fwd[0].nextOffset()
+	}
+
+	a.model.longFileOpInProgress = true
+	a.model.cancelLongFileOp.Reset()
+	a.model.msg = ""
+
+	log.Info("Searching for next regexp match: regexp=%q", re)
+
+	go a.findMatch(start, re, reverse)
+}
+
+func (a *app) findMatch(start int, re *regexp.Regexp, reverse bool) {
+	defer a.reactor.Enque(func() { a.model.longFileOpInProgress = false }, "find match complete")
+
+	var lineReader LineReader
+	if reverse {
+		lineReader = NewBackwardLineReader(a.model.content, start)
+	} else {
+		lineReader = NewForwardLineReader(a.model.content, start)
+	}
+
+	offset := start
+	for {
+		if a.model.cancelLongFileOp.Cancelled() {
+			return
+		}
+		line, err := lineReader.ReadLine()
+		if err != nil {
+			if err != io.EOF {
+				a.reactor.Stop(fmt.Errorf("Could not read: error=%v", err))
+				return
+			} else {
+				a.reactor.Enque(func() {
+					msg := "regex search complete: no match found"
+					a.setMessage(msg)
+				}, "no match found")
+				return
+			}
+		}
+		if reverse {
+			offset -= len(line)
+		}
+		if re.MatchString(transform(line)) {
+			break
+		}
+		if !reverse {
+			offset += len(line)
+		}
+	}
+
+	a.reactor.Enque(func() {
+		log.Info("Regexp search completed with match.")
+		moveToOffset(&a.model, offset)
+	}, "match found")
 }

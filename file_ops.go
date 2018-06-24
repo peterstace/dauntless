@@ -58,7 +58,7 @@ func Bisect(content Content, target string, mask *regexp.Regexp) (int, error) {
 		if start+len(line) >= end {
 			break
 		}
-		if mask.Match(line) {
+		if mask.MatchString(transform(line)) {
 			if target < string(line) {
 				end = offset
 			} else {
@@ -71,11 +71,11 @@ func Bisect(content Content, target string, mask *regexp.Regexp) (int, error) {
 }
 
 // Gets the line containing the offset.
-func lineAt(c Content, offset int) ([]byte, int, error) {
+func lineAt(c Content, offset int) (string, int, error) {
 	fwdReader := NewForwardLineReader(c, offset)
 	fwdBytes, err := fwdReader.ReadLine()
 	if err != nil {
-		return nil, 0, err
+		return "", 0, err
 	}
 	bckReader := NewBackwardLineReader(c, offset+len(fwdBytes))
 	bckBytes, err := bckReader.ReadLine()

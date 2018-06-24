@@ -35,6 +35,7 @@ func CreateView(m *Model) ScreenState {
 				if data[len(data)-1] == '\n' {
 					data = data[:len(data)-1]
 				}
+				data = transform(data)
 				lineBuf = renderLine(data)
 				styleBuf = renderStyle(data, regexes)
 				fwdIdx++
@@ -250,6 +251,7 @@ func overlayDebug(m *Model, state ScreenState) {
 		fmt.Sprintf("gomaxprocs: %d", runtime.GOMAXPROCS(0)),
 		fmt.Sprintf("goroutines: %d", runtime.NumGoroutine()),
 		fmt.Sprintf("numgc: %d", mem.NumGC),
+		fmt.Sprintf("cycle: %d", m.cycle),
 	}
 
 	var longestLength int

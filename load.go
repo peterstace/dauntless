@@ -23,7 +23,6 @@ func load(count int, r LineReader) ([]string, error) {
 				return nil, err
 			}
 		}
-		line = eliminateOverStrike(line)
 		lines = append(lines, string(line))
 	}
 	return lines, nil

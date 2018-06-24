@@ -10,7 +10,7 @@ import (
 	"golang.org/x/crypto/ssh/terminal"
 )
 
-const version = "Dauntless 0.9.6"
+const version = "Dauntless 0.9.7"
 
 var log Logger
 
@@ -50,7 +50,7 @@ func main() {
 		}
 		filename = "stdin"
 		buffContent := NewBufferContent()
-		buffContent.CollectFrom(os.Stdin, reactor)
+		CollectContent(os.Stdin, reactor, buffContent)
 		content = buffContent
 	case 1:
 		filename = flag.Args()[0]
@@ -77,11 +77,11 @@ func main() {
 	ttyState := enterRaw()
 	screen := NewTermScreen(os.Stdout, reactor)
 	app := NewApp(reactor, content, filename, screen, config)
-	reactor.Enque(app.Initialise)
+	reactor.Enque(app.Initialise, "initialise")
 	CollectFileSize(reactor, app, content)
 	collectInterrupt(reactor, app)
 	collectInput(reactor, app)
-	collectTermSize(reactor, app)
+	CollectTermSize(reactor, app)
 	err = reactor.Run()
 
 	ttyState.leaveRaw()

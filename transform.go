@@ -1,5 +1,9 @@
 package main
 
+func transform(line string) string {
+	return string(eliminateOverStrike([]byte(line)))
+}
+
 func eliminateOverStrike(in []byte) []byte {
 	out := make([]byte, 0, len(in))
 	for i := 0; i < len(in); i++ {

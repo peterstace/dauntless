@@ -20,6 +20,8 @@ crashes, then it may not exit `cbreak` mode before exiting. To manually leave
 
 ### Most Important
 
+* All ops should be long file ops, e.g. bisect.
+
 * Up/Down keys in command mode to use history. Should be per command.
 
 * Show search progress.
@@ -59,12 +61,6 @@ goroutine. But if the panic occurs in another goroutine, we're out of luck.
 * Scrolling support when entering a command. Currently, the user cannot see
   what they're entering past the end of the screen if they're entering
 something long.
-
-### Technical Debt
-
-* Add assertions back in for main data structure.
-
-* Stdin reading routing in collect.go could use a lot of improvement.
 
 ### Known Bugs
 
