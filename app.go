@@ -701,7 +701,7 @@ func (a *app) findMatch(start int, re *regexp.Regexp, reverse bool) {
 		if reverse {
 			offset -= len(line)
 		}
-		if re.Match(line) {
+		if re.MatchString(transform(line)) {
 			break
 		}
 		if !reverse {

@@ -35,6 +35,7 @@ func CreateView(m *Model) ScreenState {
 				if data[len(data)-1] == '\n' {
 					data = data[:len(data)-1]
 				}
+				data = transform(data)
 				lineBuf = renderLine(data)
 				styleBuf = renderStyle(data, regexes)
 				fwdIdx++

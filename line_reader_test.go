@@ -22,7 +22,7 @@ func TestForwardLineReader(t *testing.T) {
 		var got []string
 		var err error
 		for {
-			var str []byte
+			var str string
 			str, err = reader.ReadLine()
 			if err == nil {
 				got = append(got, string(str))
@@ -59,7 +59,7 @@ func TestBackwardLineReaderSuccess(t *testing.T) {
 		var got []string
 		var err error
 		for {
-			var str []byte
+			var str string
 			str, err = reader.ReadLine()
 			if err == nil {
 				got = append(got, string(str))
