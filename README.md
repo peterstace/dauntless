@@ -26,12 +26,14 @@ crashes, then it may not exit `cbreak` mode before exiting. To manually leave
 
 * Show search progress.
 
-* Offset history.
-
-### Important
+* Substitute command.
 
 * Help screen. Application name, author, copyright notice. Then a list of key
   mappings.
+
+### Important
+
+* Offset history (can go back through history).
 
 * Custom disable/enable regexp colour choices.
 
