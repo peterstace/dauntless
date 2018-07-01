@@ -32,6 +32,7 @@ func NewApp(reactor Reactor, content Content, filename string, screen Screen, co
 			config:   config,
 			content:  content,
 			filename: filename,
+			history:  map[CommandMode][]string{},
 		},
 	}
 }
@@ -56,7 +57,7 @@ func (a *app) Interrupt() {
 		a.model.cancelLongFileOp.Cancel()
 		a.model.longFileOpInProgress = false
 	} else {
-		a.startQuitCommand()
+		a.model.StartCommandMode(QuitCommand)
 	}
 }
 
@@ -76,7 +77,7 @@ func (a *app) normalModeKeyPress(k Key) {
 	assert(a.model.cmd.Mode == NoCommand)
 
 	fn, ok := map[Key]func(){
-		"q": a.startQuitCommand,
+		"q": func() { a.model.StartCommandMode(QuitCommand) },
 
 		"j": a.moveDown,
 		"k": a.moveUp,
@@ -96,7 +97,7 @@ func (a *app) normalModeKeyPress(k Key) {
 		"g": a.moveTop,
 		"G": a.moveBottom,
 
-		"/": a.startSearchCommand,
+		"/": func() { a.model.StartCommandMode(SearchCommand) },
 		"n": func() { a.jumpToMatch(false) },
 		"N": func() { a.jumpToMatch(true) },
 
@@ -107,8 +108,8 @@ func (a *app) normalModeKeyPress(k Key) {
 		ShiftTab: func() { a.cycleRegexp(false) },
 		"x":      a.deleteRegexp,
 
-		"s": a.startSeekCommand,
-		"b": a.startBisectCommand,
+		"s": func() { a.model.StartCommandMode(SeekCommand) },
+		"b": func() { a.model.StartCommandMode(BisectCommand) },
 
 		"`": func() { a.model.debug = !a.model.debug },
 	}[k]
@@ -122,9 +123,7 @@ func (a *app) normalModeKeyPress(k Key) {
 }
 
 func (a *app) commandModeKeyPress(k Key) {
-
 	assert(a.model.cmd.Mode != NoCommand)
-
 	if len(k) == 1 {
 		b := k[0]
 		if b >= ' ' && b <= '~' {
@@ -148,20 +147,25 @@ func (a *app) commandModeKeyPress(k Key) {
 			default:
 				assert(false)
 			}
-			a.model.cmd.Mode = NoCommand
-			a.model.cmd.Text = ""
-			a.model.cmd.Pos = 0
+			a.model.ExitCommandMode()
 		}
 	} else {
-		if k == LeftArrowKey {
+		switch k {
+		case LeftArrowKey:
 			a.model.cmd.Pos = max(0, a.model.cmd.Pos-1)
-		} else if k == RightArrowKey {
+		case RightArrowKey:
 			a.model.cmd.Pos = min(a.model.cmd.Pos+1, len(a.model.cmd.Text))
-		} else if k == DeleteKey && a.model.cmd.Pos < len(a.model.cmd.Text) {
-			a.model.cmd.Text = a.model.cmd.Text[:a.model.cmd.Pos] + a.model.cmd.Text[a.model.cmd.Pos+1:]
-		} else if k == HomeKey {
+		case UpArrowKey:
+			a.model.BackInHistory()
+		case DownArrowKey:
+			a.model.ForwardInHistory()
+		case DeleteKey:
+			if a.model.cmd.Pos < len(a.model.cmd.Text) {
+				a.model.cmd.Text = a.model.cmd.Text[:a.model.cmd.Pos] + a.model.cmd.Text[a.model.cmd.Pos+1:]
+			}
+		case HomeKey:
 			a.model.cmd.Pos = 0
-		} else if k == EndKey {
+		case EndKey:
 			a.model.cmd.Pos = len(a.model.cmd.Text)
 		}
 	}
@@ -369,27 +373,8 @@ func (a *app) startColourCommand() {
 		a.setMessage(msg)
 		return
 	}
-	a.model.cmd.Mode = ColourCommand
-	a.model.msg = ""
+	a.model.StartCommandMode(ColourCommand)
 	log.Info("Accepting colour command.")
-}
-
-func (a *app) startSeekCommand() {
-	a.model.cmd.Mode = SeekCommand
-	a.model.msg = ""
-	log.Info("Accepting seek command.")
-}
-
-func (a *app) startBisectCommand() {
-	a.model.cmd.Mode = BisectCommand
-	a.model.msg = ""
-	log.Info("Accepting bisect command.")
-}
-
-func (a *app) startQuitCommand() {
-	a.model.cmd.Mode = QuitCommand
-	a.model.msg = ""
-	log.Info("Accepting quit command.")
 }
 
 func (a *app) toggleLineWrapMode() {
@@ -623,12 +608,6 @@ func (a *app) setMessage(msg string) {
 		time.Sleep(msgLingerDuration)
 		a.reactor.Enque(func() {}, "linger complete")
 	}()
-}
-
-func (a *app) startSearchCommand() {
-	a.model.cmd.Mode = SearchCommand
-	a.model.msg = ""
-	log.Info("Accepting search command.")
 }
 
 func (a *app) searchEntered(cmd string) {

@@ -22,16 +22,18 @@ crashes, then it may not exit `cbreak` mode before exiting. To manually leave
 
 * All ops should be long file ops, e.g. bisect.
 
-* Up/Down keys in command mode to use history. Should be per command.
-
 * Show search progress.
 
-* Offset history.
-
-### Important
+* Substitute command.
 
 * Help screen. Application name, author, copyright notice. Then a list of key
   mappings.
+
+### Important
+
+* Persistence of key model state.
+
+* Offset history (can go back through history).
 
 * Custom disable/enable regexp colour choices.
 
