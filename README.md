@@ -22,8 +22,6 @@ crashes, then it may not exit `cbreak` mode before exiting. To manually leave
 
 * All ops should be long file ops, e.g. bisect.
 
-* Up/Down keys in command mode to use history. Should be per command.
-
 * Show search progress.
 
 * Substitute command.

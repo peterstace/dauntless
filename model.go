@@ -38,6 +38,9 @@ type Model struct {
 
 	longFileOpInProgress bool
 	cancelLongFileOp     Cancellable
+
+	history    map[CommandMode][]string // most recent is first in list
+	historyIdx int                      // -1 when history not used
 }
 
 type Command struct {
@@ -69,4 +72,41 @@ type line struct {
 
 func (l line) nextOffset() int {
 	return l.offset + len(l.data)
+}
+
+func (m *Model) StartCommandMode(mode CommandMode) {
+	m.cmd.Mode = mode
+	m.msg = ""
+	m.historyIdx = -1
+}
+
+func (m *Model) ExitCommandMode() {
+	mode := m.cmd.Mode
+	txt := m.cmd.Text
+	m.history[mode] = append([]string{txt}, m.history[mode]...)
+
+	m.cmd.Mode = NoCommand
+	m.cmd.Text = ""
+	m.cmd.Pos = 0
+}
+
+func (m *Model) BackInHistory() {
+	hist := m.history[m.cmd.Mode]
+	if len(hist) > 0 {
+		m.historyIdx++
+		m.historyIdx %= len(hist)
+		m.cmd.Text = hist[m.historyIdx]
+		m.cmd.Pos = len(m.cmd.Text)
+	}
+}
+
+func (m *Model) ForwardInHistory() {
+	hist := m.history[m.cmd.Mode]
+	if len(hist) > 0 {
+		m.historyIdx--
+		m.historyIdx += len(hist)
+		m.historyIdx %= len(hist)
+		m.cmd.Text = hist[m.historyIdx]
+		m.cmd.Pos = len(m.cmd.Text)
+	}
 }
