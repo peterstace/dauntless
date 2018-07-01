@@ -81,10 +81,24 @@ func (m *Model) StartCommandMode(mode CommandMode) {
 }
 
 func (m *Model) ExitCommandMode() {
+	// Remove from history (if exists), then add back in at start.
 	mode := m.cmd.Mode
 	txt := m.cmd.Text
-	m.history[mode] = append([]string{txt}, m.history[mode]...)
+	for i, h := range m.history[mode] {
+		if h == txt {
+			m.history[mode] = append(
+				m.history[mode][:i],
+				m.history[mode][i+1:]...,
+			)
+			break
+		}
+	}
+	m.history[mode] = append(
+		[]string{txt},
+		m.history[mode]...,
+	)
 
+	// Reset command.
 	m.cmd.Mode = NoCommand
 	m.cmd.Text = ""
 	m.cmd.Pos = 0
@@ -92,21 +106,20 @@ func (m *Model) ExitCommandMode() {
 
 func (m *Model) BackInHistory() {
 	hist := m.history[m.cmd.Mode]
-	if len(hist) > 0 {
-		m.historyIdx++
-		m.historyIdx %= len(hist)
-		m.cmd.Text = hist[m.historyIdx]
-		m.cmd.Pos = len(m.cmd.Text)
+	if len(hist) == 0 || m.historyIdx+1 >= len(hist) {
+		return
 	}
+	m.historyIdx++
+	m.cmd.Text = hist[m.historyIdx]
+	m.cmd.Pos = len(m.cmd.Text)
 }
 
 func (m *Model) ForwardInHistory() {
 	hist := m.history[m.cmd.Mode]
-	if len(hist) > 0 {
-		m.historyIdx--
-		m.historyIdx += len(hist)
-		m.historyIdx %= len(hist)
-		m.cmd.Text = hist[m.historyIdx]
-		m.cmd.Pos = len(m.cmd.Text)
+	if len(hist) == 0 || m.historyIdx == 0 {
+		return
 	}
+	m.historyIdx--
+	m.cmd.Text = hist[m.historyIdx]
+	m.cmd.Pos = len(m.cmd.Text)
 }
