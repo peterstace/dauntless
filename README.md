@@ -31,6 +31,8 @@ crashes, then it may not exit `cbreak` mode before exiting. To manually leave
 
 ### Important
 
+* Persistence of key model state.
+
 * Offset history (can go back through history).
 
 * Custom disable/enable regexp colour choices.
