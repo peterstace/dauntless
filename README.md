@@ -21,6 +21,8 @@ The key controls used to control dauntless are inspired by vim and less:
 
     q - quit
 
+    ? - show help
+
     j, <down-arrow> - move down by one line
 
     k, <up-arrow> - move up by one line
