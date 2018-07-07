@@ -20,10 +20,28 @@ func main() {
 	vFlag := flag.Bool("version", false, "version")
 	wrapPrefix := flag.String("wrap-prefix", "", "prefix string for wrapped lines")
 	bisectMask := flag.String("bisect-mask", "", "only consider lines matching this regex when bisecting")
+	helpFlag := flag.Bool("help", false, "display help")
 	flag.Parse()
 
 	if *vFlag {
 		fmt.Println(version)
+		return
+	}
+
+	if *helpFlag {
+		flag.Usage()
+		fmt.Println()
+		fmt.Println("CONTROLS:\n")
+		for _, ctrl := range controls {
+			fmt.Printf("    ")
+			for i, k := range ctrl.keys {
+				if i != 0 {
+					fmt.Printf(", ")
+				}
+				fmt.Printf("%v", k)
+			}
+			fmt.Printf(" - %s\n\n", ctrl.desc)
+		}
 		return
 	}
 

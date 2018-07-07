@@ -20,14 +20,14 @@ crashes, then it may not exit `cbreak` mode before exiting. To manually leave
 
 ### Most Important
 
+* Help screen. Application name, author, copyright notice. Then a list of key
+  mappings.
+
 * All ops should be long file ops, e.g. bisect.
 
 * Show search progress.
 
 * Substitute command.
-
-* Help screen. Application name, author, copyright notice. Then a list of key
-  mappings.
 
 ### Important
 
@@ -44,6 +44,9 @@ crashes, then it may not exit `cbreak` mode before exiting. To manually leave
 
 * Copy/paste friendly mode. Toggle indent away, show all lines, no spaces at
   end of lines.
+
+* Should not be able to see past end of file if the file is bigger than 1
+  screen.
 
 ### Least Important
 

@@ -73,53 +73,23 @@ func (a *app) KeyPress(k Key) {
 }
 
 func (a *app) normalModeKeyPress(k Key) {
-
 	assert(a.model.cmd.Mode == NoCommand)
-
-	fn, ok := map[Key]func(){
-		"q": func() { a.model.StartCommandMode(QuitCommand) },
-
-		"j": a.moveDown,
-		"k": a.moveUp,
-		"d": a.moveDownByHalfScreen,
-		"u": a.moveUpByHalfScreen,
-
-		DownArrowKey: a.moveDown,
-		UpArrowKey:   a.moveUp,
-		PageDownKey:  a.moveDownByHalfScreen,
-		PageUpKey:    a.moveUpByHalfScreen,
-
-		LeftArrowKey:  a.reduceXPosition,
-		RightArrowKey: a.increaseXPosition,
-
-		"r": a.discardBufferedInputAndRepaint,
-
-		"g": a.moveTop,
-		"G": a.moveBottom,
-
-		"/": func() { a.model.StartCommandMode(SearchCommand) },
-		"n": func() { a.jumpToMatch(false) },
-		"N": func() { a.jumpToMatch(true) },
-
-		"w": a.toggleLineWrapMode,
-
-		"c":      a.startColourCommand,
-		"\t":     func() { a.cycleRegexp(true) },
-		ShiftTab: func() { a.cycleRegexp(false) },
-		"x":      a.deleteRegexp,
-
-		"s": func() { a.model.StartCommandMode(SeekCommand) },
-		"b": func() { a.model.StartCommandMode(BisectCommand) },
-
-		"`": func() { a.model.debug = !a.model.debug },
-	}[k]
-
-	if !ok {
-		log.Info("Key press was unhandled: %v", k)
-		return
+	var ctrl *control
+	for i := range controls {
+		for j := range controls[i].keys {
+			if k == controls[i].keys[j] {
+				ctrl = &controls[i]
+				break
+			}
+		}
+		if ctrl != nil {
+			break
+		}
 	}
-
-	fn()
+	if ctrl != nil {
+		ctrl.action(a)
+	}
+	log.Info("Key press was unhandled: %v", k)
 }
 
 func (a *app) commandModeKeyPress(k Key) {
