@@ -9,6 +9,58 @@ additional features that make it well suited to viewing and analysing log files.
 It's still under active development, however is stable and ready for every day
 use.
 
+## Usage
+
+To use dauntless to view a file, use `dauntless <filename>`.
+
+Dauntless can also accept input via stdin. For example, `echo "hello world" | dauntless`.
+
+## Key Controls
+
+The key controls used to control dauntless are inspired by vim and less:
+
+    q - quit
+
+    j, <down-arrow> - move down by one line
+
+    k, <up-arrow> - move up by one line
+
+    d, <page-down> - move down by one screen
+
+    u, <page-up> - move up by one screen
+
+    <left-arrow> - scroll left horizontally
+
+    <right-arrow> - scroll right horizontally
+
+    r - force the screen to be repainted
+
+    g - move to the beginning of the file
+
+    G - move to the end of the file
+
+    / - enter a new regex to search for
+
+    n - jump to the next line matching the current regex
+
+    N - jump to the previous line matching the current regex
+
+    w - toggle line wrap mode
+
+    c - change the colour of the current regex
+
+    <tab> - cycle forward through saved regexes
+
+    <shift-tab> - cycle backward though saved regexes
+
+    x - delete the current regex
+
+    s - seek to a percentage through the file
+
+    b - bisect the file to search for line prefix
+
+    ` - toggle debug mode
+
 ## Dauntless Crashed (and now my terminal is messed up!)
 
 When Dauntless starts up, it enters [`cbreak`
