@@ -1,27 +1,24 @@
 # Dauntless
 
-Dauntless is a log viewer inspired by [GNU
-less](https://www.gnu.org/software/less/). It contains additional features that
-make analysing log files easier.
+Dauntless is a [terminal pager](https://en.wikipedia.org/wiki/Terminal_pager)
+inspired by [GNU less](https://www.gnu.org/software/less/). It contains
+additional features that make it well suited to viewing and analysing log files.
 
 ## Status
 
-It's currently at feature-parity with `less`. There are still some planned
-features that haven't been implemented yet.
+It's still under active development, however is stable and ready for every day
+use.
 
 ## Dauntless Crashed (and now my terminal is messed up!)
 
-Dauntless is still in active development, and may crash. When Dauntless starts
-up, it enters [`cbreak` mode](https://en.wikipedia.org/wiki/Cooked_mode). If it
-crashes, then it may not exit `cbreak` mode before exiting. To manually leave
-`cbreak` mode, enter (blindly!) the command `stty sane`.
+When Dauntless starts up, it enters [`cbreak`
+mode](https://en.wikipedia.org/wiki/Cooked_mode). If it crashes, then it may
+not exit `cbreak` mode before exiting. To manually leave `cbreak` mode, enter
+(blindly!) the command `stty sane`.
 
 ## TODO List
 
-### Most Important
-
-* Help screen. Application name, author, copyright notice. Then a list of key
-  mappings.
+#### Most Important
 
 * All ops should be long file ops, e.g. bisect.
 
@@ -29,7 +26,7 @@ crashes, then it may not exit `cbreak` mode before exiting. To manually leave
 
 * Substitute command.
 
-### Important
+#### Important
 
 * Persistence of key model state.
 
@@ -48,7 +45,7 @@ crashes, then it may not exit `cbreak` mode before exiting. To manually leave
 * Should not be able to see past end of file if the file is bigger than 1
   screen.
 
-### Least Important
+#### Least Important
 
 * Bookmarks.
 
@@ -67,7 +64,7 @@ goroutine. But if the panic occurs in another goroutine, we're out of luck.
   what they're entering past the end of the screen if they're entering
 something long.
 
-### Known Bugs
+#### Known Bugs
 
 * Bisect past EOF is fatal. Noticed that the last line in the file was partial,
   so that may have something to do with it.
