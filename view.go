@@ -97,6 +97,9 @@ func CreateView(m *Model) ScreenState {
 	if m.debug {
 		overlayDebug(m, state)
 	}
+	if m.showHelp {
+		overlayHelp(m, state)
+	}
 
 	return state
 }
@@ -110,7 +113,6 @@ func renderLine(data string) []byte {
 }
 
 func renderStyle(data string, regexes []regex) []Style {
-
 	buf := make([]Style, len(data))
 	for _, regex := range regexes {
 		for _, match := range regex.re.FindAllStringIndex(data, -1) {
@@ -240,7 +242,6 @@ func prompt(cmd CommandMode) string {
 }
 
 func overlayDebug(m *Model, state ScreenState) {
-
 	var mem runtime.MemStats
 	runtime.ReadMemStats(&mem)
 
@@ -275,4 +276,57 @@ func overlayDebug(m *Model, state ScreenState) {
 	for i, line := range lines {
 		copy(state.Chars[state.RowColIdx(i+startRow, startCol+1):], line)
 	}
+}
+
+func overlayHelp(m *Model, state ScreenState) {
+	type ctrl struct {
+		keys, desc string
+	}
+	ctrls := []ctrl{}
+	for i := range controls {
+		c := ctrl{desc: controls[i].desc}
+		for j := range controls[i].keys {
+			if j != 0 {
+				c.keys += ", "
+			}
+			c.keys += controls[i].keys[j].String()
+		}
+		ctrls = append(ctrls, c)
+	}
+	var longestKey int
+	for i := range ctrls {
+		if l := len(ctrls[i].keys); l > longestKey {
+			longestKey = l
+		}
+	}
+
+	lines := []string{
+		"CONTROLS: (press '?' to exit)", "",
+	}
+	for _, ctrl := range ctrls {
+		lines = append(lines, fmt.Sprintf("%*s - %s", longestKey, ctrl.keys, ctrl.desc))
+	}
+
+	var longestLength int
+	for _, line := range lines {
+		longestLength = max(longestLength, len(line))
+	}
+
+	startCol := (state.Cols-longestLength)/2 - 1
+	startRow := (state.Rows() - 2 - len(lines)) / 2
+	endCol := startCol + longestLength + 2
+	endRow := startRow + len(lines)
+
+	for row := startRow; row < endRow; row++ {
+		for col := startCol; col < endCol; col++ {
+			idx := state.RowColIdx(row, col)
+			state.Styles[idx] = MixStyle(Invert, Invert)
+			state.Chars[idx] = ' '
+		}
+	}
+
+	for i, line := range lines {
+		copy(state.Chars[state.RowColIdx(i+startRow, startCol+1):], line)
+	}
+
 }

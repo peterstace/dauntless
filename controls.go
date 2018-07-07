@@ -12,6 +12,11 @@ var controls = []control{
 		desc:   "quit",
 		action: func(a *app) { a.model.StartCommandMode(QuitCommand) },
 	},
+	control{
+		keys:   []Key{"?"}, // TODO: Add F1
+		desc:   "show help",
+		action: func(a *app) { a.model.showHelp = !a.model.showHelp },
+	},
 
 	control{
 		keys:   []Key{"j", DownArrowKey},
@@ -47,34 +52,34 @@ var controls = []control{
 
 	control{
 		keys:   []Key{"r"},
-		desc:   "force the screen to be repainted",
+		desc:   "force screen refresh",
 		action: func(a *app) { a.discardBufferedInputAndRepaint() },
 	},
 
 	control{
 		keys:   []Key{"g"},
-		desc:   "move to the beginning of the file",
+		desc:   "move to start of file",
 		action: func(a *app) { a.moveTop() },
 	},
 	control{
 		keys:   []Key{"G"},
-		desc:   "move to the end of the file",
+		desc:   "move to end of file",
 		action: func(a *app) { a.moveBottom() },
 	},
 
 	control{
 		keys:   []Key{"/"},
-		desc:   "enter a new regex to search for",
+		desc:   "enter a new search regex",
 		action: func(a *app) { a.model.StartCommandMode(SearchCommand) },
 	},
 	control{
 		keys:   []Key{"n"},
-		desc:   "jump to the next line matching the current regex",
+		desc:   "jump to next regex match",
 		action: func(a *app) { a.jumpToMatch(false) },
 	},
 	control{
 		keys:   []Key{"N"},
-		desc:   "jump to the previous line matching the current regex",
+		desc:   "jump to previous regex match",
 		action: func(a *app) { a.jumpToMatch(true) },
 	},
 
@@ -86,33 +91,33 @@ var controls = []control{
 
 	control{
 		keys:   []Key{"c"},
-		desc:   "change the colour of the current regex",
+		desc:   "change regex highlight colour",
 		action: func(a *app) { a.startColourCommand() },
 	},
 	control{
 		keys:   []Key{"\t"},
-		desc:   "cycle forward through saved regexes",
+		desc:   "cycle forward through regexes",
 		action: func(a *app) { a.cycleRegexp(true) },
 	},
 	control{
 		keys:   []Key{ShiftTab},
-		desc:   "cycle backward though saved regexes",
+		desc:   "cycle backward though regexes",
 		action: func(a *app) { a.cycleRegexp(false) },
 	},
 	control{
 		keys:   []Key{"x"},
-		desc:   "delete the current regex",
+		desc:   "delete regex",
 		action: func(a *app) { a.deleteRegexp() },
 	},
 
 	control{
 		keys:   []Key{"s"},
-		desc:   "seek to a percentage through the file",
+		desc:   "seek to a percentage",
 		action: func(a *app) { a.model.StartCommandMode(SeekCommand) },
 	},
 	control{
 		keys:   []Key{"b"},
-		desc:   "bisect the file to search for line prefix",
+		desc:   "bisect line prefix",
 		action: func(a *app) { a.model.StartCommandMode(BisectCommand) },
 	},
 

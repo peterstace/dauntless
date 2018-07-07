@@ -31,7 +31,8 @@ func main() {
 	if *helpFlag {
 		flag.Usage()
 		fmt.Println()
-		fmt.Println("CONTROLS:\n")
+		fmt.Println("CONTROLS:")
+		fmt.Println()
 		for _, ctrl := range controls {
 			fmt.Printf("    ")
 			for i, k := range ctrl.keys {

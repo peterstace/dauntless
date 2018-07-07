@@ -41,6 +41,8 @@ type Model struct {
 
 	history    map[CommandMode][]string // most recent is first in list
 	historyIdx int                      // -1 when history not used
+
+	showHelp bool
 }
 
 type Command struct {
