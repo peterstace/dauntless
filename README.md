@@ -90,8 +90,6 @@ not exit `cbreak` mode before exiting. To manually leave `cbreak` mode, enter
 * Predefined (config file) and pre-loaded regexes. E.g. to highlight errors
   that would always appear the same way.
 
-* Don't fatal on any errors. Instead, just show them in the info bar.
-
 * Copy/paste friendly mode. Toggle indent away, show all lines, no spaces at
   end of lines.
 
@@ -102,6 +100,8 @@ not exit `cbreak` mode before exiting. To manually leave `cbreak` mode, enter
 * Bisect has an off-by-one error when landing at the target line.
 
 #### Least Important
+
+* Don't fatal on any errors. Instead, just show them in the info bar.
 
 * Bookmarks.
 
