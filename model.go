@@ -139,3 +139,35 @@ func (m *Model) Interrupt() {
 		m.StartCommandMode(QuitCommand)
 	}
 }
+
+func (m *Model) moveToOffset(offset int) {
+	log.Info("Moving to offset: currentOffset=%d newOffset=%d", m.offset, offset)
+	assert(offset >= 0)
+	if m.offset == offset {
+		log.Info("Already at target offset.")
+		return
+	}
+
+	ahead, aback := &m.fwd, &m.bck
+	if offset < m.offset {
+		ahead, aback = aback, ahead
+	}
+
+	for _, ln := range *ahead {
+		if ln.offset == offset {
+			for m.offset != offset {
+				l := (*ahead)[0]
+				*ahead = (*ahead)[1:]
+				*aback = append([]line{l}, *aback...)
+				m.offset = l.offset
+				if ahead == &m.fwd {
+					m.offset += len(l.data)
+				}
+			}
+			return
+		}
+	}
+	m.fwd = nil
+	m.bck = nil
+	m.offset = offset
+}

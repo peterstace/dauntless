@@ -132,38 +132,6 @@ func (a *app) commandModeKeyPress(k Key) {
 	}
 }
 
-func moveToOffset(m *Model, offset int) {
-	log.Info("Moving to offset: currentOffset=%d newOffset=%d", m.offset, offset)
-	assert(offset >= 0)
-	if m.offset == offset {
-		log.Info("Already at target offset.")
-		return
-	}
-
-	ahead, aback := &m.fwd, &m.bck
-	if offset < m.offset {
-		ahead, aback = aback, ahead
-	}
-
-	for _, ln := range *ahead {
-		if ln.offset == offset {
-			for m.offset != offset {
-				l := (*ahead)[0]
-				*ahead = (*ahead)[1:]
-				*aback = append([]line{l}, *aback...)
-				m.offset = l.offset
-				if ahead == &m.fwd {
-					m.offset += len(l.data)
-				}
-			}
-			return
-		}
-	}
-	m.fwd = nil
-	m.bck = nil
-	m.offset = offset
-}
-
 var styles = [...]Style{Default, Black, Red, Green, Yellow, Blue, Magenta, Cyan, White}
 
 func (a *app) colourEntered(cmd string) {
@@ -209,7 +177,7 @@ func (a *app) seekEntered(cmd string) {
 				a.reactor.Stop(err)
 				return
 			}
-			moveToOffset(&a.model, offset)
+			a.model.moveToOffset(offset)
 		}, "seek entered")
 	}()
 }
@@ -268,7 +236,7 @@ func (a *app) asyncBisect(target string) {
 	}
 
 	a.reactor.Enque(func() {
-		moveToOffset(&a.model, start)
+		a.model.moveToOffset(start)
 	}, "bisect complete")
 }
 
@@ -308,7 +276,7 @@ func (a *app) discardBufferedInputAndRepaint() {
 				a.reactor.Stop(err)
 				return
 			}
-			moveToOffset(&a.model, offset)
+			a.model.moveToOffset(offset)
 		}, "discard buffered input and repaint")
 	}()
 }
@@ -319,7 +287,7 @@ func (a *app) moveDown() {
 		log.Warn("Cannot move down: reason=\"not enough lines loaded\" linesLoaded=%d", len(a.model.fwd))
 		return
 	}
-	moveToOffset(&a.model, a.model.fwd[1].offset)
+	a.model.moveToOffset(a.model.fwd[1].offset)
 }
 
 func (a *app) moveUp() {
@@ -336,12 +304,12 @@ func (a *app) moveUp() {
 		return
 	}
 
-	moveToOffset(&a.model, a.model.bck[0].offset)
+	a.model.moveToOffset(a.model.bck[0].offset)
 }
 
 func (a *app) moveTop() {
 	log.Info("Jumping to start of file.")
-	moveToOffset(&a.model, 0)
+	a.model.moveToOffset(0)
 }
 
 func (a *app) moveBottom() {
@@ -356,7 +324,7 @@ func (a *app) moveBottom() {
 				a.reactor.Stop(err)
 				return
 			}
-			moveToOffset(&a.model, offset)
+			a.model.moveToOffset(offset)
 		}, "move bottom")
 	}()
 }
@@ -699,6 +667,6 @@ func (a *app) asyncFindMatch(start int, re *regexp.Regexp, reverse bool) {
 
 	a.reactor.Enque(func() {
 		log.Info("Regexp search completed with match.")
-		moveToOffset(&a.model, offset)
+		a.model.moveToOffset(offset)
 	}, "match found")
 }
