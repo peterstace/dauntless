@@ -92,22 +92,22 @@ var controls = []control{
 	control{
 		keys:   []Key{"c"},
 		desc:   "change regex highlight colour",
-		action: func(a *app) { a.startColourCommand() },
+		action: func(a *app) { a.model.startColourCommand() },
 	},
 	control{
 		keys:   []Key{"\t"},
 		desc:   "cycle forward through regexes",
-		action: func(a *app) { a.cycleRegexp(true) },
+		action: func(a *app) { a.model.cycleRegexp(true) },
 	},
 	control{
 		keys:   []Key{ShiftTab},
 		desc:   "cycle backward though regexes",
-		action: func(a *app) { a.cycleRegexp(false) },
+		action: func(a *app) { a.model.cycleRegexp(false) },
 	},
 	control{
 		keys:   []Key{"x"},
 		desc:   "delete regex",
-		action: func(a *app) { a.deleteRegexp() },
+		action: func(a *app) { a.model.deleteRegexp() },
 	},
 
 	control{
