@@ -10,7 +10,7 @@ import (
 	"golang.org/x/crypto/ssh/terminal"
 )
 
-const version = "Dauntless <unversioned>"
+const version = "Dauntless 0.10.0"
 
 var log Logger
 
