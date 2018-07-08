@@ -12,9 +12,9 @@ import (
 type App interface {
 	Initialise()
 	KeyPress(Key)
+	Interrupt()
 	TermSize(rows, cols int, forceRefresh bool)
 	FileSize(int)
-	Interrupt()
 }
 
 type app struct {
@@ -49,17 +49,7 @@ func (a *app) Initialise() {
 }
 
 func (a *app) Interrupt() {
-	log.Info("Caught interrupt.")
-	if a.model.cmd.Mode != NoCommand {
-		a.model.cmd.Mode = NoCommand
-		a.model.cmd.Text = ""
-		a.model.cmd.Pos = 0
-	} else if a.model.longFileOpInProgress {
-		a.model.cancelLongFileOp.Cancel()
-		a.model.longFileOpInProgress = false
-	} else {
-		a.model.StartCommandMode(QuitCommand)
-	}
+	a.model.Interrupt()
 }
 
 func (a *app) KeyPress(k Key) {
@@ -576,6 +566,8 @@ func (a *app) loadBackward(amount int) {
 }
 
 func (a *app) TermSize(rows, cols int, forceRefresh bool) {
+	// TODO: Probably don't have to check model cols/rows here since duplicates
+	// are already filtered.
 	a.forceRefresh = forceRefresh
 	if a.model.rows != rows || a.model.cols != cols {
 		a.model.rows = rows

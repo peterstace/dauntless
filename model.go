@@ -125,3 +125,17 @@ func (m *Model) ForwardInHistory() {
 	m.cmd.Text = hist[m.historyIdx]
 	m.cmd.Pos = len(m.cmd.Text)
 }
+
+func (m *Model) Interrupt() {
+	log.Info("Caught interrupt.")
+	if m.cmd.Mode != NoCommand {
+		m.cmd.Mode = NoCommand
+		m.cmd.Text = ""
+		m.cmd.Pos = 0
+	} else if m.longFileOpInProgress {
+		m.cancelLongFileOp.Cancel()
+		m.longFileOpInProgress = false
+	} else {
+		m.StartCommandMode(QuitCommand)
+	}
+}
