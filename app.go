@@ -379,6 +379,7 @@ func (a *app) fillScreenBuffer() {
 	a.model.bck = a.model.bck[:neededBck]
 }
 
+// TODO: Move into model
 func (a *app) needsLoadingForward() int {
 	if a.model.fileSize == 0 {
 		return 0
@@ -395,6 +396,7 @@ func (a *app) needsLoadingForward() int {
 	return a.model.rows*forwardLoadFactor - len(a.model.fwd)
 }
 
+// TODO: Move into model
 func (a *app) needsLoadingBackward() int {
 	if a.model.offset == 0 {
 		return 0
@@ -412,7 +414,6 @@ func (a *app) needsLoadingBackward() int {
 }
 
 func (a *app) loadForward(amount int) {
-
 	offset := a.model.offset
 	if len(a.model.fwd) > 0 {
 		offset = a.model.fwd[len(a.model.fwd)-1].nextOffset()
@@ -443,7 +444,6 @@ func (a *app) loadForward(amount int) {
 }
 
 func (a *app) loadBackward(amount int) {
-
 	offset := a.model.offset
 	if len(a.model.bck) > 0 {
 		offset = a.model.bck[len(a.model.bck)-1].offset
@@ -474,27 +474,21 @@ func (a *app) loadBackward(amount int) {
 }
 
 func (a *app) TermSize(rows, cols int, forceRefresh bool) {
-	// TODO: Probably don't have to check model cols/rows here since duplicates
-	// are already filtered.
 	a.forceRefresh = forceRefresh
-	if a.model.rows != rows || a.model.cols != cols {
-		a.model.rows = rows
-		a.model.cols = cols
-		log.Info("Term size: rows=%d cols=%d", rows, cols)
-	}
+	a.model.rows = rows
+	a.model.cols = cols
+	log.Info("Term size: rows=%d cols=%d", rows, cols)
 }
 
+// TODO: Move to model
 func (a *app) FileSize(size int) {
-	oldSize := a.model.fileSize
-	if size != oldSize {
-		a.model.fileSize = size
-		log.Info("File size changed: old=%d new=%d", oldSize, size)
-		if len(a.model.fwd) > 0 {
-			lastLine := a.model.fwd[len(a.model.fwd)-1].data
-			if lastLine[len(lastLine)-1] != '\n' {
-				a.model.fwd = a.model.fwd[:len(a.model.fwd)-1]
-			}
-		}
+	log.Info("File size changed: old=%d new=%d", a.model.filename, size)
+	a.model.fileSize = size
+	if len(a.model.fwd) == 0 {
+		return
+	}
+	if a.model.fwd[len(a.model.fwd)-1].nextOffset() == oldSize {
+		a.model.fwd = a.model.fwd[:len(a.model.fwd)-1]
 	}
 }
 
@@ -513,6 +507,7 @@ func (a *app) renderScreen() {
 	a.forceRefresh = false
 }
 
+// TODO: Move to model
 func (a *app) searchEntered(cmd string) {
 	re, err := regexp.Compile(cmd)
 	if err != nil {
