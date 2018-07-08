@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"math/rand"
 	"regexp"
 	"strconv"
 	"time"
@@ -222,19 +223,65 @@ func (a *app) seekEntered(cmd string) {
 		}, "seek entered")
 	}()
 }
+
 func (a *app) bisectEntered(cmd string) {
-	go func() {
-		offset, err := Bisect(a.model.content, cmd, a.model.config.BisectMask)
-		a.reactor.Enque(func() {
-			if err != nil {
-				log.Warn("Could not find bisect target: %v", err)
-				a.reactor.Stop(err)
-				return
-			}
-			moveToOffset(&a.model, offset)
-		}, "bisect entered")
-	}()
+	a.model.longFileOpInProgress = true
+	a.model.cancelLongFileOp.Reset()
+	a.model.msg = ""
+
+	log.Info("bisecting: %s", cmd)
+	go a.asyncBisect(cmd)
 }
+
+func (a *app) asyncBisect(target string) {
+	defer a.reactor.Enque(func() { a.model.longFileOpInProgress = false }, "find match complete")
+
+	sz, err := a.model.content.Size()
+	if err != nil {
+		a.reactor.Stop(err)
+		return
+	}
+
+	var start int
+	end := int(sz - 1)
+
+	var i int
+	for {
+		i++
+		if i == 1000 {
+			a.reactor.Enque(func() {
+				a.setMessage("could not find bisect target after 1000 iterations")
+			}, "could not find bisect target")
+			return
+		}
+
+		if a.model.cancelLongFileOp.Cancelled() {
+			return
+		}
+
+		offset := start + rand.Intn(end-start+1)
+		line, offset, err := lineAt(a.model.content, offset)
+		if err != nil {
+			a.reactor.Stop(err)
+			return
+		}
+		if start+len(line) >= end {
+			break
+		}
+		if a.model.config.BisectMask.MatchString(transform(line)) {
+			if target < string(line) {
+				end = offset
+			} else {
+				start = offset
+			}
+		}
+	}
+
+	a.reactor.Enque(func() {
+		moveToOffset(&a.model, start)
+	}, "bisect complete")
+}
+
 func (a *app) quitEntered(cmd string) {
 	switch cmd {
 	case "y":
@@ -616,10 +663,10 @@ func (a *app) jumpToMatch(reverse bool) {
 
 	log.Info("Searching for next regexp match: regexp=%q", re)
 
-	go a.findMatch(start, re, reverse)
+	go a.asyncFindMatch(start, re, reverse)
 }
 
-func (a *app) findMatch(start int, re *regexp.Regexp, reverse bool) {
+func (a *app) asyncFindMatch(start int, re *regexp.Regexp, reverse bool) {
 	defer a.reactor.Enque(func() { a.model.longFileOpInProgress = false }, "find match complete")
 
 	var lineReader LineReader

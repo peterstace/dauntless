@@ -74,11 +74,10 @@ not exit `cbreak` mode before exiting. To manually leave `cbreak` mode, enter
 
 #### Most Important
 
-* All ops should be long file ops, e.g. bisect.
-
-* Show search progress.
-
 * Substitute command.
+
+* Should not be able to see past end of file if the file is bigger than 1
+  screen.
 
 #### Important
 
@@ -96,8 +95,11 @@ not exit `cbreak` mode before exiting. To manually leave `cbreak` mode, enter
 * Copy/paste friendly mode. Toggle indent away, show all lines, no spaces at
   end of lines.
 
-* Should not be able to see past end of file if the file is bigger than 1
-  screen.
+* Show search progress.
+
+* Seek should be a 'long file op'.
+
+* Bisect has an off-by-one error when landing at the target line.
 
 #### Least Important
 

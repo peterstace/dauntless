@@ -1,10 +1,7 @@
 package main
 
 import (
-	"errors"
 	"io"
-	"math/rand"
-	"regexp"
 )
 
 func FindSeekOffset(c Content, seekPct float64) (int, error) {
@@ -32,42 +29,6 @@ func FindJumpToBottomOffset(content Content) (int, error) {
 		err = nil // Handles case where size is 0.
 	}
 	return int(size) - len(line), err
-}
-
-func Bisect(content Content, target string, mask *regexp.Regexp) (int, error) {
-	sz, err := content.Size()
-	if err != nil {
-		return 0, err
-	}
-
-	var start int
-	end := int(sz - 1)
-
-	var i int
-	for {
-		i++
-		if i == 1000 {
-			return 0, errors.New("could not find target")
-		}
-
-		offset := start + rand.Intn(end-start+1)
-		line, offset, err := lineAt(content, offset)
-		if err != nil {
-			return 0, err
-		}
-		if start+len(line) >= end {
-			break
-		}
-		if mask.MatchString(transform(line)) {
-			if target < string(line) {
-				end = offset
-			} else {
-				start = offset
-			}
-		}
-	}
-
-	return start, nil
 }
 
 // Gets the line containing the offset.
