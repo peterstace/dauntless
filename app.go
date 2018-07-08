@@ -151,13 +151,13 @@ var styles = [...]Style{Default, Black, Red, Green, Yellow, Blue, Magenta, Cyan,
 func (a *app) colourEntered(cmd string) {
 	err := fmt.Errorf("colour code must be in format [0-8][0-8]: %v", cmd)
 	if len(cmd) != 2 {
-		a.CommandFailed(err)
+		a.model.setMessage(err.Error())
 		return
 	}
 	fg := cmd[0]
 	bg := cmd[1]
 	if fg < '0' || fg > '8' || bg < '0' || bg > '8' {
-		a.CommandFailed(err)
+		a.model.setMessage(err.Error())
 		return
 	}
 
@@ -175,11 +175,11 @@ func (a *app) colourEntered(cmd string) {
 func (a *app) seekEntered(cmd string) {
 	seekPct, err := strconv.ParseFloat(cmd, 64)
 	if err != nil {
-		a.CommandFailed(err)
+		a.model.setMessage(err.Error())
 		return
 	}
 	if seekPct < 0 || seekPct > 100 {
-		a.CommandFailed(fmt.Errorf("seek percentage out of range [0, 100]: %v", seekPct))
+		a.model.setMessage(fmt.Sprintf("seek percentage out of range [0, 100]: %v", seekPct))
 		return
 	}
 
@@ -261,7 +261,7 @@ func (a *app) quitEntered(cmd string) {
 	case "n":
 		return
 	default:
-		a.CommandFailed(fmt.Errorf("invalid quit response (should be y/n): %v", cmd))
+		a.model.setMessage(fmt.Sprintf("invalid quit response (should be y/n): %v", cmd))
 	}
 }
 
@@ -296,12 +296,6 @@ func (a *app) moveBottom() {
 			a.model.moveToOffset(offset)
 		}, "move bottom")
 	}()
-}
-
-// TODO: Put in Model
-func (a *app) CommandFailed(err error) {
-	log.Warn("Command failed: %v", err)
-	a.model.setMessage(err.Error())
 }
 
 // TODO: Put in Model
@@ -482,7 +476,8 @@ func (a *app) TermSize(rows, cols int, forceRefresh bool) {
 
 // TODO: Move to model
 func (a *app) FileSize(size int) {
-	log.Info("File size changed: old=%d new=%d", a.model.filename, size)
+	oldSize := a.model.fileSize
+	log.Info("File size changed: old=%d new=%d", oldSize, size)
 	a.model.fileSize = size
 	if len(a.model.fwd) == 0 {
 		return
@@ -511,7 +506,7 @@ func (a *app) renderScreen() {
 func (a *app) searchEntered(cmd string) {
 	re, err := regexp.Compile(cmd)
 	if err != nil {
-		a.CommandFailed(err)
+		a.model.setMessage(err.Error())
 		return
 	}
 	a.model.tmpRegex = re
