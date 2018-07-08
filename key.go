@@ -23,31 +23,35 @@ func (k Key) String() string {
 	if len(k) == 1 {
 		if k[0] >= ' ' && k[0] <= '~' {
 			return string(k)
+		} else if k[0] == '\t' {
+			return "<tab>"
 		} else {
 			return fmt.Sprintf("0x%02X", k[0])
 		}
 	}
 	switch k {
 	case UpArrowKey:
-		return "UpArrowKey"
+		return "<up-arrow>"
 	case DownArrowKey:
-		return "DownArrowKey"
+		return "<down-arrow>"
 	case RightArrowKey:
-		return "RightArrowKey"
+		return "<right-arrow>"
 	case LeftArrowKey:
-		return "LeftArrowKey"
+		return "<left-arrow>"
 	case HomeKey:
-		return "HomeKey"
+		return "<home>"
 	case InsertKey:
-		return "InsertKey"
+		return "<insert>"
 	case DeleteKey:
-		return "DeleteKey"
+		return "<delete>"
 	case EndKey:
-		return "EndKey"
+		return "<end>"
 	case PageUpKey:
-		return "PageUpKey"
+		return "<page-up>"
 	case PageDownKey:
-		return "PageDownKey"
+		return "<page-down>"
+	case ShiftTab:
+		return "<shift-tab>"
 	default:
 		return fmt.Sprintf("%v", []byte(k))
 	}
