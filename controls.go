@@ -21,22 +21,22 @@ var controls = []control{
 	control{
 		keys:   []Key{"j", DownArrowKey},
 		desc:   "move down by one line",
-		action: func(a *app) { a.moveDown() },
+		action: func(a *app) { a.model.moveDown() },
 	},
 	control{
 		keys:   []Key{"k", UpArrowKey},
 		desc:   "move up by one line",
-		action: func(a *app) { a.moveUp() },
+		action: func(a *app) { a.model.moveUp() },
 	},
 	control{
 		keys:   []Key{"d", PageDownKey},
 		desc:   "move down by one screen",
-		action: func(a *app) { a.moveDownByHalfScreen() },
+		action: func(a *app) { a.model.moveDownByHalfScreen() },
 	},
 	control{
 		keys:   []Key{"u", PageUpKey},
 		desc:   "move up by one screen",
-		action: func(a *app) { a.moveUpByHalfScreen() },
+		action: func(a *app) { a.model.moveUpByHalfScreen() },
 	},
 
 	control{
@@ -59,7 +59,7 @@ var controls = []control{
 	control{
 		keys:   []Key{"g"},
 		desc:   "move to start of file",
-		action: func(a *app) { a.moveTop() },
+		action: func(a *app) { a.model.moveTop() },
 	},
 	control{
 		keys:   []Key{"G"},
@@ -86,7 +86,7 @@ var controls = []control{
 	control{
 		keys:   []Key{"w"},
 		desc:   "toggle line wrap mode",
-		action: func(a *app) { a.toggleLineWrapMode() },
+		action: func(a *app) { a.model.toggleLineWrapMode() },
 	},
 
 	control{

@@ -251,18 +251,6 @@ func (a *app) quitEntered(cmd string) {
 	}
 }
 
-func (a *app) moveDownByHalfScreen() {
-	for i := 0; i < a.model.rows/2; i++ {
-		a.moveDown()
-	}
-}
-
-func (a *app) moveUpByHalfScreen() {
-	for i := 0; i < a.model.rows/2; i++ {
-		a.moveUp()
-	}
-}
-
 func (a *app) discardBufferedInputAndRepaint() {
 	log.Info("Discarding buffered input and repainting screen.")
 	a.model.fwd = nil
@@ -281,41 +269,8 @@ func (a *app) discardBufferedInputAndRepaint() {
 	}()
 }
 
-func (a *app) moveDown() {
-	log.Info("Moving down.")
-	if len(a.model.fwd) < 2 {
-		log.Warn("Cannot move down: reason=\"not enough lines loaded\" linesLoaded=%d", len(a.model.fwd))
-		return
-	}
-	a.model.moveToOffset(a.model.fwd[1].offset)
-}
-
-func (a *app) moveUp() {
-
-	log.Info("Moving up.")
-
-	if a.model.offset == 0 {
-		log.Info("Cannot move back: at start of file.")
-		return
-	}
-
-	if len(a.model.bck) == 0 {
-		log.Warn("Cannot move back: previous line not loaded.")
-		return
-	}
-
-	a.model.moveToOffset(a.model.bck[0].offset)
-}
-
-func (a *app) moveTop() {
-	log.Info("Jumping to start of file.")
-	a.model.moveToOffset(0)
-}
-
 func (a *app) moveBottom() {
-
 	log.Info("Jumping to bottom of file.")
-
 	go func() {
 		offset, err := FindJumpToBottomOffset(a.model.content)
 		a.reactor.Enque(func() {
@@ -350,16 +305,6 @@ func (a *app) startColourCommand() {
 	}
 	a.model.StartCommandMode(ColourCommand)
 	log.Info("Accepting colour command.")
-}
-
-func (a *app) toggleLineWrapMode() {
-	if a.model.lineWrapMode {
-		log.Info("Toggling out of line wrap mode.")
-	} else {
-		log.Info("Toggling into line wrap mode.")
-	}
-	a.model.lineWrapMode = !a.model.lineWrapMode
-	a.model.xPosition = 0
 }
 
 func (a *app) cycleRegexp(forward bool) {

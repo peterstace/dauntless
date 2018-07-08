@@ -171,3 +171,52 @@ func (m *Model) moveToOffset(offset int) {
 	m.bck = nil
 	m.offset = offset
 }
+
+func (m *Model) moveDown() {
+	log.Info("Moving down.")
+	if len(m.fwd) < 2 {
+		log.Warn("Cannot move down: reason=\"not enough lines loaded\" linesLoaded=%d", len(m.fwd))
+		return
+	}
+	m.moveToOffset(m.fwd[1].offset)
+}
+
+func (m *Model) moveUp() {
+	log.Info("Moving up.")
+	if m.offset == 0 {
+		log.Info("Cannot move back: at start of file.")
+		return
+	}
+	if len(m.bck) == 0 {
+		log.Warn("Cannot move back: previous line not loaded.")
+		return
+	}
+	m.moveToOffset(m.bck[0].offset)
+}
+
+func (m *Model) moveTop() {
+	log.Info("Jumping to start of file.")
+	m.moveToOffset(0)
+}
+
+func (m *Model) moveDownByHalfScreen() {
+	for i := 0; i < m.rows/2; i++ {
+		m.moveDown()
+	}
+}
+
+func (m *Model) moveUpByHalfScreen() {
+	for i := 0; i < m.rows/2; i++ {
+		m.moveUp()
+	}
+}
+
+func (m *Model) toggleLineWrapMode() {
+	if m.lineWrapMode {
+		log.Info("Toggling out of line wrap mode.")
+	} else {
+		log.Info("Toggling into line wrap mode.")
+	}
+	m.lineWrapMode = !m.lineWrapMode
+	m.xPosition = 0
+}
