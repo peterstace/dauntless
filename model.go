@@ -233,3 +233,18 @@ func (m *Model) setMessage(msg string) {
 	m.msg = msg
 	m.msgSetAt = time.Now()
 }
+
+func (m *Model) reduceXPosition() {
+	m.changeXPosition(max(0, m.xPosition-m.cols/4))
+}
+
+func (m *Model) increaseXPosition() {
+	m.changeXPosition(max(0, m.xPosition+m.cols/4))
+}
+
+func (m *Model) changeXPosition(newPosition int) {
+	log.Info("Changing x position: old=%v new=%v", m.xPosition, newPosition)
+	if m.xPosition != newPosition {
+		m.xPosition = newPosition
+	}
+}

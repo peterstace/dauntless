@@ -42,12 +42,12 @@ var controls = []control{
 	control{
 		keys:   []Key{LeftArrowKey},
 		desc:   "scroll left horizontally",
-		action: func(a *app) { a.reduceXPosition() },
+		action: func(a *app) { a.model.reduceXPosition() },
 	},
 	control{
 		keys:   []Key{RightArrowKey},
 		desc:   "scroll right horizontally",
-		action: func(a *app) { a.increaseXPosition() },
+		action: func(a *app) { a.model.increaseXPosition() },
 	},
 
 	control{

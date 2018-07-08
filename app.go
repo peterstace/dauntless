@@ -348,21 +348,6 @@ func (a *app) deleteRegexp() {
 	}
 }
 
-func (a *app) reduceXPosition() {
-	a.changeXPosition(max(0, a.model.xPosition-a.model.cols/4))
-}
-
-func (a *app) increaseXPosition() {
-	a.changeXPosition(max(0, a.model.xPosition+a.model.cols/4))
-}
-
-func (a *app) changeXPosition(newPosition int) {
-	log.Info("Changing x position: old=%v new=%v", a.model.xPosition, newPosition)
-	if a.model.xPosition != newPosition {
-		a.model.xPosition = newPosition
-	}
-}
-
 const (
 	backLoadFactor      = 1
 	forwardLoadFactor   = 2
