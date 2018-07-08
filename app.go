@@ -23,6 +23,7 @@ type app struct {
 	fillingScreenBuffer bool
 	forceRefresh        bool
 	model               Model
+	msgSetAt            time.Time
 }
 
 func NewApp(reactor Reactor, content Content, filename string, screen Screen, config Config) App {
@@ -38,11 +39,24 @@ func NewApp(reactor Reactor, content Content, filename string, screen Screen, co
 	}
 }
 
+const msgLingerDuration = 5 * time.Second
+
 func (a *app) Initialise() {
 	log.Info("***************** Initialising log viewer ******************")
 	a.reactor.SetPostHook(func() {
 		// Round cycle to nearest 10 to prevent flapping.
 		a.model.cycle = a.reactor.GetCycle() / 10 * 10
+
+		// Check if new message was set, if so prep an event to remove it after
+		// the linger duration.
+		if a.msgSetAt != a.model.msgSetAt {
+			go func() {
+				time.Sleep(msgLingerDuration)
+				a.reactor.Enque(func() {}, "linger complete")
+			}()
+		}
+		a.msgSetAt = a.model.msgSetAt
+
 		a.fillScreenBuffer()
 		a.refresh()
 	})
@@ -208,7 +222,7 @@ func (a *app) asyncBisect(target string) {
 		i++
 		if i == 1000 {
 			a.reactor.Enque(func() {
-				a.setMessage("could not find bisect target after 1000 iterations")
+				a.model.setMessage("could not find bisect target after 1000 iterations")
 			}, "could not find bisect target")
 			return
 		}
@@ -284,26 +298,29 @@ func (a *app) moveBottom() {
 	}()
 }
 
+// TODO: Put in Model
 func (a *app) CommandFailed(err error) {
 	log.Warn("Command failed: %v", err)
-	a.setMessage(err.Error())
+	a.model.setMessage(err.Error())
 }
 
+// TODO: Put in Model
 func (a *app) startColourCommand() {
 	if a.model.currentRE() == nil {
 		msg := "cannot select regex color: no active regex"
-		a.setMessage(msg)
+		a.model.setMessage(msg)
 		return
 	}
 	a.model.StartCommandMode(ColourCommand)
 	log.Info("Accepting colour command.")
 }
 
+// TODO: Put in Model
 func (a *app) cycleRegexp(forward bool) {
 	if len(a.model.regexes) == 0 {
 		msg := "no regexes to cycle between"
 		log.Warn(msg)
-		a.setMessage(msg)
+		a.model.setMessage(msg)
 		return
 	}
 
@@ -318,6 +335,7 @@ func (a *app) cycleRegexp(forward bool) {
 	}
 }
 
+// TODO: Put in Model
 func (a *app) deleteRegexp() {
 	if a.model.tmpRegex != nil {
 		a.model.tmpRegex = nil
@@ -326,7 +344,7 @@ func (a *app) deleteRegexp() {
 	} else {
 		msg := "no regexes to delete"
 		log.Warn(msg)
-		a.setMessage(msg)
+		a.model.setMessage(msg)
 	}
 }
 
@@ -510,20 +528,6 @@ func (a *app) renderScreen() {
 	a.forceRefresh = false
 }
 
-const msgLingerDuration = 5 * time.Second
-
-func (a *app) setMessage(msg string) {
-	log.Info("Setting message: %q", msg)
-	a.model.msg = msg
-	a.model.msgSetAt = time.Now()
-	go func() {
-		// Trigger an event after the linger duration to stop the message being
-		// drawn.
-		time.Sleep(msgLingerDuration)
-		a.reactor.Enque(func() {}, "linger complete")
-	}()
-}
-
 func (a *app) searchEntered(cmd string) {
 	re, err := regexp.Compile(cmd)
 	if err != nil {
@@ -538,7 +542,7 @@ func (a *app) jumpToMatch(reverse bool) {
 	if re == nil {
 		msg := "no regex to jump to"
 		log.Info(msg)
-		a.setMessage(msg)
+		a.model.setMessage(msg)
 		return
 	}
 
@@ -586,7 +590,7 @@ func (a *app) asyncFindMatch(start int, re *regexp.Regexp, reverse bool) {
 			} else {
 				a.reactor.Enque(func() {
 					msg := "regex search complete: no match found"
-					a.setMessage(msg)
+					a.model.setMessage(msg)
 				}, "no match found")
 				return
 			}

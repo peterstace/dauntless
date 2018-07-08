@@ -228,3 +228,8 @@ func (m *Model) currentRE() *regexp.Regexp {
 	}
 	return re
 }
+
+func (m *Model) setMessage(msg string) {
+	m.msg = msg
+	m.msgSetAt = time.Now()
+}
