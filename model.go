@@ -220,3 +220,11 @@ func (m *Model) toggleLineWrapMode() {
 	m.lineWrapMode = !m.lineWrapMode
 	m.xPosition = 0
 }
+
+func (m *Model) currentRE() *regexp.Regexp {
+	re := m.tmpRegex
+	if re == nil && len(m.regexes) > 0 {
+		re = m.regexes[0].re
+	}
+	return re
+}

@@ -289,16 +289,8 @@ func (a *app) CommandFailed(err error) {
 	a.setMessage(err.Error())
 }
 
-func currentRE(m *Model) *regexp.Regexp {
-	re := m.tmpRegex
-	if re == nil && len(m.regexes) > 0 {
-		re = m.regexes[0].re
-	}
-	return re
-}
-
 func (a *app) startColourCommand() {
-	if currentRE(&a.model) == nil {
+	if a.model.currentRE() == nil {
 		msg := "cannot select regex color: no active regex"
 		a.setMessage(msg)
 		return
@@ -542,7 +534,7 @@ func (a *app) searchEntered(cmd string) {
 }
 
 func (a *app) jumpToMatch(reverse bool) {
-	re := currentRE(&a.model)
+	re := a.model.currentRE()
 	if re == nil {
 		msg := "no regex to jump to"
 		log.Info(msg)
