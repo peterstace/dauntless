@@ -408,7 +408,9 @@ func (m *Model) filterEntered(cmd string) {
 	m.filterRegex = re
 	m.fwd = nil
 	m.bck = nil
-	m.offset = 0 // TODO: Find a more appropriate offset
+	// Changing the filter is always to disruptive to recalculate some sort of
+	// 'sensible' offset. Moving to the top of file is okay.
+	m.offset = 0
 }
 
 func (m *Model) needsLoadingForward() int {
