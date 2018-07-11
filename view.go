@@ -27,40 +27,41 @@ func CreateView(m *Model) ScreenState {
 	var fwdIdx int
 	lineRows := m.rows - 2 // 2 rows reserved for status line and command line.
 	for row := 0; row < lineRows; row++ {
-		if fwdIdx < len(m.fwd) {
-			usePrefix := len(lineBuf) != 0
-			if len(lineBuf) == 0 {
-				assert(len(styleBuf) == 0)
-				data := m.fwd[fwdIdx].data
-				if data[len(data)-1] == '\n' {
-					data = data[:len(data)-1]
-				}
-				data = transform(data)
-				lineBuf = renderLine(data)
-				styleBuf = renderStyle(data, regexes)
-				fwdIdx++
-			}
-			if !m.lineWrapMode {
-				if m.xPosition < len(lineBuf) {
-					copy(state.Chars[row*m.cols:(row+1)*m.cols], lineBuf[m.xPosition:])
-					copy(state.Styles[row*m.cols:(row+1)*m.cols], styleBuf[m.xPosition:])
-				}
-				lineBuf = nil
-				styleBuf = nil
-			} else {
-				var prefix string
-				if usePrefix && len(m.config.WrapPrefix)+1 < m.cols {
-					prefix = m.config.WrapPrefix
-				}
-				copy(state.Chars[row*m.cols:(row+1)*m.cols], prefix)
-				copiedA := copy(state.Chars[row*m.cols+len(prefix):(row+1)*m.cols], lineBuf)
-				copiedB := copy(state.Styles[row*m.cols+len(prefix):(row+1)*m.cols], styleBuf)
-				assert(copiedA == copiedB)
-				lineBuf = lineBuf[copiedA:]
-				styleBuf = styleBuf[copiedB:]
-			}
-		} else {
+		if fwdIdx >= len(m.fwd) {
 			state.Chars[state.RowColIdx(row, 0)] = '~'
+			continue
+		}
+
+		if len(lineBuf) == 0 {
+			assert(len(styleBuf) == 0)
+			data := m.fwd[fwdIdx].data
+			if data[len(data)-1] == '\n' {
+				data = data[:len(data)-1]
+			}
+			data = transform(data)
+			lineBuf = renderLine(data)
+			styleBuf = renderStyle(data, regexes)
+			fwdIdx++
+		}
+		if !m.lineWrapMode {
+			if m.xPosition < len(lineBuf) {
+				copy(state.Chars[row*m.cols:(row+1)*m.cols], lineBuf[m.xPosition:])
+				copy(state.Styles[row*m.cols:(row+1)*m.cols], styleBuf[m.xPosition:])
+			}
+			lineBuf = nil
+			styleBuf = nil
+		} else {
+			var prefix string
+			usePrefix := len(lineBuf) != 0
+			if usePrefix && len(m.config.WrapPrefix)+1 < m.cols {
+				prefix = m.config.WrapPrefix
+			}
+			copy(state.Chars[row*m.cols:(row+1)*m.cols], prefix)
+			copiedA := copy(state.Chars[row*m.cols+len(prefix):(row+1)*m.cols], lineBuf)
+			copiedB := copy(state.Styles[row*m.cols+len(prefix):(row+1)*m.cols], styleBuf)
+			assert(copiedA == copiedB)
+			lineBuf = lineBuf[copiedA:]
+			styleBuf = styleBuf[copiedB:]
 		}
 	}
 
@@ -81,7 +82,8 @@ func CreateView(m *Model) ScreenState {
 
 	commandRow := m.rows - 1
 	copy(state.Chars[commandRow*m.cols:(commandRow+1)*m.cols], commandLineText)
-	if m.cmd.Mode == SearchCommand {
+	switch m.cmd.Mode {
+	case SearchCommand, FilterCommand:
 		if _, err := regexp.Compile(m.cmd.Text); err != nil {
 			start := len(prompt(m.cmd.Mode))
 			end := start + len(m.cmd.Text)
@@ -236,6 +238,8 @@ func prompt(cmd CommandMode) string {
 		return "Enter bisect target (interrupt to cancel): "
 	case QuitCommand:
 		return "Do you really want to quit? (y/n): "
+	case FilterCommand:
+		return "Enter filter regexp (interrupt to cancel): "
 	}
 	assert(false)
 	return ""

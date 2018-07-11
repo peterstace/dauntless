@@ -124,6 +124,8 @@ func (a *app) commandModeKeyPress(k Key) {
 				}
 			case QuitCommand:
 				a.quitEntered(a.model.cmd.Text)
+			case FilterCommand:
+				a.model.filterEntered(a.model.cmd.Text)
 			default:
 				assert(false)
 			}

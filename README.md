@@ -74,7 +74,7 @@ not exit `cbreak` mode before exiting. To manually leave `cbreak` mode, enter
 
 #### Most Important
 
-* Substitute command.
+* Filter command.
 
 * Should not be able to see past end of file if the file is bigger than 1
   screen.

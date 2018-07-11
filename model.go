@@ -28,6 +28,8 @@ type Model struct {
 	tmpRegex *regexp.Regexp
 	regexes  []regex
 
+	filterRegex *regexp.Regexp
+
 	lineWrapMode bool
 	xPosition    int
 
@@ -63,6 +65,7 @@ const (
 	SeekCommand
 	BisectCommand
 	QuitCommand
+	FilterCommand
 )
 
 type regex struct {
@@ -397,6 +400,17 @@ func (m *Model) bisectEntered(cmd string) error {
 	return nil
 }
 
+func (m *Model) filterEntered(cmd string) {
+	re, err := regexp.Compile(cmd)
+	if err != nil {
+		m.setMessage(err.Error())
+	}
+	m.filterRegex = re
+	m.fwd = nil
+	m.bck = nil
+	m.offset = 0 // TODO: Find a more appropriate offset
+}
+
 func (m *Model) needsLoadingForward() int {
 	if m.fileSize == 0 {
 		return 0
@@ -406,7 +420,7 @@ func (m *Model) needsLoadingForward() int {
 	}
 	if len(m.fwd) > 0 {
 		lastLine := m.fwd[len(m.fwd)-1]
-		if lastLine.offset+len(lastLine.data) >= m.fileSize {
+		if lastLine.nextOffset() >= m.fileSize {
 			return 0
 		}
 	}

@@ -84,6 +84,12 @@ var controls = []control{
 	},
 
 	control{
+		keys:   []Key{"&"},
+		desc:   "enter a display filter regex",
+		action: func(a *app) { a.model.StartCommandMode(FilterCommand) },
+	},
+
+	control{
 		keys:   []Key{"w"},
 		desc:   "toggle line wrap mode",
 		action: func(a *app) { a.model.toggleLineWrapMode() },
