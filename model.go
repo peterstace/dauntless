@@ -413,10 +413,15 @@ func (m *Model) filterEntered(cmd string) {
 	// Changing the filter is always to disruptive to recalculate some sort of
 	// 'sensible' offset. Moving to the top of file is okay.
 	m.currentOffset = 0
+	m.minLoadOffset = -1
+	m.maxLoadOffset = -1
 }
 
 func (m *Model) needsLoadingForward() int {
 	if m.fileSize == 0 {
+		return 0
+	}
+	if m.maxLoadOffset >= m.fileSize {
 		return 0
 	}
 	if len(m.fwd) >= m.rows*forwardLoadFactor {
@@ -433,6 +438,9 @@ func (m *Model) needsLoadingForward() int {
 
 func (m *Model) needsLoadingBackward() int {
 	if m.currentOffset == 0 {
+		return 0
+	}
+	if m.minLoadOffset == 0 {
 		return 0
 	}
 	if len(m.bck) >= m.rows*backLoadFactor {

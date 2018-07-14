@@ -171,6 +171,8 @@ func (a *app) discardBufferedInputAndRepaint() {
 	log.Info("Discarding buffered input and repainting screen.")
 	a.model.fwd = nil
 	a.model.bck = nil
+	a.model.minLoadOffset = -1
+	a.model.maxLoadOffset = -1
 
 	go func() {
 		offset, err := FindReloadOffset(a.model.content, a.model.currentOffset)
@@ -232,9 +234,9 @@ func (a *app) fillScreenBuffer() {
 }
 
 func (a *app) loadForward(amount int) {
-	offset := a.model.currentOffset
-	if len(a.model.fwd) > 0 {
-		offset = a.model.fwd[len(a.model.fwd)-1].nextOffset()
+	offset := a.model.maxLoadOffset
+	if offset == -1 {
+		offset = a.model.currentOffset
 	}
 	log.Debug("Loading forward: offset=%d amount=%d", offset, amount)
 
@@ -254,7 +256,9 @@ func (a *app) loadForward(amount int) {
 			}
 			offset := contigLines.minOffset
 			for _, ln := range contigLines.lines {
-				a.model.fwd = append(a.model.fwd, line{offset: offset, data: ln})
+				if a.model.filterRegex == nil || a.model.filterRegex.MatchString(ln) {
+					a.model.fwd = append(a.model.fwd, line{offset: offset, data: ln})
+				}
 				offset += len(ln)
 			}
 			assert(contigLines.maxOffset == offset)
@@ -266,9 +270,9 @@ func (a *app) loadForward(amount int) {
 }
 
 func (a *app) loadBackward(amount int) {
-	offset := a.model.currentOffset
-	if len(a.model.bck) > 0 {
-		offset = a.model.bck[len(a.model.bck)-1].offset
+	offset := a.model.minLoadOffset
+	if offset == -1 {
+		offset = a.model.currentOffset
 	}
 	log.Debug("Loading backward: offset=%d amount=%d", offset, amount)
 
@@ -289,10 +293,9 @@ func (a *app) loadBackward(amount int) {
 			offset := contigLines.maxOffset
 			for _, ln := range contigLines.lines {
 				offset -= len(ln)
-				a.model.bck = append(a.model.bck, line{
-					offset: offset,
-					data:   ln,
-				})
+				if a.model.filterRegex == nil || a.model.filterRegex.MatchString(ln) {
+					a.model.bck = append(a.model.bck, line{offset: offset, data: ln})
+				}
 			}
 			assert(contigLines.minOffset == offset)
 			a.model.minLoadOffset = offset

@@ -21,7 +21,7 @@ func CreateView(m *Model) ScreenState {
 		}
 	}
 
-	assert(len(m.fwd) == 0 || m.fwd[0].offset == m.currentOffset)
+	//assert(len(m.fwd) == 0 || m.fwd[0].offset == m.currentOffset)
 	var lineBuf []byte
 	var styleBuf []Style
 	var fwdIdx int
