@@ -94,7 +94,7 @@ func main() {
 
 	enterAlt()
 	ttyState := enterRaw()
-	screen := NewTermScreen(os.Stdout, reactor)
+	screen := NewTermScreen(os.Stdout)
 	app := NewApp(reactor, content, filename, screen, config)
 	reactor.Enque(app.Initialise, "initialise")
 	CollectFileSize(reactor, app, content)
