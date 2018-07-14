@@ -1,10 +1,12 @@
-package main
+package screen
 
 import (
 	"bytes"
 	"fmt"
 	"io"
 	"time"
+
+	"github.com/peterstace/dauntless/assert"
 )
 
 type Screen interface {
@@ -67,8 +69,8 @@ func (t *termScreen) writeComplete() {
 }
 
 func (t *termScreen) outputPending() {
-	assert(t.hasPending)
-	assert(!t.writeInProgress)
+	assert.True(t.hasPending)
+	assert.True(!t.writeInProgress)
 	t.hasPending = false
 
 	diff := ScreenDiff(t.lastWrittenState, t.pendingState)

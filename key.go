@@ -1,6 +1,10 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/peterstace/dauntless/assert"
+)
 
 type Key string
 
@@ -19,7 +23,7 @@ const (
 )
 
 func (k Key) String() string {
-	assert(len(k) != 0)
+	assert.True(len(k) != 0)
 	if len(k) == 1 {
 		if k[0] >= ' ' && k[0] <= '~' {
 			return string(k)

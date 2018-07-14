@@ -2,6 +2,8 @@ package main
 
 import (
 	"io"
+
+	"github.com/peterstace/dauntless/assert"
 )
 
 const lineReaderReadSize = 1 << 12
@@ -80,7 +82,7 @@ func (b *BackwardLineReader) ReadLine() (string, error) {
 		return "", err
 	}
 	b.offset -= n
-	assert(b.offset >= 0)
+	assert.True(b.offset >= 0)
 	oldUnused := b.unused
 	b.unused = make([]byte, n+len(b.unused))
 	copy(b.unused, b.readBuf[:n])
