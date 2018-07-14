@@ -21,7 +21,7 @@ func CreateView(m *Model) ScreenState {
 		}
 	}
 
-	assert(len(m.fwd) == 0 || m.fwd[0].offset == m.offset)
+	assert(len(m.fwd) == 0 || m.fwd[0].offset == m.currentOffset)
 	var lineBuf []byte
 	var styleBuf []Style
 	var fwdIdx int
@@ -133,7 +133,7 @@ func drawStatusLine(m *Model, state ScreenState) {
 	}
 
 	// Offset percentage.
-	pct := float64(m.offset) / float64(m.fileSize) * 100
+	pct := float64(m.currentOffset) / float64(m.fileSize) * 100
 	var pctStr string
 	switch {
 	case pct < 10:
@@ -250,7 +250,7 @@ func overlayDebug(m *Model, state ScreenState) {
 	runtime.ReadMemStats(&mem)
 
 	lines := []string{
-		fmt.Sprintf("off: 0x%016x", m.offset),
+		fmt.Sprintf("off: 0x%016x", m.currentOffset),
 		fmt.Sprintf("fwd: %d", len(m.fwd)),
 		fmt.Sprintf("bck: %d", len(m.bck)),
 		fmt.Sprintf("gomaxprocs: %d", runtime.GOMAXPROCS(0)),

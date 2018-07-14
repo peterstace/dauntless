@@ -91,8 +91,9 @@ func (a *app) normalModeKeyPress(k Key) {
 	}
 	if ctrl != nil {
 		ctrl.action(a)
+	} else {
+		log.Info("Key press was unhandled: %v", k)
 	}
-	log.Info("Key press was unhandled: %v", k)
 }
 
 // TODO: This whole thing can be part of the model.
@@ -172,7 +173,7 @@ func (a *app) discardBufferedInputAndRepaint() {
 	a.model.bck = nil
 
 	go func() {
-		offset, err := FindReloadOffset(a.model.content, a.model.offset)
+		offset, err := FindReloadOffset(a.model.content, a.model.currentOffset)
 		a.reactor.Enque(func() {
 			if err != nil {
 				log.Warn("Could not find reload offset: %v", err)
@@ -231,7 +232,7 @@ func (a *app) fillScreenBuffer() {
 }
 
 func (a *app) loadForward(amount int) {
-	offset := a.model.offset
+	offset := a.model.currentOffset
 	if len(a.model.fwd) > 0 {
 		offset = a.model.fwd[len(a.model.fwd)-1].nextOffset()
 	}
@@ -239,21 +240,25 @@ func (a *app) loadForward(amount int) {
 
 	a.fillingScreenBuffer = true
 	go func() {
-		lines, err := LoadFwd(a.model.content, offset, amount)
+		contigLines, err := LoadFwd(a.model.content, offset, amount)
 		a.reactor.Enque(func() {
 			if err != nil {
 				log.Warn("Error loading forward: %v", err)
 				a.reactor.Stop(err)
 				return
 			}
-			log.Debug("Got fwd lines: numLines=%d initialFwd=%d initialBck=%d", len(lines), len(a.model.fwd), len(a.model.bck))
-			for _, data := range lines {
-				if (len(a.model.fwd) == 0 && offset == a.model.offset) ||
-					(len(a.model.fwd) > 0 && a.model.fwd[len(a.model.fwd)-1].nextOffset() == offset) {
-					a.model.fwd = append(a.model.fwd, line{offset, data})
-				}
-				offset += len(data)
+			log.Debug("Got fwd lines: numLines=%d initialFwd=%d initialBck=%d", len(contigLines.lines), len(a.model.fwd), len(a.model.bck))
+			if a.model.maxLoadOffset != -1 && a.model.maxLoadOffset != contigLines.minOffset {
+				log.Debug("offsets didn't match: modelMaxLoadOffset=%d loadedMinOffset=%d", a.model.maxLoadOffset, contigLines.minOffset)
+				return
 			}
+			offset := contigLines.minOffset
+			for _, ln := range contigLines.lines {
+				a.model.fwd = append(a.model.fwd, line{offset: offset, data: ln})
+				offset += len(ln)
+			}
+			assert(contigLines.maxOffset == offset)
+			a.model.maxLoadOffset = offset
 			log.Debug("After adding to data structure: fwd=%d bck=%d", len(a.model.fwd), len(a.model.bck))
 			a.fillingScreenBuffer = false
 		}, "load forward")
@@ -261,7 +266,7 @@ func (a *app) loadForward(amount int) {
 }
 
 func (a *app) loadBackward(amount int) {
-	offset := a.model.offset
+	offset := a.model.currentOffset
 	if len(a.model.bck) > 0 {
 		offset = a.model.bck[len(a.model.bck)-1].offset
 	}
@@ -269,21 +274,28 @@ func (a *app) loadBackward(amount int) {
 
 	a.fillingScreenBuffer = true
 	go func() {
-		lines, err := LoadBck(a.model.content, offset, amount)
+		contigLines, err := LoadBck(a.model.content, offset, amount)
 		a.reactor.Enque(func() {
 			if err != nil {
 				log.Warn("Error loading backward: %v", err)
 				a.reactor.Stop(err)
 				return
 			}
-			log.Debug("Got bck lines: numLines=%d initialFwd=%d initialBck=%d", len(lines), len(a.model.fwd), len(a.model.bck))
-			for _, data := range lines {
-				if (len(a.model.bck) == 0 && offset == a.model.offset) ||
-					(len(a.model.bck) > 0 && a.model.bck[len(a.model.bck)-1].offset == offset) {
-					a.model.bck = append(a.model.bck, line{offset - len(data), data})
-				}
-				offset -= len(data)
+			log.Debug("Got bck lines: numLines=%d initialFwd=%d initialBck=%d", len(contigLines.lines), len(a.model.fwd), len(a.model.bck))
+			if a.model.minLoadOffset != -1 && a.model.minLoadOffset != contigLines.maxOffset {
+				log.Debug("offsets didn't match: modelMinLoadOffset=%d loadedMaxOffset=%d", a.model.minLoadOffset, contigLines.maxOffset)
+				return
 			}
+			offset := contigLines.maxOffset
+			for _, ln := range contigLines.lines {
+				offset -= len(ln)
+				a.model.bck = append(a.model.bck, line{
+					offset: offset,
+					data:   ln,
+				})
+			}
+			assert(contigLines.minOffset == offset)
+			a.model.minLoadOffset = offset
 			log.Debug("After adding to data structure: fwd=%d bck=%d", len(a.model.fwd), len(a.model.bck))
 			a.fillingScreenBuffer = false
 		}, "load backward")
@@ -332,7 +344,7 @@ func (a *app) jumpToMatch(reverse bool) {
 
 	var start int
 	if reverse {
-		start = a.model.offset
+		start = a.model.currentOffset
 	} else {
 		start = a.model.fwd[0].nextOffset()
 	}

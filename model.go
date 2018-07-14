@@ -16,12 +16,12 @@ type Model struct {
 
 	rows, cols int
 
-	// Invariants:
-	//  1) If fwd is populated, then offset will match the first line.
-	//  2) Fwd and bck contain consecutive lines.
-	offset int
-	fwd    []line
-	bck    []line
+	fwd []line
+	bck []line
+
+	currentOffset int
+	minLoadOffset int
+	maxLoadOffset int
 
 	fileSize int
 
@@ -147,27 +147,27 @@ func (m *Model) Interrupt() {
 }
 
 func (m *Model) moveToOffset(offset int) {
-	log.Info("Moving to offset: currentOffset=%d newOffset=%d", m.offset, offset)
+	log.Info("Moving to offset: currentOffset=%d newOffset=%d", m.currentOffset, offset)
 	assert(offset >= 0)
-	if m.offset == offset {
+	if m.currentOffset == offset {
 		log.Info("Already at target offset.")
 		return
 	}
 
 	ahead, aback := &m.fwd, &m.bck
-	if offset < m.offset {
+	if offset < m.currentOffset {
 		ahead, aback = aback, ahead
 	}
 
 	for _, ln := range *ahead {
 		if ln.offset == offset {
-			for m.offset != offset {
+			for m.currentOffset != offset {
 				l := (*ahead)[0]
 				*ahead = (*ahead)[1:]
 				*aback = append([]line{l}, *aback...)
-				m.offset = l.offset
+				m.currentOffset = l.offset
 				if ahead == &m.fwd {
-					m.offset += len(l.data)
+					m.currentOffset += len(l.data)
 				}
 			}
 			return
@@ -175,7 +175,9 @@ func (m *Model) moveToOffset(offset int) {
 	}
 	m.fwd = nil
 	m.bck = nil
-	m.offset = offset
+	m.currentOffset = offset
+	m.minLoadOffset = -1
+	m.maxLoadOffset = -1
 }
 
 func (m *Model) moveDown() {
@@ -189,7 +191,7 @@ func (m *Model) moveDown() {
 
 func (m *Model) moveUp() {
 	log.Info("Moving up.")
-	if m.offset == 0 {
+	if m.currentOffset == 0 {
 		log.Info("Cannot move back: at start of file.")
 		return
 	}
@@ -410,7 +412,7 @@ func (m *Model) filterEntered(cmd string) {
 	m.bck = nil
 	// Changing the filter is always to disruptive to recalculate some sort of
 	// 'sensible' offset. Moving to the top of file is okay.
-	m.offset = 0
+	m.currentOffset = 0
 }
 
 func (m *Model) needsLoadingForward() int {
@@ -430,7 +432,7 @@ func (m *Model) needsLoadingForward() int {
 }
 
 func (m *Model) needsLoadingBackward() int {
-	if m.offset == 0 {
+	if m.currentOffset == 0 {
 		return 0
 	}
 	if len(m.bck) >= m.rows*backLoadFactor {

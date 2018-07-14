@@ -2,14 +2,36 @@ package main
 
 import "io"
 
-func LoadFwd(content Content, offset int, count int) ([]string, error) {
-	r := NewForwardLineReader(content, offset)
-	return load(count, r)
+type ContigLines struct {
+	lines     []string
+	minOffset int
+	maxOffset int
 }
 
-func LoadBck(content Content, offset int, count int) ([]string, error) {
+func LoadFwd(content Content, offset int, count int) (ContigLines, error) {
+	r := NewForwardLineReader(content, offset)
+	lines, err := load(count, r)
+	if err != nil {
+		return ContigLines{}, err
+	}
+	cl := ContigLines{lines: lines, minOffset: offset, maxOffset: offset}
+	for _, l := range lines {
+		cl.maxOffset += len(l)
+	}
+	return cl, nil
+}
+
+func LoadBck(content Content, offset int, count int) (ContigLines, error) {
 	r := NewBackwardLineReader(content, offset)
-	return load(count, r)
+	lines, err := load(count, r)
+	if err != nil {
+		return ContigLines{}, err
+	}
+	cl := ContigLines{lines: lines, minOffset: offset, maxOffset: offset}
+	for _, l := range lines {
+		cl.minOffset -= len(l)
+	}
+	return cl, nil
 }
 
 func load(count int, r LineReader) ([]string, error) {
