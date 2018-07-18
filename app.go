@@ -5,6 +5,9 @@ import (
 	"io"
 	"regexp"
 	"time"
+
+	"github.com/peterstace/dauntless/assert"
+	"github.com/peterstace/dauntless/screen"
 )
 
 type App interface {
@@ -17,14 +20,14 @@ type App interface {
 
 type app struct {
 	reactor             Reactor
-	screen              Screen
+	screen              screen.Screen
 	fillingScreenBuffer bool
 	forceRefresh        bool
 	model               Model
 	msgSetAt            time.Time
 }
 
-func NewApp(reactor Reactor, content Content, filename string, screen Screen, config Config) App {
+func NewApp(reactor Reactor, content Content, filename string, screen screen.Screen, config Config) App {
 	return &app{
 		reactor: reactor,
 		screen:  screen,
@@ -76,7 +79,7 @@ func (a *app) KeyPress(k Key) {
 }
 
 func (a *app) normalModeKeyPress(k Key) {
-	assert(a.model.cmd.Mode == NoCommand)
+	assert.True(a.model.cmd.Mode == NoCommand)
 	var ctrl *control
 	for i := range controls {
 		for j := range controls[i].keys {
@@ -97,7 +100,7 @@ func (a *app) normalModeKeyPress(k Key) {
 
 // TODO: This whole thing can be part of the model.
 func (a *app) commandModeKeyPress(k Key) {
-	assert(a.model.cmd.Mode != NoCommand)
+	assert.True(a.model.cmd.Mode != NoCommand)
 	if len(k) == 1 {
 		b := k[0]
 		if b >= ' ' && b <= '~' {
@@ -125,7 +128,7 @@ func (a *app) commandModeKeyPress(k Key) {
 			case QuitCommand:
 				a.quitEntered(a.model.cmd.Text)
 			default:
-				assert(false)
+				assert.True(false)
 			}
 			a.model.ExitCommandMode()
 		}
@@ -151,7 +154,7 @@ func (a *app) commandModeKeyPress(k Key) {
 	}
 }
 
-var styles = [...]Style{Default, Black, Red, Green, Yellow, Blue, Magenta, Cyan, White}
+var styles = [...]screen.Style{screen.Default, screen.Black, screen.Red, screen.Green, screen.Yellow, screen.Blue, screen.Magenta, screen.Cyan, screen.White}
 
 func (a *app) quitEntered(cmd string) {
 	switch cmd {

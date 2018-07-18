@@ -1,54 +1,96 @@
-package main
+package screen
 
 import (
 	"bytes"
 	"fmt"
 	"io"
 	"time"
+
+	"github.com/peterstace/dauntless/assert"
 )
 
 type Screen interface {
 	Write(state ScreenState, force bool)
 }
 
-func NewTermScreen(w io.Writer, r Reactor) Screen {
-	return &termScreen{
-		writer:  w,
-		reactor: r,
+func NewTermScreen(w io.Writer) Screen {
+	t := &termScreen{
+		writer:          w,
+		inboundWriteCh:  make(chan ScreenState),
+		writeCompleteCh: make(chan struct{}),
 	}
+	go t.run()
+	return t
 }
 
 type termScreen struct {
+	writer io.Writer
+
+	inboundWriteCh  chan ScreenState
+	writeCompleteCh chan struct{}
+
 	writeInProgress  bool
 	hasPending       bool
 	pendingState     ScreenState
 	lastWrittenState ScreenState
-	writer           io.Writer
-	reactor          Reactor
 }
 
 func (t *termScreen) Write(state ScreenState, force bool) {
+	t.inboundWriteCh <- state
+}
 
-	log.Info("Preparing screen write contents.")
+func (t *termScreen) run() {
+	var ()
+	for {
+		select {
+		case state := <-t.inboundWriteCh:
+			t.newState(state)
+		case <-t.writeCompleteCh:
+			t.writeComplete()
+		}
+	}
+}
 
+func (t *termScreen) newState(state ScreenState) {
 	t.hasPending = true
 	state.CloneInto(&t.pendingState)
-	if force {
-		t.lastWrittenState.Cols = 0
-		t.lastWrittenState.Chars = nil
-		t.lastWrittenState.Styles = nil
-	}
-
+	// TODO if force, then set last written state to empty
 	if t.writeInProgress {
-		log.Info("Write already in progress, will write after completion.")
 		return
 	}
-
 	t.outputPending()
 }
 
-func ScreenDiff(from, to ScreenState) *bytes.Buffer {
+func (t *termScreen) writeComplete() {
+	t.writeInProgress = false
+	if t.hasPending {
+		t.outputPending()
+	}
+}
 
+func (t *termScreen) outputPending() {
+	assert.True(t.hasPending)
+	assert.True(!t.writeInProgress)
+	t.hasPending = false
+
+	diff := ScreenDiff(t.lastWrittenState, t.pendingState)
+	if diff.Len() == 0 {
+		return
+	}
+
+	t.writeInProgress = true
+	t.pendingState.CloneInto(&t.lastWrittenState)
+
+	go func() {
+		io.Copy(t.writer, diff)
+		// Stops flashing under constant scroll by putting an artificial delay
+		// between updating the screen.
+		time.Sleep(10 * time.Millisecond)
+		t.writeCompleteCh <- struct{}{}
+	}()
+}
+
+func ScreenDiff(from, to ScreenState) *bytes.Buffer {
 	renderAll := len(from.Chars) != len(to.Chars) || from.Cols != to.Cols
 
 	buf := new(bytes.Buffer)
@@ -87,41 +129,4 @@ func ScreenDiff(from, to ScreenState) *bytes.Buffer {
 		fmt.Fprintf(buf, "\x1b[%d;%dH", to.Rows(), to.ColPos+1)
 	}
 	return buf
-}
-
-func (t *termScreen) outputPending() {
-
-	assert(t.hasPending)
-	assert(!t.writeInProgress)
-	t.hasPending = false
-
-	diff := ScreenDiff(t.lastWrittenState, t.pendingState)
-	if diff.Len() == 0 {
-		log.Info("Screen state is the same, aborting write.")
-		return
-	}
-
-	log.Info("Writing to screen: bytes=%d", diff.Len())
-	t.writeInProgress = true
-	t.pendingState.CloneInto(&t.lastWrittenState)
-
-	go func() {
-		io.Copy(t.writer, diff)
-
-		// TODO: Tweak to stop "flashing" under constant scroll. Should
-		// probably be variable/parameter.
-		time.Sleep(10 * time.Millisecond)
-
-		t.reactor.Enque(t.writeComplete, "write complete")
-	}()
-}
-
-func (t *termScreen) writeComplete() {
-
-	log.Info("Screen write complete: hasPending=%t", t.hasPending)
-
-	t.writeInProgress = false
-	if t.hasPending {
-		t.outputPending()
-	}
 }

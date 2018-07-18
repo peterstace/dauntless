@@ -5,32 +5,35 @@ import (
 	"regexp"
 	"runtime"
 	"time"
+
+	"github.com/peterstace/dauntless/assert"
+	"github.com/peterstace/dauntless/screen"
 )
 
-func CreateView(m *Model) ScreenState {
-	state := NewScreenState(m.rows, m.cols)
+func CreateView(m *Model) screen.ScreenState {
+	state := screen.NewScreenState(m.rows, m.cols)
 	state.Init()
 
 	regexes := m.regexes
 	if m.tmpRegex != nil {
-		regexes = append(regexes, regex{MixStyle(Invert, Invert), m.tmpRegex})
+		regexes = append(regexes, regex{screen.MixStyle(screen.Invert, screen.Invert), m.tmpRegex})
 	}
 	if m.cmd.Mode == SearchCommand {
 		if re, err := regexp.Compile(m.cmd.Text); err == nil {
-			regexes = append(regexes, regex{MixStyle(Invert, Invert), re})
+			regexes = append(regexes, regex{screen.MixStyle(screen.Invert, screen.Invert), re})
 		}
 	}
 
-	assert(len(m.fwd) == 0 || m.fwd[0].offset == m.offset)
+	assert.True(len(m.fwd) == 0 || m.fwd[0].offset == m.offset)
 	var lineBuf []byte
-	var styleBuf []Style
+	var styleBuf []screen.Style
 	var fwdIdx int
 	lineRows := m.rows - 2 // 2 rows reserved for status line and command line.
 	for row := 0; row < lineRows; row++ {
 		if fwdIdx < len(m.fwd) {
 			usePrefix := len(lineBuf) != 0
 			if len(lineBuf) == 0 {
-				assert(len(styleBuf) == 0)
+				assert.True(len(styleBuf) == 0)
 				data := m.fwd[fwdIdx].data
 				if data[len(data)-1] == '\n' {
 					data = data[:len(data)-1]
@@ -55,7 +58,7 @@ func CreateView(m *Model) ScreenState {
 				copy(state.Chars[row*m.cols:(row+1)*m.cols], prefix)
 				copiedA := copy(state.Chars[row*m.cols+len(prefix):(row+1)*m.cols], lineBuf)
 				copiedB := copy(state.Styles[row*m.cols+len(prefix):(row+1)*m.cols], styleBuf)
-				assert(copiedA == copiedB)
+				assert.True(copiedA == copiedB)
 				lineBuf = lineBuf[copiedA:]
 				styleBuf = styleBuf[copiedB:]
 			}
@@ -86,7 +89,7 @@ func CreateView(m *Model) ScreenState {
 			start := len(prompt(m.cmd.Mode))
 			end := start + len(m.cmd.Text)
 			for i := start; i < end; i++ {
-				state.Styles[state.RowColIdx(commandRow, i)] = MixStyle(Red, Default)
+				state.Styles[state.RowColIdx(commandRow, i)] = screen.MixStyle(screen.Red, screen.Default)
 			}
 		}
 	}
@@ -112,8 +115,8 @@ func renderLine(data string) []byte {
 	return buf
 }
 
-func renderStyle(data string, regexes []regex) []Style {
-	buf := make([]Style, len(data))
+func renderStyle(data string, regexes []regex) []screen.Style {
+	buf := make([]screen.Style, len(data))
 	for _, regex := range regexes {
 		for _, match := range regex.re.FindAllStringIndex(data, -1) {
 			for i := match[0]; i < match[1]; i++ {
@@ -124,10 +127,10 @@ func renderStyle(data string, regexes []regex) []Style {
 	return buf
 }
 
-func drawStatusLine(m *Model, state ScreenState) {
+func drawStatusLine(m *Model, state screen.ScreenState) {
 	statusRow := m.rows - 2
 	for col := 0; col < state.Cols; col++ {
-		state.Styles[statusRow*m.cols+col] = MixStyle(Invert, Invert)
+		state.Styles[statusRow*m.cols+col] = screen.MixStyle(screen.Invert, screen.Invert)
 	}
 
 	// Offset percentage.
@@ -150,13 +153,13 @@ func drawStatusLine(m *Model, state ScreenState) {
 		lineWrapMode = "line-wrap-mode:off"
 	}
 
-	reStyle := MixStyle(Invert, Invert)
+	reStyle := screen.MixStyle(screen.Invert, screen.Invert)
 	reLabel := "re"
 	reStr := "<none>"
 	if m.tmpRegex != nil {
 		reLabel = "re(tmp)"
 		reStr = m.tmpRegex.String()
-		reStyle = MixStyle(Invert, Invert)
+		reStyle = screen.MixStyle(screen.Invert, screen.Invert)
 	} else if len(m.regexes) > 0 {
 		reLabel = fmt.Sprintf("re(%d)", len(m.regexes))
 		reStr = m.regexes[0].re.String()
@@ -176,7 +179,7 @@ func drawStatusLine(m *Model, state ScreenState) {
 	copy(buf[:], statusLeft)
 }
 
-func overlaySwatch(state ScreenState) {
+func overlaySwatch(state screen.ScreenState) {
 	const sideBorder = 2
 	const topBorder = 1
 	const colourWidth = 4
@@ -192,7 +195,7 @@ func overlaySwatch(state ScreenState) {
 		for col := startCol; col < endCol; col++ {
 			idx := state.RowColIdx(row, col)
 			if col-startCol < 2 || endCol-col <= 2 || row-startRow < 1 || endRow-row <= 1 {
-				state.Styles[idx] = MixStyle(Invert, Invert)
+				state.Styles[idx] = screen.MixStyle(screen.Invert, screen.Invert)
 			}
 			state.Chars[idx] = ' '
 		}
@@ -204,7 +207,7 @@ func overlaySwatch(state ScreenState) {
 			row := startRow + topBorder + fg
 			state.Chars[state.RowColIdx(row, start+1)] = byte(fg) + '0'
 			state.Chars[state.RowColIdx(row, start+2)] = byte(bg) + '0'
-			style := MixStyle(styles[fg], styles[bg])
+			style := screen.MixStyle(styles[fg], styles[bg])
 			for i := 0; i < 4; i++ {
 				state.Styles[state.RowColIdx(row, start+i)] = style
 			}
@@ -213,7 +216,7 @@ func overlaySwatch(state ScreenState) {
 }
 
 func displayByte(b byte) byte {
-	assert(b != '\n')
+	assert.True(b != '\n')
 	switch {
 	case b >= 32 && b < 126:
 		return b
@@ -237,11 +240,11 @@ func prompt(cmd CommandMode) string {
 	case QuitCommand:
 		return "Do you really want to quit? (y/n): "
 	}
-	assert(false)
+	assert.True(false)
 	return ""
 }
 
-func overlayDebug(m *Model, state ScreenState) {
+func overlayDebug(m *Model, state screen.ScreenState) {
 	var mem runtime.MemStats
 	runtime.ReadMemStats(&mem)
 
@@ -268,7 +271,7 @@ func overlayDebug(m *Model, state ScreenState) {
 	for row := startRow; row < endRow; row++ {
 		for col := startCol; col < endCol; col++ {
 			idx := state.RowColIdx(row, col)
-			state.Styles[idx] = MixStyle(Invert, Invert)
+			state.Styles[idx] = screen.MixStyle(screen.Invert, screen.Invert)
 			state.Chars[idx] = ' '
 		}
 	}
@@ -278,7 +281,7 @@ func overlayDebug(m *Model, state ScreenState) {
 	}
 }
 
-func overlayHelp(m *Model, state ScreenState) {
+func overlayHelp(m *Model, state screen.ScreenState) {
 	type ctrl struct {
 		keys, desc string
 	}
@@ -320,7 +323,7 @@ func overlayHelp(m *Model, state ScreenState) {
 	for row := startRow; row < endRow; row++ {
 		for col := startCol; col < endCol; col++ {
 			idx := state.RowColIdx(row, col)
-			state.Styles[idx] = MixStyle(Invert, Invert)
+			state.Styles[idx] = screen.MixStyle(screen.Invert, screen.Invert)
 			state.Chars[idx] = ' '
 		}
 	}

@@ -1,4 +1,6 @@
-package main
+package screen
+
+import "github.com/peterstace/dauntless/assert"
 
 type ScreenState struct {
 	Chars  []byte
@@ -35,7 +37,7 @@ func (s ScreenState) CloneInto(into *ScreenState) {
 		into.Chars = make([]byte, len(s.Chars))
 		into.Styles = make([]Style, len(s.Styles))
 	}
-	assert(len(s.Styles) == len(into.Styles))
+	assert.True(len(s.Styles) == len(into.Styles))
 	into.Cols = s.Cols
 	into.ColPos = s.ColPos
 	copy(into.Chars, s.Chars)

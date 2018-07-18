@@ -6,6 +6,9 @@ import (
 	"regexp"
 	"strconv"
 	"time"
+
+	"github.com/peterstace/dauntless/assert"
+	"github.com/peterstace/dauntless/screen"
 )
 
 type Model struct {
@@ -66,7 +69,7 @@ const (
 )
 
 type regex struct {
-	style Style
+	style screen.Style
 	re    *regexp.Regexp
 }
 
@@ -145,7 +148,7 @@ func (m *Model) Interrupt() {
 
 func (m *Model) moveToOffset(offset int) {
 	log.Info("Moving to offset: currentOffset=%d newOffset=%d", m.offset, offset)
-	assert(offset >= 0)
+	assert.True(offset >= 0)
 	if m.offset == offset {
 		log.Info("Already at target offset.")
 		return
@@ -327,7 +330,7 @@ func (m *Model) colourEntered(cmd string) {
 		return
 	}
 
-	style := MixStyle(styles[fg-'0'], styles[bg-'0'])
+	style := screen.MixStyle(styles[fg-'0'], styles[bg-'0'])
 	if m.tmpRegex != nil {
 		m.regexes = append([]regex{{style, m.tmpRegex}}, m.regexes...)
 		m.tmpRegex = nil
@@ -335,7 +338,7 @@ func (m *Model) colourEntered(cmd string) {
 		m.regexes[0].style = style
 	} else {
 		// Should not have been allowed to start the colour command.
-		assert(false)
+		assert.True(false)
 	}
 }
 

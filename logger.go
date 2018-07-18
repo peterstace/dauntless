@@ -6,6 +6,8 @@ import (
 	"io"
 	"os"
 	"time"
+
+	"github.com/peterstace/dauntless/assert"
 )
 
 type Logger interface {
@@ -59,7 +61,7 @@ func (l level) String() string {
 	case warn:
 		return "Warn"
 	default:
-		assert(false)
+		assert.True(false)
 		return ""
 	}
 }

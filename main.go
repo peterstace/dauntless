@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"syscall"
 
+	"github.com/peterstace/dauntless/screen"
 	"golang.org/x/crypto/ssh/terminal"
 )
 
@@ -94,7 +95,7 @@ func main() {
 
 	enterAlt()
 	ttyState := enterRaw()
-	screen := NewTermScreen(os.Stdout, reactor)
+	screen := screen.NewTermScreen(os.Stdout)
 	app := NewApp(reactor, content, filename, screen, config)
 	reactor.Enque(app.Initialise, "initialise")
 	CollectFileSize(reactor, app, content)
