@@ -7,7 +7,9 @@ import (
 	"strings"
 )
 
-type ttyState string
+type TTYState struct {
+	state string
+}
 
 var tty *os.File
 
@@ -20,7 +22,7 @@ func init() {
 	}
 }
 
-func enterRaw() ttyState {
+func enterRaw() TTYState {
 	cmd := exec.Command("stty", "-g")
 	cmd.Stdin = tty
 	oldState, err := cmd.Output()
@@ -37,11 +39,11 @@ func enterRaw() ttyState {
 		os.Exit(1)
 	}
 
-	return ttyState(strings.TrimSpace(string(oldState)))
+	return TTYState{strings.TrimSpace(string(oldState))}
 }
 
-func (s ttyState) leaveRaw() {
-	cmd := exec.Command("stty", string(s))
+func (s TTYState) leaveRaw() {
+	cmd := exec.Command("stty", string(s.state))
 	cmd.Stdin = tty
 	out, err := cmd.CombinedOutput()
 	if err != nil {
