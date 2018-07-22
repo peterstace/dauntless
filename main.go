@@ -8,6 +8,7 @@ import (
 	"syscall"
 
 	"github.com/peterstace/dauntless/screen"
+	"github.com/peterstace/dauntless/term"
 	"golang.org/x/crypto/ssh/terminal"
 )
 
@@ -93,8 +94,8 @@ func main() {
 
 	config := Config{*wrapPrefix, mask}
 
-	enterAlt()
-	ttyState := enterRaw()
+	term.EnterAlt()
+	ttyState := term.EnterRaw()
 	screen := screen.NewTermScreen(os.Stdout)
 	app := NewApp(reactor, content, filename, screen, config)
 	reactor.Enque(app.Initialise, "initialise")
@@ -104,8 +105,8 @@ func main() {
 	CollectTermSize(reactor, app)
 	err = reactor.Run()
 
-	ttyState.leaveRaw()
-	leaveAlt()
+	ttyState.LeaveRaw()
+	term.LeaveAlt()
 
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)

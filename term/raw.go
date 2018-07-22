@@ -1,4 +1,4 @@
-package main
+package term
 
 import (
 	"fmt"
@@ -22,7 +22,7 @@ func init() {
 	}
 }
 
-func enterRaw() TTYState {
+func EnterRaw() TTYState {
 	cmd := exec.Command("stty", "-g")
 	cmd.Stdin = tty
 	oldState, err := cmd.Output()
@@ -42,7 +42,7 @@ func enterRaw() TTYState {
 	return TTYState{strings.TrimSpace(string(oldState))}
 }
 
-func (s TTYState) leaveRaw() {
+func (s TTYState) LeaveRaw() {
 	cmd := exec.Command("stty", string(s.state))
 	cmd.Stdin = tty
 	out, err := cmd.CombinedOutput()
@@ -52,7 +52,7 @@ func (s TTYState) leaveRaw() {
 	}
 }
 
-func enterAlt() {
+func EnterAlt() {
 	cmd := exec.Command("tput", "smcup")
 	out, err := cmd.Output()
 	if err != nil {
@@ -62,7 +62,7 @@ func enterAlt() {
 	fmt.Fprintf(os.Stdout, string(out))
 }
 
-func leaveAlt() {
+func LeaveAlt() {
 	cmd := exec.Command("tput", "rmcup")
 	out, err := cmd.Output()
 	if err != nil {
@@ -72,7 +72,7 @@ func leaveAlt() {
 	fmt.Fprintf(os.Stdout, string(out))
 }
 
-func getTermSize() (rows int, cols int, err error) {
+func GetSize() (rows int, cols int, err error) {
 	cmd := exec.Command("stty", "size")
 	cmd.Stdin = tty
 	var dim []byte

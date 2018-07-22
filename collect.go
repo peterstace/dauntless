@@ -6,6 +6,8 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/peterstace/dauntless/term"
 )
 
 func collectInterrupt(r Reactor, a App) {
@@ -63,7 +65,7 @@ func CollectTermSize(r Reactor, a App) {
 				forceRefresh = true
 			}
 
-			rows, cols, err := getTermSize()
+			rows, cols, err := term.GetSize()
 			if err != nil {
 				r.Stop(err)
 				return
