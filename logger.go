@@ -1,4 +1,4 @@
-package main
+package dauntless
 
 import (
 	"bytes"
@@ -9,6 +9,12 @@ import (
 
 	"github.com/peterstace/dauntless/assert"
 )
+
+var log Logger
+
+func SetLogger(l Logger) {
+	log = l
+}
 
 type Logger interface {
 	Info(format string, args ...interface{})

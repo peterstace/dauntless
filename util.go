@@ -1,4 +1,4 @@
-package main
+package dauntless
 
 func min(a, b int) int {
 	if a < b {

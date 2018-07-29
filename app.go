@@ -1,4 +1,4 @@
-package main
+package dauntless
 
 import (
 	"fmt"
@@ -81,10 +81,10 @@ func (a *app) KeyPress(k Key) {
 func (a *app) normalModeKeyPress(k Key) {
 	assert.True(a.model.cmd.Mode == NoCommand)
 	var ctrl *control
-	for i := range controls {
-		for j := range controls[i].keys {
-			if k == controls[i].keys[j] {
-				ctrl = &controls[i]
+	for i := range Controls {
+		for j := range Controls[i].Keys {
+			if k == Controls[i].Keys[j] {
+				ctrl = &Controls[i]
 				break
 			}
 		}

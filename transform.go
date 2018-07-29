@@ -1,4 +1,4 @@
-package main
+package dauntless
 
 func transform(line string) string {
 	return string(eliminateOverStrike([]byte(line)))

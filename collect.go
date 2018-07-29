@@ -1,4 +1,4 @@
-package main
+package dauntless
 
 import (
 	"io"
@@ -10,7 +10,7 @@ import (
 	"github.com/peterstace/dauntless/term"
 )
 
-func collectInterrupt(r Reactor, a App) {
+func CollectInterrupt(r Reactor, a App) {
 	go func() {
 		ch := make(chan os.Signal, 1)
 		signal.Notify(ch, os.Interrupt)
@@ -80,7 +80,7 @@ func CollectTermSize(r Reactor, a App) {
 	}()
 }
 
-func collectInput(r Reactor, a App) {
+func CollectInput(r Reactor, a App) {
 	go func() {
 		tty, err := os.Open("/dev/tty")
 		if err != nil {

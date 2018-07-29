@@ -1,129 +1,129 @@
-package main
+package dauntless
 
 type control struct {
-	keys   []Key
-	desc   string
+	Keys   []Key
+	Desc   string
 	action func(*app)
 }
 
-var controls = []control{
+var Controls = []control{
 	control{
-		keys:   []Key{"q"},
-		desc:   "quit",
+		Keys:   []Key{"q"},
+		Desc:   "quit",
 		action: func(a *app) { a.model.StartCommandMode(QuitCommand) },
 	},
 	control{
-		keys:   []Key{"?"}, // TODO: Add F1
-		desc:   "show help",
+		Keys:   []Key{"?"}, // TODO: Add F1
+		Desc:   "show help",
 		action: func(a *app) { a.model.showHelp = !a.model.showHelp },
 	},
 
 	control{
-		keys:   []Key{"j", DownArrowKey},
-		desc:   "move down by one line",
+		Keys:   []Key{"j", DownArrowKey},
+		Desc:   "move down by one line",
 		action: func(a *app) { a.model.moveDown() },
 	},
 	control{
-		keys:   []Key{"k", UpArrowKey},
-		desc:   "move up by one line",
+		Keys:   []Key{"k", UpArrowKey},
+		Desc:   "move up by one line",
 		action: func(a *app) { a.model.moveUp() },
 	},
 	control{
-		keys:   []Key{"d", PageDownKey},
-		desc:   "move down by one screen",
+		Keys:   []Key{"d", PageDownKey},
+		Desc:   "move down by one screen",
 		action: func(a *app) { a.model.moveDownByHalfScreen() },
 	},
 	control{
-		keys:   []Key{"u", PageUpKey},
-		desc:   "move up by one screen",
+		Keys:   []Key{"u", PageUpKey},
+		Desc:   "move up by one screen",
 		action: func(a *app) { a.model.moveUpByHalfScreen() },
 	},
 
 	control{
-		keys:   []Key{LeftArrowKey},
-		desc:   "scroll left horizontally",
+		Keys:   []Key{LeftArrowKey},
+		Desc:   "scroll left horizontally",
 		action: func(a *app) { a.model.reduceXPosition() },
 	},
 	control{
-		keys:   []Key{RightArrowKey},
-		desc:   "scroll right horizontally",
+		Keys:   []Key{RightArrowKey},
+		Desc:   "scroll right horizontally",
 		action: func(a *app) { a.model.increaseXPosition() },
 	},
 
 	control{
-		keys:   []Key{"r"},
-		desc:   "force screen refresh",
+		Keys:   []Key{"r"},
+		Desc:   "force screen refresh",
 		action: func(a *app) { a.discardBufferedInputAndRepaint() },
 	},
 
 	control{
-		keys:   []Key{"g"},
-		desc:   "move to start of file",
+		Keys:   []Key{"g"},
+		Desc:   "move to start of file",
 		action: func(a *app) { a.model.moveTop() },
 	},
 	control{
-		keys:   []Key{"G"},
-		desc:   "move to end of file",
+		Keys:   []Key{"G"},
+		Desc:   "move to end of file",
 		action: func(a *app) { a.moveBottom() },
 	},
 
 	control{
-		keys:   []Key{"/"},
-		desc:   "enter a new search regex",
+		Keys:   []Key{"/"},
+		Desc:   "enter a new search regex",
 		action: func(a *app) { a.model.StartCommandMode(SearchCommand) },
 	},
 	control{
-		keys:   []Key{"n"},
-		desc:   "jump to next regex match",
+		Keys:   []Key{"n"},
+		Desc:   "jump to next regex match",
 		action: func(a *app) { a.jumpToMatch(false) },
 	},
 	control{
-		keys:   []Key{"N"},
-		desc:   "jump to previous regex match",
+		Keys:   []Key{"N"},
+		Desc:   "jump to previous regex match",
 		action: func(a *app) { a.jumpToMatch(true) },
 	},
 
 	control{
-		keys:   []Key{"w"},
-		desc:   "toggle line wrap mode",
+		Keys:   []Key{"w"},
+		Desc:   "toggle line wrap mode",
 		action: func(a *app) { a.model.toggleLineWrapMode() },
 	},
 
 	control{
-		keys:   []Key{"c"},
-		desc:   "change regex highlight colour",
+		Keys:   []Key{"c"},
+		Desc:   "change regex highlight colour",
 		action: func(a *app) { a.model.startColourCommand() },
 	},
 	control{
-		keys:   []Key{"\t"},
-		desc:   "cycle forward through regexes",
+		Keys:   []Key{"\t"},
+		Desc:   "cycle forward through regexes",
 		action: func(a *app) { a.model.cycleRegexp(true) },
 	},
 	control{
-		keys:   []Key{ShiftTab},
-		desc:   "cycle backward though regexes",
+		Keys:   []Key{ShiftTab},
+		Desc:   "cycle backward though regexes",
 		action: func(a *app) { a.model.cycleRegexp(false) },
 	},
 	control{
-		keys:   []Key{"x"},
-		desc:   "delete regex",
+		Keys:   []Key{"x"},
+		Desc:   "delete regex",
 		action: func(a *app) { a.model.deleteRegexp() },
 	},
 
 	control{
-		keys:   []Key{"s"},
-		desc:   "seek to a percentage",
+		Keys:   []Key{"s"},
+		Desc:   "seek to a percentage",
 		action: func(a *app) { a.model.StartCommandMode(SeekCommand) },
 	},
 	control{
-		keys:   []Key{"b"},
-		desc:   "bisect line prefix",
+		Keys:   []Key{"b"},
+		Desc:   "bisect line prefix",
 		action: func(a *app) { a.model.StartCommandMode(BisectCommand) },
 	},
 
 	control{
-		keys:   []Key{"`"},
-		desc:   "toggle debug mode",
+		Keys:   []Key{"`"},
+		Desc:   "toggle debug mode",
 		action: func(a *app) { a.model.debug = !a.model.debug },
 	},
 }

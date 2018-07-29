@@ -1,4 +1,4 @@
-package main
+package dauntless
 
 import (
 	"fmt"
@@ -286,13 +286,13 @@ func overlayHelp(m *Model, state screen.ScreenState) {
 		keys, desc string
 	}
 	ctrls := []ctrl{}
-	for i := range controls {
-		c := ctrl{desc: controls[i].desc}
-		for j := range controls[i].keys {
+	for i := range Controls {
+		c := ctrl{desc: Controls[i].Desc}
+		for j := range Controls[i].Keys {
 			if j != 0 {
 				c.keys += ", "
 			}
-			c.keys += controls[i].keys[j].String()
+			c.keys += Controls[i].Keys[j].String()
 		}
 		ctrls = append(ctrls, c)
 	}

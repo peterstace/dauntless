@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"syscall"
 
+	"github.com/peterstace/dauntless"
 	"github.com/peterstace/dauntless/screen"
 	"github.com/peterstace/dauntless/term"
 	"golang.org/x/crypto/ssh/terminal"
@@ -14,7 +15,7 @@ import (
 
 const version = "Dauntless <unversioned>"
 
-var log Logger
+var log dauntless.Logger
 
 func main() {
 	var logfile string
@@ -35,33 +36,34 @@ func main() {
 		fmt.Println()
 		fmt.Println("CONTROLS:")
 		fmt.Println()
-		for _, ctrl := range controls {
+		for _, ctrl := range dauntless.Controls {
 			fmt.Printf("    ")
-			for i, k := range ctrl.keys {
+			for i, k := range ctrl.Keys {
 				if i != 0 {
 					fmt.Printf(", ")
 				}
 				fmt.Printf("%v", k)
 			}
-			fmt.Printf(" - %s\n\n", ctrl.desc)
+			fmt.Printf(" - %s\n\n", ctrl.Desc)
 		}
 		return
 	}
 
 	if logfile == "" {
-		log = NullLogger{}
+		log = dauntless.NullLogger{}
 	} else {
 		var err error
-		log, err = FileLogger(logfile)
+		log, err = dauntless.FileLogger(logfile)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Could not open debug logfile %q: %s\n", logfile, err)
 			os.Exit(1)
 		}
 	}
+	dauntless.SetLogger(log)
 
-	reactor := NewReactor()
+	reactor := dauntless.NewReactor()
 	var filename string
-	var content Content
+	var content dauntless.Content
 
 	switch len(flag.Args()) {
 	case 0:
@@ -70,13 +72,13 @@ func main() {
 			os.Exit(1)
 		}
 		filename = "stdin"
-		buffContent := NewBufferContent()
-		CollectContent(os.Stdin, reactor, buffContent)
+		buffContent := dauntless.NewBufferContent()
+		dauntless.CollectContent(os.Stdin, reactor, buffContent)
 		content = buffContent
 	case 1:
 		filename = flag.Args()[0]
 		var err error
-		content, err = NewFileContent(filename)
+		content, err = dauntless.NewFileContent(filename)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Could not open file %s: %s", filename, err)
 			os.Exit(1)
@@ -92,17 +94,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	config := Config{*wrapPrefix, mask}
+	config := dauntless.Config{*wrapPrefix, mask}
 
 	term.EnterAlt()
 	ttyState := term.EnterRaw()
 	screen := screen.NewTermScreen(os.Stdout)
-	app := NewApp(reactor, content, filename, screen, config)
+	app := dauntless.NewApp(reactor, content, filename, screen, config)
 	reactor.Enque(app.Initialise, "initialise")
-	CollectFileSize(reactor, app, content)
-	collectInterrupt(reactor, app)
-	collectInput(reactor, app)
-	CollectTermSize(reactor, app)
+	dauntless.CollectFileSize(reactor, app, content)
+	dauntless.CollectInterrupt(reactor, app)
+	dauntless.CollectInput(reactor, app)
+	dauntless.CollectTermSize(reactor, app)
 	err = reactor.Run()
 
 	ttyState.LeaveRaw()
