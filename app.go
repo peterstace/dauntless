@@ -3,6 +3,7 @@ package dauntless
 import (
 	"fmt"
 	"io"
+	"os"
 	"regexp"
 	"time"
 
@@ -10,12 +11,10 @@ import (
 	"github.com/peterstace/dauntless/screen"
 )
 
+// TODO: This interface is a bit pointless. Would be better to remove it and
+// just not export any other methods.
 type App interface {
-	Initialise()
-	KeyPress(Key)
-	Interrupt()
-	TermSize(rows, cols int, forceRefresh bool)
-	FileSize(int)
+	Run() error
 }
 
 type app struct {
@@ -25,11 +24,22 @@ type app struct {
 	forceRefresh        bool
 	model               Model
 	msgSetAt            time.Time
+	stop                func(error)
 }
 
-func NewApp(reactor Reactor, content Content, filename string, screen screen.Screen, config Config) App {
-	return &app{
-		reactor: reactor,
+func NewApp(
+	content Content,
+	filename string,
+	screen screen.Screen,
+	config Config,
+	stop func(error),
+	siginterrupt chan os.Signal,
+	tty io.Reader,
+	termSize func() (rows int, cols int, err error),
+	sigwinch chan os.Signal,
+) App {
+	a := &app{
+		reactor: NewReactor(),
 		screen:  screen,
 		model: Model{
 			config:   config,
@@ -38,29 +48,36 @@ func NewApp(reactor Reactor, content Content, filename string, screen screen.Scr
 			history:  map[CommandMode][]string{},
 		},
 	}
+	a.reactor.SetPostHook(a.postHook)
+	go a.asyncCollectFileSize()
+	go a.asyncCollectInterrupt(siginterrupt)
+	go a.asyncCollectInput(tty, stop)
+	go a.asyncCollectTermSize(termSize, stop, sigwinch)
+	return a
 }
 
 const msgLingerDuration = 5 * time.Second
 
-func (a *app) Initialise() {
-	log.Info("***************** Initialising log viewer ******************")
-	a.reactor.SetPostHook(func() {
-		// Round cycle to nearest 10 to prevent flapping.
-		a.model.cycle = a.reactor.GetCycle() / 10 * 10
+func (a *app) postHook() {
+	// Round cycle to nearest 10 to prevent flapping.
+	a.model.cycle = a.reactor.GetCycle() / 10 * 10
 
-		// Check if new message was set, if so prep an event to remove it after
-		// the linger duration.
-		if a.msgSetAt != a.model.msgSetAt {
-			go func() {
-				time.Sleep(msgLingerDuration)
-				a.reactor.Enque(func() {}, "linger complete")
-			}()
-		}
-		a.msgSetAt = a.model.msgSetAt
+	// Check if new message was set, if so prep an event to remove it after
+	// the linger duration.
+	if a.msgSetAt != a.model.msgSetAt {
+		go func() {
+			time.Sleep(msgLingerDuration)
+			a.reactor.Enque(func() {}, "linger complete")
+		}()
+	}
+	a.msgSetAt = a.model.msgSetAt
 
-		a.fillScreenBuffer()
-		a.refresh()
-	})
+	a.fillScreenBuffer()
+	a.refresh()
+}
+
+func (a *app) Run() error {
+	return a.reactor.Run()
 }
 
 func (a *app) Interrupt() {

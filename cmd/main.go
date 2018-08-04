@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/signal"
 	"regexp"
 	"syscall"
 
@@ -61,7 +62,6 @@ func main() {
 	}
 	dauntless.SetLogger(log)
 
-	reactor := dauntless.NewReactor()
 	var filename string
 	var content dauntless.Content
 
@@ -73,7 +73,7 @@ func main() {
 		}
 		filename = "stdin"
 		buffContent := dauntless.NewBufferContent()
-		dauntless.CollectContent(os.Stdin, reactor, buffContent)
+		dauntless.CollectContent(os.Stdin, stop, buffContent) // TODO: Should this be here?
 		content = buffContent
 	case 1:
 		filename = flag.Args()[0]
@@ -96,22 +96,34 @@ func main() {
 
 	config := dauntless.Config{*wrapPrefix, mask}
 
-	term.EnterAlt()
-	ttyState := term.EnterRaw()
-	screen := screen.NewTermScreen(os.Stdout)
-	app := dauntless.NewApp(reactor, content, filename, screen, config)
-	reactor.Enque(app.Initialise, "initialise")
-	dauntless.CollectFileSize(reactor, app, content)
-	dauntless.CollectInterrupt(reactor, app)
-	dauntless.CollectInput(reactor, app)
-	dauntless.CollectTermSize(reactor, app)
-	err = reactor.Run()
+	siginterrupt := make(chan os.Signal, 1)
+	signal.Notify(siginterrupt, os.Interrupt)
 
-	ttyState.LeaveRaw()
-	term.LeaveAlt()
+	sigwinch := make(chan os.Signal, 1)
+	signal.Notify(sigwinch, syscall.SIGWINCH)
 
+	tty, err := os.Open("/dev/tty")
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Could not open /dev/tty: %v", err)
 		os.Exit(1)
 	}
+
+	term.EnterAlt()
+	ttyState = term.EnterRaw()
+	screen := screen.NewTermScreen(os.Stdout)
+	app := dauntless.NewApp(content, filename, screen, config, stop, siginterrupt, tty, term.GetSize, sigwinch)
+	err = app.Run()
+	stop(err)
+}
+
+var ttyState term.TTYState
+
+func stop(err error) {
+	ttyState.LeaveRaw()
+	term.LeaveAlt()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+	os.Exit(0)
 }
